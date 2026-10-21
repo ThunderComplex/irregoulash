@@ -1,0 +1,240 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://src/levels/level.gd" id="1_level"]
+[ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
+[ext_resource type="PackedScene" path="res://src/levels/lamp.tscn" id="3_lamp"]
+[ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="4_enemy"]
+[ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]
+[ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
+
+[node name="Level02" type="Node2D"]
+script = ExtResource("1_level")
+level_title = "THE DEPOT"
+objective = "You are inside the depot. Find the last door out."
+start_weapons = Array[String](["pistol"])
+
+[node name="Fog" type="CanvasModulate" parent="."]
+color = Color(0, 0, 0, 1)
+
+[node name="Floor" type="Polygon2D" parent="."]
+z_index = -20
+color = Color(0.13, 0.145, 0.175, 1)
+polygon = PackedVector2Array(-260, -260, 2820, -260, 2820, 2180, -260, 2180)
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="W0" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(1280, 32)
+size = Vector2(2560, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W1" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(32, 992)
+size = Vector2(64, 1856)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W2" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(800, 480)
+size = Vector2(64, 832)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W3" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(1760, 480)
+size = Vector2(64, 832)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W4" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(2496, 480)
+size = Vector2(128, 832)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W5" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(192, 864)
+size = Vector2(256, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W6" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(608, 864)
+size = Vector2(320, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W7" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(1088, 864)
+size = Vector2(512, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W8" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(1600, 864)
+size = Vector2(256, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W9" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(2016, 864)
+size = Vector2(448, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W10" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(2400, 864)
+size = Vector2(64, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W11" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(2528, 1408)
+size = Vector2(64, 1024)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W12" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(2464, 992)
+size = Vector2(64, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W13" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(288, 1120)
+size = Vector2(448, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W14" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(1152, 1120)
+size = Vector2(1024, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W15" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(1952, 1120)
+size = Vector2(320, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W16" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(2368, 1120)
+size = Vector2(256, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W17" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(800, 1536)
+size = Vector2(64, 768)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W18" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(1760, 1536)
+size = Vector2(64, 768)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W19" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(2464, 1536)
+size = Vector2(64, 768)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W20" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(416, 1888)
+size = Vector2(704, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W21" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(1280, 1888)
+size = Vector2(896, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="W22" parent="Walls" instance=ExtResource("2_wall")]
+position = Vector2(2112, 1888)
+size = Vector2(640, 64)
+color = Color(0.4, 0.44, 0.54, 1)
+
+[node name="Routes" type="Node2D" parent="."]
+
+[node name="Route1" type="Node2D" parent="Routes"]
+
+[node name="P0" type="Marker2D" parent="Routes/Route1"]
+position = Vector2(352, 992)
+
+[node name="P1" type="Marker2D" parent="Routes/Route1"]
+position = Vector2(1952, 992)
+
+[node name="PlayerSpawn" type="Marker2D" parent="."]
+position = Vector2(224, 1632)
+
+[node name="Lamps" type="Node2D" parent="."]
+
+[node name="Lamp0" parent="Lamps" instance=ExtResource("3_lamp")]
+position = Vector2(224, 224)
+
+[node name="Lamp1" parent="Lamps" instance=ExtResource("3_lamp")]
+position = Vector2(2208, 1312)
+
+[node name="Enemies" type="Node2D" parent="."]
+
+[node name="Enemy0" parent="Enemies" instance=ExtResource("4_enemy")]
+position = Vector2(2208, 224)
+archetype_id = "heavy"
+patrol_route = NodePath("../../Routes/Route1")
+rotation = 2.749
+
+[node name="Enemy1" parent="Enemies" instance=ExtResource("4_enemy")]
+position = Vector2(1376, 608)
+archetype_id = "guard"
+wander_radius = 140
+rotation = 1.736
+
+[node name="Enemy2" parent="Enemies" instance=ExtResource("4_enemy")]
+position = Vector2(224, 992)
+archetype_id = "scout"
+wander_radius = 140
+rotation = 0
+
+[node name="Enemy3" parent="Enemies" instance=ExtResource("4_enemy")]
+position = Vector2(800, 992)
+archetype_id = "scout"
+patrol_route = NodePath("../../Routes/Route1")
+rotation = 3.142
+
+[node name="Enemy4" parent="Enemies" instance=ExtResource("4_enemy")]
+position = Vector2(1376, 992)
+archetype_id = "guard"
+patrol_route = NodePath("../../Routes/Route1")
+rotation = 3.142
+
+[node name="Enemy5" parent="Enemies" instance=ExtResource("4_enemy")]
+position = Vector2(1248, 1440)
+archetype_id = "scout"
+wander_radius = 140
+rotation = -1.429
+
+[node name="Enemy6" parent="Enemies" instance=ExtResource("4_enemy")]
+position = Vector2(1376, 1696)
+archetype_id = "heavy"
+wander_radius = 140
+rotation = -1.661
+
+[node name="Pickups" type="Node2D" parent="."]
+
+[node name="Pickup0" parent="Pickups" instance=ExtResource("5_pickup")]
+position = Vector2(2208, 288)
+kind = "health"
+amount = 35
+
+[node name="Pickup1" parent="Pickups" instance=ExtResource("5_pickup")]
+position = Vector2(224, 416)
+kind = "upgrade"
+amount = 0
+
+[node name="Pickup2" parent="Pickups" instance=ExtResource("5_pickup")]
+position = Vector2(1376, 416)
+kind = "ammo"
+amount = 40
+
+[node name="Pickup3" parent="Pickups" instance=ExtResource("5_pickup")]
+position = Vector2(1376, 1312)
+kind = "health"
+amount = 35
+
+[node name="Pickup4" parent="Pickups" instance=ExtResource("5_pickup")]
+position = Vector2(1376, 1568)
+kind = "ammo"
+amount = 40
+
+[node name="Pickup5" parent="Pickups" instance=ExtResource("5_pickup")]
+position = Vector2(2208, 1568)
+kind = "weapon"
+weapon_id = "shotgun"
+
+[node name="Exit0" parent="." instance=ExtResource("6_exit")]
+position = Vector2(2208, 416)
+is_final = true

@@ -1,0 +1,166 @@
+@tool
+class_name Wall
+extends StaticBody2D
+## Rectangular level geometry.
+##
+## A wall is authored as ONE property: `size`. From it this script generates the
+## collider, the light occluder and the visual, and keeps them in sync live in
+## the editor. That is deliberate: per AGENTS.md a level must not be breakable by
+## forgetting a node, and hand-placed occluders are exactly the kind of thing
+## that gets forgotten.
+##
+## Every wall also carries a "memory" copy of itself. Once the player has seen a
+## wall it stays faintly visible (see `mark_explored`), which is what makes
+## pitch-black fog navigable. The memory copy is drawn unshaded, so the
+## CanvasModulate fog does not touch it. Enemies have no memory copy, so they
+## stay genuinely invisible in the dark.
+##
+## Note on ordering: `size` can be written by the scene loader before the child
+## nodes exist, so `_rebuild()` only ever *updates* children it finds. Creating
+## them is `_ready()`'s job.
+
+const MEMORY_BRIGHTNESS_EDITOR: float = 0.13
+
+@export var size: Vector2 = Vector2(160.0, 32.0):
+	set(value):
+		size = Vector2(maxf(8.0, value.x), maxf(8.0, value.y))
+		_rebuild()
+
+@export var color: Color = Color(0.40, 0.44, 0.54):
+	set(value):
+		color = value
+		_rebuild()
+
+## Turn off for railings or anything you want to see and shoot through.
+@export var occludes_light: bool = true:
+	set(value):
+		occludes_light = value
+		_rebuild()
+
+var _explored: bool = false
+
+
+func _ready() -> void:
+	add_to_group("wall")
+	_ensure_children()
+	_rebuild()
+
+
+#region generation
+
+func _rebuild() -> void:
+	var body: Polygon2D = get_node_or_null("Body") as Polygon2D
+	var outline: Line2D = get_node_or_null("Outline") as Line2D
+	var ghost: Polygon2D = get_node_or_null("Ghost") as Polygon2D
+	var collision: CollisionShape2D = get_node_or_null("Collision") as CollisionShape2D
+	var occluder: LightOccluder2D = get_node_or_null("Occluder") as LightOccluder2D
+
+	var points: PackedVector2Array = Shapes.rect(size)
+
+	if body != null:
+		body.polygon = points
+		body.color = color
+		body.z_index = Layers.Z_WALL
+
+	if outline != null:
+		outline.points = Shapes.closed_outline(points)
+		outline.width = 2.0
+		outline.default_color = color.lightened(0.25)
+		outline.z_index = Layers.Z_WALL_EDGE
+
+	if ghost != null:
+		ghost.polygon = points
+		ghost.color = color
+		# The memory copy is composited ON TOP of the wall body at a low alpha:
+		#   lit    -> body * light  * 0.7  +  colour * 0.3  == colour
+		#   unlit  -> body * 0      * 0.7  +  colour * 0.3  == faint memory
+		# Drawn above the body because an opaque unlit body would hide it
+		# completely, and unshaded so that the black CanvasModulate fog cannot
+		# darken the memory into nothing.
+		ghost.z_index = Layers.Z_WALL_EDGE + 1
+		ghost.modulate.a = memory_brightness() if _explored else 0.0
+		if ghost.material == null:
+			var m := CanvasItemMaterial.new()
+			m.light_mode = CanvasItemMaterial.LIGHT_MODE_UNSHADED
+			ghost.material = m
+
+	if collision != null:
+		var rect := RectangleShape2D.new()
+		rect.size = size
+		collision.shape = rect
+
+	if occluder != null:
+		var poly := OccluderPolygon2D.new()
+		poly.polygon = points
+		poly.closed = true
+		occluder.occluder = poly
+		# Light mask 1 is the default mask of both the vision rig and the lamps.
+		occluder.occluder_light_mask = 1 if occludes_light else 0
+		occluder.visible = occludes_light
+
+
+## Safety net: if a wall ever ends up without its generated children (hand-built
+## node, stripped scene), recreate them at runtime so the level cannot break.
+## In the editor we only warn, because editing an instanced scene's children is
+## not allowed and would spam errors.
+func _ensure_children() -> void:
+	if Engine.is_editor_hint():
+		for entry: Array in [["Body", "Polygon2D"], ["Outline", "Line2D"], ["Ghost", "Polygon2D"],
+				["Collision", "CollisionShape2D"], ["Occluder", "LightOccluder2D"]]:
+			if get_node_or_null(NodePath(entry[0])) == null:
+				push_warning("Wall '%s' is missing its '%s' child." % [name, entry[0]])
+		return
+
+	for entry: Array in [["Ghost", "Polygon2D"], ["Body", "Polygon2D"], ["Outline", "Line2D"],
+			["Collision", "CollisionShape2D"], ["Occluder", "LightOccluder2D"]]:
+		var child_name: String = entry[0]
+		if get_node_or_null(NodePath(child_name)) != null:
+			continue
+		var created: Object = ClassDB.instantiate(entry[1])
+		if created is Node:
+			var node: Node = created
+			node.name = child_name
+			add_child(node, false, Node.INTERNAL_MODE_DISABLED)
+
+
+## Tuning is an autoload and autoloads are not guaranteed to exist in the editor,
+## so fall back to a literal there.
+func memory_brightness() -> float:
+	if Engine.is_editor_hint():
+		return MEMORY_BRIGHTNESS_EDITOR
+	return Tuning.memory_brightness
+
+#endregion
+
+
+#region runtime
+
+func mark_explored() -> void:
+	if _explored:
+		return
+	_explored = true
+	var ghost: Polygon2D = get_node_or_null("Ghost") as Polygon2D
+	if ghost != null:
+		ghost.modulate.a = memory_brightness()
+
+
+func is_explored() -> bool:
+	return _explored
+
+
+func reset_memory() -> void:
+	_explored = false
+	var ghost: Polygon2D = get_node_or_null("Ghost") as Polygon2D
+	if ghost != null:
+		ghost.modulate.a = 0.0
+
+
+## World-space rectangle covered by this wall.
+func world_rect() -> Rect2:
+	return Rect2(global_position - size * 0.5, size)
+
+
+func world_center() -> Vector2:
+	return global_position
+
+#endregion

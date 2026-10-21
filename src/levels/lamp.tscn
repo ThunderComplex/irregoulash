@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/levels/lamp.gd" id="1_lamp"]
+
+[node name="Lamp" type="Node2D"]
+script = ExtResource("1_lamp")
+
+[node name="Light" type="PointLight2D" parent="."]
+
+[node name="Fixture" type="Polygon2D" parent="."]

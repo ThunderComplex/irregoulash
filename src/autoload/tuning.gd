@@ -1,0 +1,93 @@
+extends Node
+## Single source of truth for every gameplay number.
+##
+## This node is an autoload, so during play you can select it in the editor's
+## *Remote* scene tree and tweak any value live. Nothing else in the project
+## should hard-code a gameplay constant.
+
+#region Player
+@export_group("Player")
+## Pixels per second. Movement is always screen-relative (W is up).
+@export var player_speed: float = 195.0
+@export var player_accel: float = 1900.0
+@export var player_friction: float = 2200.0
+@export var player_radius: float = 14.0
+@export var player_max_health: float = 100.0
+@export var player_hit_invuln: float = 0.5
+@export var player_dash_speed: float = 620.0
+@export var player_dash_time: float = 0.16
+@export var player_dash_cooldown: float = 1.1
+## Noise radius created by each action. Enemies inside it gain awareness.
+@export var noise_footstep: float = 130.0
+@export var noise_dash: float = 300.0
+@export var noise_gunshot: float = 950.0
+#endregion
+
+#region Vision
+@export_group("Vision")
+## Radius of the "you can feel something right next to you" ring, in pixels.
+@export var sight_near_radius: float = 115.0
+@export var sight_near_energy: float = 0.7
+## The aim cone.
+@export var sight_far_range: float = 560.0
+@export var sight_far_degrees: float = 78.0
+@export var sight_far_energy: float = 1.0
+## Darkness colour. Pitch black = enemies outside your light are *really* invisible.
+@export var fog_color: Color = Color(0, 0, 0, 1)
+## Brightness of explored (already seen) geometry memory. Enemies are never remembered.
+@export var memory_brightness: float = 0.30
+@export var memory_sample_interval: float = 0.12
+#endregion
+
+#region Enemies
+@export_group("Enemies")
+@export var enemy_sight_range: float = 430.0
+@export var enemy_sight_fov: float = 105.0
+## Awareness (0..1) gained per second while the player is visible, at point blank.
+@export var awareness_gain_close: float = 2.6
+## Awareness gained per second at the very edge of sight.
+@export var awareness_gain_far: float = 0.55
+## Multiplier when the player is standing in the player's own light (you light them up).
+@export var awareness_lit_multiplier: float = 1.8
+## Awareness lost per second when the player is not visible.
+@export var awareness_decay: float = 0.42
+@export var awareness_suspicious: float = 0.35
+@export var awareness_alert: float = 1.0
+## How long an enemy keeps chasing after losing sight before searching.
+@export var alert_lost_sight_grace: float = 2.5
+@export var search_duration: float = 7.0
+@export var suspicious_look_time: float = 1.2
+## Radius in which a shouting enemy alerts its friends.
+@export var shout_radius: float = 520.0
+## Enemy body
+@export var enemy_radius: float = 13.0
+#endregion
+
+#region Combat
+@export_group("Combat")
+@export var player_bullet_speed: float = 1500.0
+@export var enemy_bullet_speed: float = 780.0
+## Enemy reaction delay between seeing you and firing.
+@export var enemy_reaction_time: float = 0.42
+@export var enemy_burst_pause: float = 0.65
+## Extra inaccuracy (degrees) added to enemy shots at max range.
+@export var enemy_extra_spread: float = 7.0
+## How long the terrain remembers a bullet hole.
+@export var decal_lifetime: float = 12.0
+#endregion
+
+#region Audio
+@export_group("Audio")
+@export var sfx_volume_db: float = -6.0
+@export var music_volume_db: float = -18.0
+#endregion
+
+#region Camera / feel
+@export_group("Camera / feel")
+@export var camera_smoothing: float = 8.0
+## Nudge the camera slightly toward where the player is aiming.
+@export var camera_aim_offset: float = 0.18
+@export var camera_aim_offset_max: float = 110.0
+@export var shake_decay: float = 3.4
+@export var shake_max_offset: float = 26.0
+#endregion

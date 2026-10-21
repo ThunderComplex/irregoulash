@@ -1,0 +1,64 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://dev/probe.gd" id="1_probe"]
+[ext_resource type="PackedScene" path="res://src/player/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="3_wall"]
+[ext_resource type="PackedScene" path="res://src/levels/lamp.tscn" id="4_lamp"]
+[ext_resource type="Script" path="res://src/levels/vision_memory.gd" id="5_memory"]
+
+[node name="VisionTest" type="Node2D"]
+
+[node name="Fog" type="CanvasModulate" parent="."]
+color = Color(0, 0, 0, 1)
+
+[node name="Floor" type="Polygon2D" parent="."]
+z_index = -20
+color = Color(0.3, 0.32, 0.38, 1)
+polygon = PackedVector2Array(-720, -520, 720, -520, 720, 520, -720, 520)
+
+[node name="Walls" type="Node2D" parent="."]
+
+[node name="WallTop" parent="Walls" instance=ExtResource("3_wall")]
+position = Vector2(0, -480)
+size = Vector2(1440, 40)
+
+[node name="WallBottom" parent="Walls" instance=ExtResource("3_wall")]
+position = Vector2(0, 480)
+size = Vector2(1440, 40)
+
+[node name="WallLeft" parent="Walls" instance=ExtResource("3_wall")]
+position = Vector2(-700, 0)
+size = Vector2(40, 1000)
+
+[node name="WallRight" parent="Walls" instance=ExtResource("3_wall")]
+position = Vector2(700, 0)
+size = Vector2(40, 1000)
+
+[node name="DividerUpper" parent="Walls" instance=ExtResource("3_wall")]
+position = Vector2(0, -310)
+size = Vector2(40, 380)
+color = Color(0.52, 0.44, 0.36, 1)
+
+[node name="DividerLower" parent="Walls" instance=ExtResource("3_wall")]
+position = Vector2(0, 310)
+size = Vector2(40, 380)
+color = Color(0.52, 0.44, 0.36, 1)
+
+[node name="Pillar" parent="Walls" instance=ExtResource("3_wall")]
+position = Vector2(340, 300)
+size = Vector2(90, 90)
+color = Color(0.44, 0.44, 0.54, 1)
+
+[node name="LampCorner" parent="." instance=ExtResource("4_lamp")]
+position = Vector2(-330, -330)
+radius = 210.0
+energy = 0.85
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+position = Vector2(-320, 0)
+
+[node name="Memory" type="Node" parent="."]
+script = ExtResource("5_memory")
+
+[node name="Probe" type="Node" parent="."]
+script = ExtResource("1_probe")

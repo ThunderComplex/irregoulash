@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/enemies/enemy.gd" id="1_enemy"]
+[ext_resource type="Script" path="res://src/common/health.gd" id="2_health"]
+
+[node name="Enemy" type="CharacterBody2D"]
+collision_layer = 4
+collision_mask = 1
+motion_mode = 1
+script = ExtResource("1_enemy")
+
+[node name="Collision" type="CollisionShape2D" parent="."]
+
+[node name="Visual" type="Node2D" parent="."]
+
+[node name="Health" type="Node" parent="."]
+script = ExtResource("2_health")
