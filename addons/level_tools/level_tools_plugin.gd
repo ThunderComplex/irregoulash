@@ -28,8 +28,9 @@ extends EditorPlugin
 ##         res://src/ui/title_screen.tscn -- --probe=lint
 
 const WALL_SCENE: PackedScene = preload("res://src/levels/wall.tscn")
+const ENEMY_SCENE: PackedScene = preload("res://src/enemies/enemy.tscn")
 
-## Grid step for snapping. Hold Alt while drawing to ignore it.
+## Grid step for snapping. Hold Alt while drawing or placing to ignore it.
 const SNAP: float = 32.0
 ## Thickness of a wall drawn as a band, and the size of a single click-block.
 const DEFAULT_THICKNESS: float = 64.0
@@ -38,6 +39,8 @@ const BAND_THRESHOLD: float = 24.0
 
 var _brush_button: CheckButton = null
 var _lint_button: Button = null
+var _enemy_button: CheckButton = null
+var _enemy_type: OptionButton = null
 
 var _brush_on: bool = false
 var _dragging: bool = false
@@ -54,6 +57,11 @@ var _our_selection: Node = null
 var _last_event_position: Vector2 = Vector2.ZERO
 var _reported_sources: bool = false
 
+## Enemy tool state: the enemy waiting for waypoints, and its route.
+var _enemy_on: bool = false
+var _pending_enemy: Enemy = null
+var _pending_route: PatrolRoute = null
+
 
 #region plugin lifecycle
 
@@ -69,6 +77,22 @@ func _enter_tree() -> void:
 	_brush_button.toggled.connect(_on_brush_toggled)
 	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _brush_button)
 
+	_enemy_type = OptionButton.new()
+	_enemy_type.tooltip_text = "Archetype placed by the enemy tool."
+	for id: String in EnemyLibrary.ids():
+		_enemy_type.add_item(EnemyLibrary.by_id(id).display_name)
+	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _enemy_type)
+
+	_enemy_button = CheckButton.new()
+	_enemy_button.text = "Place enemy"
+	_enemy_button.tooltip_text = ("Click to place the selected enemy, then keep left-clicking to "
+		+"add patrol waypoints, then right-click (or Esc) to finish. Finishing switches the "
+		+"tool off, so press it again for the next enemy.\n"
+		+"No waypoints: it wanders near where it stands. One: it stands there and scans. "
+		+"Two or more: it patrols them in order.\nAlt = no snap.")
+	_enemy_button.toggled.connect(_on_enemy_toggled)
+	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _enemy_button)
+
 	_lint_button = Button.new()
 	_lint_button.text = "Lint level"
 	_lint_button.tooltip_text = ("Check this level for problems: no spawn, no exit, exits that go "
@@ -79,10 +103,19 @@ func _enter_tree() -> void:
 
 func _exit_tree() -> void:
 	_cancel_drag()
+	_forget_pending_enemy()
 	if _brush_button != null:
 		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _brush_button)
 		_brush_button.queue_free()
 		_brush_button = null
+	if _enemy_button != null:
+		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _enemy_button)
+		_enemy_button.queue_free()
+		_enemy_button = null
+	if _enemy_type != null:
+		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _enemy_type)
+		_enemy_type.queue_free()
+		_enemy_type = null
 	if _lint_button != null:
 		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _lint_button)
 		_lint_button.queue_free()
@@ -101,9 +134,30 @@ func _on_brush_toggled(on: bool) -> void:
 	if not on:
 		_cancel_drag()
 		return
+	# Both tools want the left mouse button, so switching one on switches the other off.
+	if _enemy_button != null and _enemy_button.button_pressed:
+		_enemy_button.button_pressed = false
 	# Anchor the brush to a container and select it, so the editor keeps forwarding
 	# canvas input and the first drag already goes to the right place.
 	_resolve_target_parent()
+
+
+func _on_enemy_toggled(on: bool) -> void:
+	_enemy_on = on
+	if not on:
+		# Finishing rather than discarding: the enemy is already a real node.
+		_finish_enemy()
+		return
+	if _brush_button != null and _brush_button.button_pressed:
+		_brush_button.button_pressed = false
+
+
+## Archetype currently selected in the toolbar.
+func _selected_archetype() -> String:
+	var ids: Array[String] = EnemyLibrary.ids()
+	if _enemy_type == null or ids.is_empty():
+		return "guard"
+	return ids[clampi(_enemy_type.selected, 0, ids.size() - 1)]
 
 #endregion
 
@@ -111,9 +165,16 @@ func _on_brush_toggled(on: bool) -> void:
 #region canvas input
 
 func _forward_canvas_gui_input(event: InputEvent) -> bool:
-	if not _brush_on:
-		return false
+	if _brush_on:
+		return _brush_input(event)
+	if _enemy_on:
+		return _enemy_input(event)
+	return false
 
+
+## The wall brush's input. Both tools want the left mouse button, so only one of them
+## can be switched on at a time (see the toolbar toggles).
+func _brush_input(event: InputEvent) -> bool:
 	if event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event
 		_last_event_position = mb.position
@@ -144,6 +205,193 @@ func _forward_canvas_gui_input(event: InputEvent) -> bool:
 			return true
 
 	return false
+
+#endregion
+
+
+#region enemy tool
+
+## Left-click places the selected enemy, then each further click adds a waypoint to
+## that enemy's own route; right-click or Esc finishes. The enemy is committed to the
+## scene immediately and the route is committed point by point, so undo walks the
+## route back instead of throwing the whole enemy away.
+func _enemy_input(event: InputEvent) -> bool:
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event
+		_last_event_position = mb.position
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			_enemy_click(_snap_point(_cursor_world()))
+			return true
+		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed and _pending_enemy != null:
+			_finish_enemy()
+			return true
+		return false
+
+	if event is InputEventKey:
+		var key: InputEventKey = event
+		if key.pressed and key.keycode == KEY_ESCAPE and _pending_enemy != null:
+			_finish_enemy()
+			return true
+
+	return false
+
+
+func _enemy_click(at: Vector2) -> void:
+	if _pending_enemy == null or not is_instance_valid(_pending_enemy):
+		_place_enemy(at)
+	else:
+		_add_waypoint(at)
+
+
+## Places one enemy of the selected archetype, which then collects waypoints.
+func _place_enemy(at: Vector2) -> void:
+	var root: Node = get_tree().edited_scene_root
+	if root == null:
+		return
+	var archetype: String = _selected_archetype()
+	var display: String = EnemyLibrary.by_id(archetype).display_name
+	var enemy: Enemy = ENEMY_SCENE.instantiate() as Enemy
+	enemy.name = _unique_child_name(root, display)
+	enemy.archetype_id = archetype
+	enemy.position = at
+	enemy.rotation = 0.0
+	_add_through_undo("Place %s" % display, _enemy_parent(root), enemy, root)
+	_pending_enemy = enemy
+	_pending_route = null
+	_focus_node(enemy)
+
+
+## Adds one waypoint, creating the route and wiring the enemy to it on the first one
+## (all in the same undo step, so one undo unlinks it again).
+func _add_waypoint(at: Vector2) -> void:
+	var root: Node = get_tree().edited_scene_root
+	if root == null or _pending_enemy == null or not is_instance_valid(_pending_enemy):
+		return
+
+	if _pending_route == null or not is_instance_valid(_pending_route):
+		_pending_route = PatrolRoute.new()
+		_pending_route.name = "%sRoute" % _pending_enemy.name
+		var undo: EditorUndoRedoManager = get_undo_redo()
+		undo.create_action("Add patrol route")
+		undo.add_do_method(_route_parent(root, _pending_enemy), "add_child", _pending_route, true)
+		undo.add_do_method(_pending_route, "set_owner", root)
+		undo.add_undo_method(_route_parent(root, _pending_enemy), "remove_child", _pending_route)
+		undo.add_do_reference(_pending_route)
+		undo.add_do_method(self, "_link_route", _pending_enemy, _pending_route)
+		undo.add_undo_method(self, "_link_route", _pending_enemy, null)
+		undo.commit_action()
+
+	# Waypoints are added in click order, which is the order PatrolRoute reads them
+	# back in, so the enemy patrols them in the order you clicked them.
+	var marker := Marker2D.new()
+	marker.name = "P%d" % _pending_route.get_child_count()
+	marker.position = _pending_route.to_local(at)
+	_add_through_undo("Add patrol point", _pending_route, marker, root)
+
+
+## Ends the current enemy's route and switches the tool off, so placing another enemy
+## is a deliberate act (press the button again) rather than something that can happen
+## while you meant to select a node. Nothing needs committing -- the enemy and its
+## waypoints are already real nodes -- so this only stops collecting points and says
+## what the enemy will do with what it has.
+func _finish_enemy() -> void:
+	var enemy: Enemy = _pending_enemy
+	var waypoints: int = 0
+	if _pending_route != null and is_instance_valid(_pending_route):
+		waypoints = _pending_route.points().size()
+	_forget_pending_enemy()
+
+	if enemy != null and is_instance_valid(enemy):
+		if waypoints == 0:
+			print("[Level Tools] %s has no waypoints: it will wander near where it stands." % enemy.name)
+		elif waypoints == 1:
+			print("[Level Tools] %s has one waypoint: it will stand there and scan." % enemy.name)
+		else:
+			print("[Level Tools] %s patrols %d waypoints." % [enemy.name, waypoints])
+
+	# `set_pressed_no_signal` rather than `button_pressed`: un-pressing normally emits
+	# `toggled`, which calls straight back into this function.
+	if _enemy_button != null and _enemy_button.button_pressed:
+		_enemy_button.set_pressed_no_signal(false)
+	_enemy_on = false
+
+
+## Drops the tool's state without touching the scene (the enemy is already real).
+func _forget_pending_enemy() -> void:
+	_pending_enemy = null
+	_pending_route = null
+
+
+## Assigning and clearing the link through a method means the NodePath is resolved
+## while both nodes are in the tree, which is true during do and undo but not while
+## the action is being built.
+func _link_route(enemy: Enemy, route: PatrolRoute) -> void:
+	if enemy == null or not is_instance_valid(enemy):
+		return
+	if route == null or not is_instance_valid(route):
+		enemy.patrol_route = NodePath("")
+		return
+	enemy.patrol_route = enemy.get_path_to(route)
+
+
+## Enemies go in a node called "Enemies" when the level has one.
+func _enemy_parent(root: Node) -> Node:
+	var container: Node = root.find_child("Enemies", true, false)
+	return container if container != null else root
+
+
+## Routes live in the level's "Routes" container when it has one, next to the enemy
+## otherwise. Either way they are *not* children of the enemy: a route must not move
+## when the thing patrolling it moves.
+func _route_parent(root: Node, enemy: Node) -> Node:
+	var container: Node = root.find_child("Routes", true, false)
+	if container != null:
+		return container
+	var parent: Node = enemy.get_parent()
+	return parent if parent != null else root
+
+#endregion
+
+
+#region placing nodes (shared by both tools)
+
+## Adds a node to the scene through the editor's undo history, owned by the edited
+## scene so that it is actually saved with the level.
+func _add_through_undo(action: String, parent: Node, node: Node, root: Node) -> void:
+	if parent == null:
+		parent = root
+	var undo: EditorUndoRedoManager = get_undo_redo()
+	undo.create_action(action)
+	undo.add_do_method(parent, "add_child", node, true)
+	undo.add_do_method(node, "set_owner", root)
+	undo.add_undo_method(parent, "remove_child", node)
+	undo.add_do_reference(node)
+	undo.commit_action()
+
+
+## First free "<base>N" in the edited scene, so repeated placement reads tidily.
+func _unique_child_name(root: Node, base: String) -> String:
+	var index: int = 1
+	while root.find_child("%s%d" % [base, index], true, false) != null:
+		index += 1
+	return "%s%d" % [base, index]
+
+
+## Selects exactly one node, and remembers that this selection was made by the plugin:
+## the editor forwards canvas input based on the selection, and a selection that is
+## not ours means the user has picked something themselves.
+func _focus_node(node: Node) -> void:
+	if node == null or not is_instance_valid(node):
+		return
+	_our_selection = node
+	var selection: EditorSelection = get_editor_interface().get_selection()
+	if selection == null:
+		return
+	var current: Array = selection.get_selected_nodes()
+	if current.size() == 1 and current[0] == node:
+		return
+	selection.clear()
+	selection.add_node(node)
 
 #endregion
 
@@ -332,29 +580,11 @@ func _resolve_target_parent() -> Node:
 ## was ours. Keeping a plain Node2D selected is what lets canvas input keep reaching
 ## the plugin, so the brush can be used over and over without touching the Scene dock.
 func _focus_target_parent() -> void:
-	if _target_parent == null or not is_instance_valid(_target_parent):
-		return
-	_our_selection = _target_parent
-	var selection: EditorSelection = get_editor_interface().get_selection()
-	if selection == null:
-		return
-	var current: Array = selection.get_selected_nodes()
-	if current.size() == 1 and current[0] == _target_parent:
-		return
-	selection.clear()
-	selection.add_node(_target_parent)
+	_focus_node(_target_parent)
 
 
 func _is_content_node(node: Node) -> bool:
 	return node is Wall or node is Enemy or node is Pickup or node is ExitZone or node is Lamp
-
-
-func _unique_name() -> String:
-	var root: Node = get_tree().edited_scene_root
-	var index: int = 1
-	while root != null and root.find_child("DrawnWall%d" % index, true, false) != null:
-		index += 1
-	return "DrawnWall%d" % index
 
 
 func _create_wall(rect: Rect2) -> void:
@@ -363,19 +593,12 @@ func _create_wall(rect: Rect2) -> void:
 		return
 
 	var wall: Wall = WALL_SCENE.instantiate() as Wall
-	wall.name = _unique_name()
+	wall.name = _unique_child_name(root, "DrawnWall")
 	# Properties are set before the action, so undo only has to move the node in and
 	# out of the tree (and redo reuses this same instance).
 	wall.position = rect.get_center()
 	wall.size = rect.size
-
-	var undo: EditorUndoRedoManager = get_undo_redo()
-	undo.create_action("Draw wall")
-	undo.add_do_method(_target_parent, "add_child", wall, true)
-	undo.add_do_method(wall, "set_owner", root)
-	undo.add_undo_method(_target_parent, "remove_child", wall)
-	undo.add_do_reference(wall)
-	undo.commit_action()
+	_add_through_undo("Draw wall", _target_parent, wall, root)
 
 	# Keep the container selected, not the new wall: canvas input forwarding follows
 	# the selection, and the whole point is to draw several walls in a row.

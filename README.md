@@ -80,10 +80,12 @@ Walk over weapons, ammo and medkits to pick them up.
 - **Placeholder geometric art** generated in code, so there are no art assets to
   install and every entity is a clean silhouette.
 - **In-editor authoring tools** (`addons/level_tools/`): a wall brush (drag to draw
-  walls, with undo), editor gizmos for everything (enemies with facing wedges and
-  vision cones, patrol routes with direction arrows, labelled pickups and exits,
-  camera bounds, the spawn point's vision reach), an opt-in lighting preview, and a
-  level linter. See `docs/LEVEL_AUTHORING.md`.
+  walls, with undo), an enemy tool (pick an archetype, click to place, click again to
+  lay out its patrol route, right-click to finish — one route per enemy), editor
+  gizmos for everything (enemies with facing wedges and vision cones, patrol routes
+  with direction arrows, labelled pickups and exits, camera bounds, the spawn point's
+  vision reach), an opt-in lighting preview, and a level linter. See
+  `docs/LEVEL_AUTHORING.md`.
 
 ## What is deliberately *not* in this WIP
 

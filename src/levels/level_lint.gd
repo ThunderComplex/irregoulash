@@ -64,8 +64,12 @@ static func run(root: Node) -> Dictionary:
 
 	# --- patrol routes
 	for route: PatrolRoute in routes:
-		if route.points().size() < 2:
-			problems.append("patrol route '%s' has fewer than 2 waypoints" % route.name)
+		var waypoints: int = route.points().size()
+		if waypoints == 0:
+			problems.append("patrol route '%s' has no waypoints" % route.name)
+		elif waypoints == 1:
+			# A single waypoint is a legitimate "stand here and scan" post.
+			notes.append("route '%s' has one waypoint: that enemy will stand and scan" % route.name)
 	for enemy: Enemy in enemies:
 		if enemy.patrol_route == NodePath():
 			continue

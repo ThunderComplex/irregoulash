@@ -127,24 +127,58 @@ never end up saved into a level file. (That rule is tested by
 
 ---
 
+## Placing enemies and their routes
+
+The **Place enemy** tool does the whole job in one gesture, with the archetype chosen
+in the dropdown beside it:
+
+1. Pick `Guard`, `Scout` or `Heavy` from the dropdown.
+2. Switch **Place enemy** on and left-click in the viewport to place it there.
+3. Keep left-clicking to add patrol waypoints. Each enemy gets **its own**
+   `PatrolRoute`, created on the first waypoint and named after the enemy
+   (`Guard3Route`), so two enemies never accidentally share a route.
+4. Right-click (or `Esc`) to finish. **Finishing switches the tool off** — press the
+   button again for the next enemy. That way the next stray click in the viewport
+   selects a node instead of placing an enemy.
+
+Alt while clicking places without grid snapping (`32px` otherwise).
+
+| Waypoints placed | What the enemy does |
+|---|---|
+| none | wanders around where it stands (`wander_radius`) |
+| one | stands on the spot and scans — a guard post |
+| two or more | patrols them, in the order you clicked |
+
+Undo walks back through what you built in order — one waypoint at a time, then the
+route, then the enemy — so `Ctrl+Z` unwinds a mistake without throwing away the whole
+enemy. The enemy and its route are committed to the scene as you go, so you can also
+just select the enemy afterwards and rotate it to set the direction it starts facing.
+
+The wall brush and the enemy tool both want the left mouse button, so switching one on
+switches the other off.
+
+---
+
 ## Patrol routes
 
 `PatrolRoute` is a `Node2D` whose `Marker2D` children are the waypoints, in tree
-order.
+order. The **Place enemy** tool creates one per enemy for you; this is how to build or
+edit one by hand.
 
 1. Add a `PatrolRoute` (e.g. under a `Routes` node).
-2. Add two or more `Marker2D` children and drag them where you want the patrol to
-   go — the path, arrows and numbered points update as you drag.
-3. On each enemy, set **`patrol_route`** to that node (drag the node from the
-   Scene dock into the property, or use the node picker).
+2. Add `Marker2D` children and drag them where you want the patrol to go — the path,
+   arrows and numbered points update as you drag. One marker makes a guard post, and
+   two or more make a patrol.
+3. On each enemy, set **`patrol_route`** to that node (drag the node from the Scene
+   dock into the property, or use the node picker).
 
-The route draws a link line from every enemy that uses it, and an enemy with a
-route that does not resolve says so on itself. An enemy with no route uses
-`wander_radius` instead, which is a good fit for "stand here and scan" posts and
-for loose roaming.
+The route draws a link line from every enemy that uses it, and an enemy with a route
+that does not resolve says so on itself. An enemy with no route uses `wander_radius`
+instead.
 
-Routes live in the level rather than under the enemy on purpose: they must not
-move when the enemy does, and several enemies can share one.
+Routes live in the level rather than under the enemy on purpose: they must not move
+when the enemy does. They *can* be shared, but the tool gives every enemy its own, so
+that editing one patrol never surprises another enemy.
 
 ---
 
@@ -233,7 +267,7 @@ one-field edit in the editor afterwards.
 | Property | Meaning |
 |---|---|
 | `archetype_id` | `guard`, `scout` or `heavy` |
-| `patrol_route` | path to a `PatrolRoute`; empty means wander instead |
+| `patrol_route` | path to a `PatrolRoute`; empty means wander instead. The Place enemy tool fills this in |
 | `wander_radius` | how far it roams around its spawn point |
 | `patrol_dwell` | seconds spent standing at each waypoint |
 | `returns_to_post` | false for a guard that should hold a position |
@@ -276,8 +310,9 @@ one-field edit in the editor afterwards.
    unless it is the last level.
 5. Add lamps — they are the player's only landmarks, and they define where enemies
    are visible.
-6. Add enemies. Rotate them to set their staring direction, give the ones that
-   should walk a route a `PatrolRoute` with two or more waypoints.
+6. Add enemies with the **Place enemy** tool: pick an archetype, click to place it,
+   click out its patrol waypoints, then right-click to finish. Rotate one afterwards
+   to set the direction it starts facing.
 7. Add a medkit and some ammo. The player has no regeneration.
 8. Set `level_title` and `objective`.
 9. Press **Lint level**.
