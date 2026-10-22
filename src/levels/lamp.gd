@@ -34,13 +34,30 @@ extends Node2D
 @export var flicker: bool = true
 @export var flicker_amount: float = 0.07
 
+@export_group("Visibility")
+## A lamp the player can neither see nor stand inside does not light the world for
+## them. Without this, the rule the renderer implements ("lit = visible") leaks: a
+## lamp inside a sealed room would reveal whatever is in its pool, enemies included,
+## straight through the wall between you. Line of sight is tested from the player to
+## the lamp itself, not to everything the lamp lights -- see docs/DESIGN_NOTES.md.
+@export var require_line_of_sight: bool = true
+## How fast the lamp fades when it gains or loses visibility (higher is snappier).
+@export var visibility_fade: float = 6.0
+
 @export_group("Editor")
 ## Ignored while playing: draws the light radius in the editor for authoring.
 @export var show_radius_in_editor: bool = true
 
+## How often, in seconds, the line-of-sight test is repeated.
+const LOS_INTERVAL: float = 0.12
+
 var _light: PointLight2D = null
 var _fixture: Polygon2D = null
 var _phase: float = 0.0
+## 0..1 multiplier for visibility, faded so lamps never pop on or off.
+var _lit: float = 1.0
+var _visible: bool = true
+var _los_timer: float = 0.0
 
 
 func _ready() -> void:
@@ -51,11 +68,53 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if not flicker or _light == null:
+	if Engine.is_editor_hint() or _light == null:
 		return
-	_phase += delta * 5.0
-	var n: float = sin(_phase) * 0.5 + sin(_phase * 2.31 + 1.7) * 0.5
-	_light.energy = maxf(0.0, energy * (1.0 + n * flicker_amount))
+
+	if require_line_of_sight:
+		_los_timer -= delta
+		if _los_timer <= 0.0:
+			_los_timer = LOS_INTERVAL
+			_visible = _is_visible_to_player()
+	_lit = move_toward(_lit, 1.0 if _visible else 0.0, visibility_fade * delta)
+
+	if _lit <= 0.0:
+		# Fully out of sight: no light, and no flicker maths to do.
+		_light.energy = 0.0
+		return
+
+	var brightness: float = 1.0
+	if flicker:
+		_phase += delta * 5.0
+		var n: float = sin(_phase) * 0.5 + sin(_phase * 2.31 + 1.7) * 0.5
+		brightness = 1.0 + n * flicker_amount
+	_light.energy = maxf(0.0, energy * brightness * _lit)
+
+
+## True when the player is standing inside this lamp's pool, or has a clear line of
+## sight to the lamp itself.
+##
+## The radius carve-out matters: a lamp occluded by a pillar in the very room the
+## player is standing in must not switch that room dark around them. Testing sight of
+## the lamp rather than of everything it lights is an approximation -- a lit room you
+## *can* see into still shows you what is in it, including things behind its own
+## furniture -- but it removes the case that reads as a bug.
+func _is_visible_to_player() -> bool:
+	if not require_line_of_sight:
+		return true
+	var player: Node2D = GameDirector.valid_player()
+	if player == null:
+		# No player at all (a test scene, or the title screen): leave lamps on.
+		return true
+	if global_position.distance_squared_to(player.global_position) <= radius * radius:
+		return true
+	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	if space == null:
+		return true
+	var query := PhysicsRayQueryParameters2D.create(player.global_position, global_position,
+		Layers.SOLID)
+	query.hit_from_inside = false
+	return space.intersect_ray(query).is_empty()
 
 
 func _rebuild() -> void:

@@ -1,6 +1,5 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://dev/probe.gd" id="1_probe"]
 [ext_resource type="PackedScene" path="res://src/player/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="3_wall"]
 [ext_resource type="PackedScene" path="res://src/levels/lamp.tscn" id="4_lamp"]
@@ -59,6 +58,3 @@ position = Vector2(-320, 0)
 
 [node name="Memory" type="Node" parent="."]
 script = ExtResource("5_memory")
-
-[node name="Probe" type="Node" parent="."]
-script = ExtResource("1_probe")

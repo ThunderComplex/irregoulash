@@ -27,6 +27,7 @@ this slice exists to make that one idea readable.
 | Walls are drawn *above* actors | Top-down readability: geometry reads as solid, actors never straddle it | `Layers.Z_WALL` |
 | Combat FX (muzzle flashes, blood, sparks) are unshaded | So a fight in the dark is still legible — you track enemies by muzzle flash, which is also how you find them | `FxDirector._additive_material()` |
 | Explored walls stay visible at 30%; enemies do not | The map has to be memorisable without leaking enemy positions | `Tuning.memory_brightness` |
+| A lamp the player can neither see nor stand inside does not light the world for them | The renderer's rule is "lit = visible", and shadows are cast from each light, so a lamp in a sealed room used to reveal whatever was in its pool straight through the wall. Line of sight is tested from the player to the *lamp*, which removes the case that reads as a bug; a lit room you can already see into still shows you what is inside it | `Lamp.require_line_of_sight`, `Lamp.visibility_fade` |
 | The vision cone is a light, not a shader | It is GPU-cheap, it respects occluders automatically, and it means levels stay easy to author | `VisionRig.configure()` |
 | Weapon/level/enemy data lives in code libraries, not `.tres` files | Balance is one edit, diffs are readable, and a new weapon is one function | `weapon_library.gd`, `enemy_library.gd` |
 | The HUD is built in code | It changed constantly while the game was being built; a `.tscn` would have been re-anchored a dozen times | `hud.gd` |

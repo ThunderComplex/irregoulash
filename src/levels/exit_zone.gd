@@ -70,6 +70,10 @@ func _build_art() -> void:
 	_light.color = color
 	_light.energy = 0.8
 	_light.blend_mode = Light2D.BLEND_MODE_ADD
+	# Cast shadows like every other light, so the beacon's pool does not bleed through
+	# the walls around it. The "WAY OUT" marker is drawn unshaded, so the exit is still
+	# a visible landmark from across a dark room.
+	_light.shadow_enabled = true
 	_light.z_index = Layers.Z_ACTOR
 	add_child(_light)
 

@@ -262,6 +262,8 @@ one-field edit in the editor afterwards.
 | `shadows` | light respects walls (recommended) |
 | `beacon` | keep the fixture itself visible when unlit |
 | `flicker`, `flicker_amount` | candle-style variation |
+| `require_line_of_sight` | a lamp you can neither see nor stand inside stops lighting the world for you, so sealed rooms stay dark (the fixture's own dot stays visible as a landmark) |
+| `visibility_fade` | how quickly it fades in and out, so lamps never pop |
 
 ### `Enemy` — `src/enemies/enemy.tscn`
 | Property | Meaning |

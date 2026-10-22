@@ -212,6 +212,28 @@ const SCENARIOS: Dictionary = {
 			"facing_report": true,
 		},
 	],
+	## Does a lamp stop lighting the world for the player when they cannot see it?
+	## In vision_test the lamp sits at (-330, -330) behind a divider wall with a
+	## doorway at y -120..120, and it is the only light in the scene.
+	"lamps": [
+		{
+			# Same side of the wall as nothing: the divider blocks sight of the lamp,
+			# so its pool must go dark.
+			"teleport": Vector2(320.0, -200.0),
+			"aim": Vector2(-1.0, 0.0),
+			"wait": 1.2,
+			"shot": "lamp_01_no_line_of_sight",
+			"points": {"lamp_pool_blocked": Vector2(-240.0, -300.0)},
+		},
+		{
+			# Round the wall with a clear view of the lamp: the same spot lights up.
+			"teleport": Vector2(-120.0, 0.0),
+			"aim": Vector2(-1.0, 0.0),
+			"wait": 1.2,
+			"shot": "lamp_02_line_of_sight",
+			"points": {"lamp_pool_lit": Vector2(-240.0, -300.0)},
+		},
+	],
 	## Lint every level (the same checks the editor plugin's button runs).
 	"lint": [
 		{

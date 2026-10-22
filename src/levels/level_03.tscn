@@ -61,68 +61,14 @@ size = Vector2(352, 32)
 
 [node name="Routes" type="Node2D" parent="." unique_id=1877469654]
 
-[node name="Guard1Route" type="Node2D" parent="Routes" unique_id=920663875]
+[node name="Guard1Route" type="Node2D" parent="Routes" unique_id=605879094]
 script = ExtResource("7_route")
 
-[node name="P0" type="Marker2D" parent="Routes/Guard1Route" unique_id=1437040163]
-position = Vector2(928, 832)
+[node name="P0" type="Marker2D" parent="Routes/Guard1Route" unique_id=956705017]
+position = Vector2(480, 320)
 
-[node name="P1" type="Marker2D" parent="Routes/Guard1Route" unique_id=1666415156]
-position = Vector2(896, 384)
-
-[node name="P2" type="Marker2D" parent="Routes/Guard1Route" unique_id=169050482]
-position = Vector2(672, 416)
-
-[node name="P3" type="Marker2D" parent="Routes/Guard1Route" unique_id=304288634]
-position = Vector2(704, 832)
-
-[node name="Scout1Route" type="Node2D" parent="Routes" unique_id=1953648931]
-script = ExtResource("7_route")
-
-[node name="P0" type="Marker2D" parent="Routes/Scout1Route" unique_id=1186399171]
-position = Vector2(96, 608)
-
-[node name="P1" type="Marker2D" parent="Routes/Scout1Route" unique_id=43748273]
-position = Vector2(96, 352)
-
-[node name="P2" type="Marker2D" parent="Routes/Scout1Route" unique_id=1391491214]
-position = Vector2(352, 352)
-
-[node name="P3" type="Marker2D" parent="Routes/Scout1Route" unique_id=1908807305]
-position = Vector2(146, 453)
-
-[node name="Heavy1Route" type="Node2D" parent="Routes" unique_id=822893929]
-script = ExtResource("7_route")
-
-[node name="P0" type="Marker2D" parent="Routes/Heavy1Route" unique_id=1735206322]
-position = Vector2(640, 704)
-
-[node name="P1" type="Marker2D" parent="Routes/Heavy1Route" unique_id=2123471850]
-position = Vector2(800, 704)
-
-[node name="P2" type="Marker2D" parent="Routes/Heavy1Route" unique_id=482895865]
-position = Vector2(832, 320)
-
-[node name="Heavy2Route" type="Node2D" parent="Routes" unique_id=1947380701]
-script = ExtResource("7_route")
-
-[node name="P0" type="Marker2D" parent="Routes/Heavy2Route" unique_id=211982289]
-position = Vector2(704, 384)
-
-[node name="P1" type="Marker2D" parent="Routes/Heavy2Route" unique_id=1622068472]
-position = Vector2(896, 256)
-
-[node name="Heavy3Route" type="Node2D" parent="Routes" unique_id=1590303360]
-script = ExtResource("7_route")
-
-[node name="P0" type="Marker2D" parent="Routes/Heavy3Route" unique_id=1396834570]
-position = Vector2(576, 640)
-
-[node name="P1" type="Marker2D" parent="Routes/Heavy3Route" unique_id=1430855522]
-position = Vector2(704, 672)
-
-[node name="P2" type="Marker2D" parent="Routes/Heavy3Route" unique_id=32160052]
-position = Vector2(736, 608)
+[node name="P1" type="Marker2D" parent="Routes/Guard1Route" unique_id=952015470]
+position = Vector2(64, 416)
 
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=299208256]
 position = Vector2(151, 101)
@@ -133,46 +79,24 @@ position = Vector2(151, 101)
 position = Vector2(223, 97)
 radius = 210.0
 flicker = false
+require_line_of_sight = null
+visibility_fade = null
 
 [node name="Lamp0" parent="Lamps/Lamp0" unique_id=280772374 instance=ExtResource("3_lamp")]
-position = Vector2(-91, 596)
+position = Vector2(51, 261)
 radius = 210.0
 flicker = false
+require_line_of_sight = null
+visibility_fade = null
 
 [node name="Enemies" type="Node2D" parent="." unique_id=1456907366]
 
-[node name="Guard1" parent="Enemies" unique_id=304786861 instance=ExtResource("4_enemy")]
-position = Vector2(1120, 832)
+[node name="Guard1" type="CharacterBody2D" parent="Enemies" unique_id=1586801975 instance=ExtResource("4_enemy")]
+position = Vector2(64, 352)
+collision_layer = 4
+motion_mode = 1
+script = ExtResource("6_2bp2o")
 patrol_route = NodePath("../../Routes/Guard1Route")
-
-[node name="Scout1" parent="Enemies" unique_id=1762736109 instance=ExtResource("4_enemy")]
-position = Vector2(352, 832)
-archetype_id = "scout"
-patrol_route = NodePath("../../Routes/Scout1Route")
-
-[node name="Heavy1" type="CharacterBody2D" parent="Enemies" unique_id=23929349 instance=ExtResource("4_enemy")]
-position = Vector2(672, 160)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("6_2bp2o")
-archetype_id = "heavy"
-patrol_route = NodePath("../../Routes/Heavy1Route")
-
-[node name="Heavy2" type="CharacterBody2D" parent="Enemies" unique_id=627414422 instance=ExtResource("4_enemy")]
-position = Vector2(736, 288)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("6_2bp2o")
-archetype_id = "heavy"
-patrol_route = NodePath("../../Routes/Heavy2Route")
-
-[node name="Heavy3" type="CharacterBody2D" parent="Enemies" unique_id=1970171420 instance=ExtResource("4_enemy")]
-position = Vector2(608, 512)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("6_2bp2o")
-archetype_id = "heavy"
-patrol_route = NodePath("../../Routes/Heavy3Route")
 
 [node name="Pickups" type="Node2D" parent="." unique_id=1600841955]
 

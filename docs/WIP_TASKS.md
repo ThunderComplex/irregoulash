@@ -128,7 +128,59 @@ Authoring now happens in the Godot editor, not in a separate application:
       generated colliders or occluders into it, and (b) editor-only helper nodes are
       never serialised, which is what makes the lighting preview safe
 
-## Phase 8 — Playtest verdict (yours to make)
+## Phase 10 — Post-playtest fixes and decisions (current state)
+
+Everything below came out of actually *using* the thing, which is where the real bugs
+were. Each one was diagnosed from evidence (probe output, pixel samples, walkability
+maps, the editor's own error log) rather than guessed at.
+
+**Authoring**
+
+- [x] Wall brush: the drawn wall landed down-and-right of the mouse. Canvas input
+	  arrives in *editor window* coordinates and the 2D viewport is offset by the
+	  docks; it now asks `Viewport.get_mouse_position()`, which is in the space
+	  `get_canvas_transform()` expects
+- [x] Wall brush: the on-canvas preview was removed. It drew in window space and
+	  reintroduced the very same offset from the other direction — the in-scene wall
+	  is the preview now, and it is exact by construction
+- [x] Wall brush: no longer stops working after each wall. It used to re-derive its
+	  parent from a selection it had just changed; the container is now pinned and
+	  kept selected, which also means one click per wall instead of two
+- [x] **Enemy tool**: pick an archetype, click to place, click out a patrol route,
+	  right-click to finish. One dedicated `PatrolRoute` per enemy, committed as you
+	  go so `Ctrl+Z` walks the route back rather than discarding the enemy
+- [x] `Level.next_level` was exported *and documented* but read by nothing. It is now
+	  the fallback target for exits without one, and both the linter and the exits'
+      editor labels understand the fallback
+- [x] Linter: one waypoint is a valid guard post rather than a problem, and its
+      reachability test no longer seals doorways whose free space misses the grid
+      (tests cell centres instead of cell overlap)
+
+**Gameplay**
+
+- [x] Bullets outlive their shooters, so a freed reference reached a typed parameter
+      and killed `take_hit` at the worst possible moment. Damage sources are validated
+      rather than typed
+- [x] Enemy facing: the authored rotation was applied twice, so the nose — the only
+	  cue for which way an enemy's vision cone points — was permanently off by up to
+	  133°. Measured, then fixed, then measured again (`nose_err` is 0.0° in all states)
+- [x] Pickup and exit lights now cast shadows; they were leaking light through walls
+- [x] Lamps are gated on line of sight: a lamp the player can neither see nor stand
+	  inside no longer lights the world for them, so sealed rooms stay dark
+
+**Known and deliberately deferred**
+
+- Per-pixel visibility from the player (a screen-space shadow pass) would remove the
+  last case where a lit room reveals what is inside it, including things behind its own
+  furniture. Too expensive for a WIP; see the decision table in `DESIGN_NOTES.md`.
+- Enemy navigation is steering with whisker raycasts, not a navigation mesh — they come
+  around corners, but can wedge on awkward geometry.
+- Quitting with a sound playing prints a spurious "leaked ObjectDB instances" warning
+  (engine-side, documented in the README).
+- The levels are still first drafts: cover and lamp placement will matter more than
+  any code change from here.
+
+## Phase 11 — Playtest verdict (yours to make)
 
 Things I verified mechanically (screenshots + numeric probes, see `dev/shots/`):
 

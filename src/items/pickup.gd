@@ -55,6 +55,9 @@ func _build_art() -> void:
 	_light.color = color
 	_light.energy = 0.55
 	_light.blend_mode = Light2D.BLEND_MODE_ADD
+	# Cast shadows like every other light. Godot's default is to *not*, which made a
+	# pickup's glow leak through walls into neighbouring rooms.
+	_light.shadow_enabled = true
 	_light.z_index = Layers.Z_ACTOR
 	add_child(_light)
 
