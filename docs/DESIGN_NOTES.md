@@ -28,6 +28,7 @@ this slice exists to make that one idea readable.
 | Combat FX (muzzle flashes, blood, sparks) are unshaded | So a fight in the dark is still legible — you track enemies by muzzle flash, which is also how you find them | `FxDirector._additive_material()` |
 | Explored walls stay visible at 30%; enemies do not | The map has to be memorisable without leaking enemy positions | `Tuning.memory_brightness` |
 | A lamp the player can neither see nor stand inside does not light the world for them | The renderer's rule is "lit = visible", and shadows are cast from each light, so a lamp in a sealed room used to reveal whatever was in its pool straight through the wall. Line of sight is tested from the player to the *lamp*, which removes the case that reads as a bug; a lit room you can already see into still shows you what is inside it | `Lamp.require_line_of_sight`, `Lamp.visibility_fade` |
+| Path finding is a baked navigation mesh, generated from the walls by one click, with direct steering as the fallback | Hand-drawn navigation polygons would be another thing to keep in sync with the geometry. Baking from the `wall` group means the mesh is derived from the same data the vision, collision and linter all use, and a level without one still works | `NavmeshBaker`, the plugin's "Bake navmesh" button, `Enemy._move_toward` |
 | The vision cone is a light, not a shader | It is GPU-cheap, it respects occluders automatically, and it means levels stay easy to author | `VisionRig.configure()` |
 | Weapon/level/enemy data lives in code libraries, not `.tres` files | Balance is one edit, diffs are readable, and a new weapon is one function | `weapon_library.gd`, `enemy_library.gd` |
 | The HUD is built in code | It changed constantly while the game was being built; a `.tscn` would have been re-anchored a dozen times | `hud.gd` |
@@ -122,9 +123,11 @@ Roughly in the order that makes sense next:
 
 1. **A real playtest and pass on level layouts.** The two levels are first
    drafts. Cover placement and lamp placement will matter more than any code.
-2. **Navigation for enemies.** A baked `NavigationRegion2D` per level would
-   remove the "wedged on geometry" failure mode and let enemies flank properly.
-   `Enemy._avoid()` is the only thing that would be replaced.
+2. **Enemy navigation** — *done*: enemies path with a navigation mesh baked from the
+   walls by one click in the plugin, and fall back to direct steering when a level has
+   none. What is still missing is *avoidance*: agents happily pass through each other,
+   so a group hunting you can overlap. `NavigationAgent2D.avoidance_enabled` (RVO) is
+   the switch, but it needs tuning to avoid jitter.
 3. **Enemy perception polish**: peripheral vision cones drawn for *awareness*
    only, a "last seen" marker the player can see, an enemy that checks corpses.
 4. **ARPG layer** (explicitly out of scope here, but reserved): a `WeaponSlot`

@@ -182,6 +182,40 @@ that editing one patrol never surprises another enemy.
 
 ---
 
+## Enemy navigation: the "Bake navmesh" button
+
+Enemies path around geometry with Godot's navigation server, and the mesh is generated
+from your walls with one click:
+
+**Bake navmesh** in the toolbar. It creates and positions the navigation polygon itself
+(`Nav` node, `NavigationPolygon`) — you never draw navigation polygons by hand. The
+walls are read from the `wall` group that every `Wall` puts itself in, and the baker
+subtracts them from one outline around the level, so the walkable area falls out of the
+geometry.
+
+- **Re-bake after moving walls.** The bake stores a fingerprint of the wall layout on
+  the `Nav` node, and **Lint level** reports when the mesh no longer matches the level.
+  A stale mesh is worse than none: enemies will path through where a wall used to be.
+- **Without a navmesh, nothing breaks.** Enemies fall back to steering with obstacle
+  probes — they come around corners less reliably, but the level stays playable. That
+  fallback is also what keeps the dev test scenes (which have no `Nav`) working.
+- Paths are baked with an agent radius of 18px (a little wider than the player and the
+  enemies), so they keep clearance from walls instead of hugging them.
+- The baked mesh is a normal `NavigationRegion2D`, so **Godot draws it in the editor**
+  (select `Nav` to see the walkable area highlighted over your floor) — the quickest way
+  to see whether a corridor is wide enough for the enemies you placed.
+
+Verify that it works for real with the probe, which bakes at runtime and then raycasts
+every path the mesh hands out against the geometry:
+
+```
+Godot_v4.7.2-stable_win64_console.exe --path . --resolution 1280x720 \
+	res://src/levels/level_01.tscn -- --probe=navmesh
+```
+
+It reports the polygon count, how many enemies picked the mesh up, and how many of the
+sampled paths cross a wall (which should be zero).
+
 ## Linting a level
 
 **Lint level** in the toolbar (or the command below) reports the mistakes that
@@ -317,6 +351,8 @@ one-field edit in the editor afterwards.
    to set the direction it starts facing.
 7. Add a medkit and some ammo. The player has no regeneration.
 8. Set `level_title` and `objective`.
-9. Press **Lint level**.
-10. Play it. `F3` shows what the AI is thinking, `F4` lifts the fog so you can
+9. Press **Bake navmesh**, and again any time you move walls (the linter says when the
+   mesh is stale).
+10. Press **Lint level**.
+11. Play it. `F3` shows what the AI is thinking, `F4` lifts the fog so you can
 	check the layout, `F2` lets you fly through walls.

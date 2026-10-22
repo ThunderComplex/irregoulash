@@ -26,6 +26,7 @@ static func run(root: Node) -> Dictionary:
 	var pickups: Array[Pickup] = []
 	var exits: Array[ExitZone] = []
 	var routes: Array[PatrolRoute] = []
+	var navigation: NavigationRegion2D = null
 	var lamps: int = 0
 	for node: Node in _descendants(root):
 		if node is Wall:
@@ -38,6 +39,8 @@ static func run(root: Node) -> Dictionary:
 			exits.append(node)
 		elif node is PatrolRoute:
 			routes.append(node)
+		elif node is NavigationRegion2D:
+			navigation = node
 		elif node is Lamp:
 			lamps += 1
 
@@ -121,6 +124,14 @@ static func run(root: Node) -> Dictionary:
 			notes.append("patrol route '%s' is not used by any enemy" % route.name)
 	if lamps == 0:
 		notes.append("no lamps: the level will be almost entirely dark")
+
+	# --- navigation
+	if navigation == null:
+		notes.append("no navmesh: enemies steer directly and can wedge on geometry "
+			+ "(bake one with 'Bake navmesh')")
+	elif NavmeshBaker.is_stale(navigation, walls):
+		notes.append("the navmesh does not match the current walls: re-bake it "
+			+ "('Bake navmesh'), or enemies will path through geometry that has moved")
 
 	return {
 		"problems": problems,

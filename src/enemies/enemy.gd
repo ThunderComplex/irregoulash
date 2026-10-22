@@ -21,6 +21,10 @@ enum State { PATROL, SUSPICIOUS, ALERT, SEARCH, RETURN }
 const STATE_NAMES: Array[String] = ["PATROL", "SUSPICIOUS", "ALERT", "SEARCH", "RETURN"]
 ## Perception raycasts run on this slower clock.
 const PERCEPTION_DT: float = 0.15
+## How far the destination has to move before the path is re-requested.
+const REPATH_DISTANCE: float = 24.0
+## How often to check whether the level actually has a baked navmesh.
+const NAV_CHECK_INTERVAL: float = 0.5
 
 @export_enum("guard", "scout", "heavy") var archetype_id: String = "guard":
 	set(value):
@@ -85,6 +89,14 @@ var _pause_cd: float = 0.0
 var _footstep_accum: float = 0.0
 var _gizmo_hash: int = 0
 
+## Path finding. `agent` is optional: without a navmesh in the level the enemy steers
+## directly instead, so no level can be broken by forgetting to bake one.
+var agent: NavigationAgent2D = null
+var _has_navmesh: bool = false
+var _nav_check_cd: float = 0.0
+var _path_target_valid: bool = false
+var _path_target: Vector2 = Vector2.ZERO
+
 
 func _ready() -> void:
 	add_to_group("enemy")
@@ -98,6 +110,7 @@ func _ready() -> void:
 		return
 	set_process(false)
 	set_physics_process(true)
+	_setup_navigation()
 	health = get_node_or_null("Health") as Health
 	visual = get_node_or_null("Visual") as Node2D
 
@@ -128,6 +141,11 @@ func is_dead() -> bool:
 	return _dead
 
 
+## True when path finding is driving this enemy (a navmesh exists in its map).
+func uses_navmesh() -> bool:
+	return _has_navmesh
+
+
 ## The direction this enemy is actually looking (its vision shape points this way),
 ## in radians, in global space. Public because the debug tools and the probe use it.
 func facing_angle() -> float:
@@ -141,6 +159,10 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		return
 	_time += delta
+	_nav_check_cd -= delta
+	if _nav_check_cd <= 0.0:
+		_nav_check_cd = NAV_CHECK_INTERVAL
+		_has_navmesh = _navigation_available()
 	_fire_cd = maxf(0.0, _fire_cd - delta)
 	_pause_cd = maxf(0.0, _pause_cd - delta)
 	_react_timer = maxf(0.0, _react_timer - delta)
@@ -480,12 +502,72 @@ func _move_toward(target: Vector2, speed: float, delta: float) -> void:
 	if desired.length_squared() < 1.0:
 		_brake(delta)
 		return
-	var direction: Vector2 = _avoid(desired.normalized())
+	# With a baked navmesh: follow a real path, so enemies come around corners instead
+	# of grinding into them. Without one: steer directly with obstacle probes, which is
+	# worse but means a level is never *broken* by a missing navmesh.
+	var direction: Vector2
+	if _has_navmesh:
+		direction = _path_direction(target)
+	else:
+		direction = _avoid(desired.normalized())
+	if direction == Vector2.ZERO:
+		_brake(delta)
+		return
 	velocity = velocity.move_toward(direction * speed, 900.0 * delta)
 
 
 func _brake(delta: float) -> void:
 	velocity = velocity.move_toward(Vector2.ZERO, 1100.0 * delta)
+
+
+#region navigation
+
+## Wires up path finding if the scene has a NavigationAgent2D. A navmesh may or may
+## not exist; that is checked separately and regularly.
+func _setup_navigation() -> void:
+	agent = get_node_or_null("Agent") as NavigationAgent2D
+	if agent == null:
+		return
+	agent.radius = archetype.radius
+	agent.path_desired_distance = maxf(8.0, archetype.radius)
+	agent.target_desired_distance = 14.0
+	agent.path_max_distance = 120.0
+	# No avoidance: enemies are happy to pass through each other, and RVO would add
+	# jitter to the only movement that has to look deliberate.
+	agent.avoidance_enabled = false
+	_has_navmesh = _navigation_available()
+
+
+## The next step along a path to `target`.
+##
+## Paths come from the NavigationServer asynchronously, so the request is only renewed
+## when it actually needs to be: the destination moved, or the agent considers itself
+## arrived somewhere we do not.
+func _path_direction(target: Vector2) -> Vector2:
+	var stale: bool = not _path_target_valid
+	stale = stale or _path_target.distance_to(target) > REPATH_DISTANCE
+	stale = stale or (agent.is_target_reached()
+		and global_position.distance_to(target) > REPATH_DISTANCE)
+	if stale:
+		agent.target_position = target
+		_path_target = target
+		_path_target_valid = true
+	var step: Vector2 = agent.get_next_path_position() - global_position
+	if step.length_squared() < 1.0:
+		return Vector2.ZERO
+	return step.normalized()
+
+
+## A navmesh exists when the agent's navigation map has at least one region in it.
+func _navigation_available() -> bool:
+	if agent == null or not agent.is_inside_tree():
+		return false
+	var map: RID = agent.get_navigation_map()
+	if not map.is_valid():
+		return false
+	return not NavigationServer2D.map_get_regions(map).is_empty()
+
+#endregion
 
 
 ## Crude but effective obstacle avoidance: probe ahead, and if something is in the

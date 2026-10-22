@@ -41,6 +41,7 @@ var _brush_button: CheckButton = null
 var _lint_button: Button = null
 var _enemy_button: CheckButton = null
 var _enemy_type: OptionButton = null
+var _nav_button: Button = null
 
 var _brush_on: bool = false
 var _dragging: bool = false
@@ -93,6 +94,15 @@ func _enter_tree() -> void:
 	_enemy_button.toggled.connect(_on_enemy_toggled)
 	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _enemy_button)
 
+	_nav_button = Button.new()
+	_nav_button.text = "Bake navmesh"
+	_nav_button.tooltip_text = ("Bake a navigation mesh for this level from its Wall nodes, "
+		+"so enemies path around corners instead of grinding into them.\n"
+		+"One click: it creates and positions the navigation polygon itself. Re-bake after "
+		+"moving walls (the linter reports a mesh that no longer matches the level).")
+	_nav_button.pressed.connect(bake_navmesh)
+	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _nav_button)
+
 	_lint_button = Button.new()
 	_lint_button.text = "Lint level"
 	_lint_button.tooltip_text = ("Check this level for problems: no spawn, no exit, exits that go "
@@ -116,6 +126,10 @@ func _exit_tree() -> void:
 		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _enemy_type)
 		_enemy_type.queue_free()
 		_enemy_type = null
+	if _nav_button != null:
+		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _nav_button)
+		_nav_button.queue_free()
+		_nav_button = null
 	if _lint_button != null:
 		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _lint_button)
 		_lint_button.queue_free()
@@ -584,7 +598,8 @@ func _focus_target_parent() -> void:
 
 
 func _is_content_node(node: Node) -> bool:
-	return node is Wall or node is Enemy or node is Pickup or node is ExitZone or node is Lamp
+	return (node is Wall or node is Enemy or node is Pickup or node is ExitZone
+		or node is Lamp or node is NavigationRegion2D)
 
 
 func _create_wall(rect: Rect2) -> void:
@@ -603,6 +618,72 @@ func _create_wall(rect: Rect2) -> void:
 	# Keep the container selected, not the new wall: canvas input forwarding follows
 	# the selection, and the whole point is to draw several walls in a row.
 	_focus_target_parent()
+
+#endregion
+
+
+#region navmesh
+
+## Bakes a navigation mesh for the open level from its Wall nodes.
+##
+## One click, no hand-drawn polygons: `NavmeshBaker` points the polygon at the level's
+## static colliders as obstacles and gives it a single outline around everything, so
+## the walkable area falls out of the geometry itself. Re-run it whenever the walls
+## change -- the linter reports a mesh that no longer matches the level.
+func bake_navmesh() -> void:
+	var root: Node = get_tree().edited_scene_root
+	if root == null:
+		print_rich("[b]Navmesh[/b]: no scene open.")
+		return
+	var walls: Array[Wall] = _walls_under(root)
+	if walls.is_empty():
+		push_warning("Navmesh: this level has no Wall nodes to bake from.")
+		return
+
+	var region: NavigationRegion2D = root.find_child("Nav", true, false) as NavigationRegion2D
+	var creating: bool = region == null
+	if creating:
+		region = NavigationRegion2D.new()
+		region.name = "Nav"
+
+	# Bake into a fresh polygon, so the undo step is a plain swap between the old mesh
+	# and the new one.
+	var polygon := NavigationPolygon.new()
+	var undo: EditorUndoRedoManager = get_undo_redo()
+	undo.create_action("Bake navmesh")
+	if creating:
+		undo.add_do_method(root, "add_child", region, true)
+		undo.add_do_method(region, "set_owner", root)
+		undo.add_undo_method(root, "remove_child", region)
+		undo.add_do_reference(region)
+	elif region.navigation_polygon != null:
+		undo.add_undo_property(region, "navigation_polygon",
+			region.navigation_polygon.duplicate(true))
+	undo.add_do_property(region, "navigation_polygon", polygon)
+	undo.commit_action()
+
+	_report_navmesh(NavmeshBaker.bake(region, walls))
+
+
+func _report_navmesh(report: Dictionary) -> void:
+	var polygons: int = int(report["polygons"])
+	print_rich("[b]Navmesh[/b] - baked from %d walls into %d convex polygon(s)." % [
+		int(report["walls"]), polygons])
+	if polygons == 0:
+		push_warning("Navmesh: baking produced no polygons, so enemies will steer directly "
+			+ "instead. Check that the level's geometry is made of Wall nodes.")
+	else:
+		print("  Re-bake after moving walls; the linter says when the mesh is stale.")
+
+
+func _walls_under(root: Node) -> Array[Wall]:
+	var out: Array[Wall] = []
+	for child: Node in root.get_children():
+		var wall := child as Wall
+		if wall != null:
+			out.append(wall)
+		out.append_array(_walls_under(child))
+	return out
 
 #endregion
 

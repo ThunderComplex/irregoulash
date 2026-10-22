@@ -234,6 +234,32 @@ const SCENARIOS: Dictionary = {
 			"points": {"lamp_pool_lit": Vector2(-240.0, -300.0)},
 		},
 	],
+	## Bake a navmesh at runtime and verify it: that the server knows about it, that
+	## enemies pick it up, and that its paths never cross walls.
+	"navmesh": [
+		{
+			"bake_navmesh": true,
+			"wait": 0.8,
+			"navmesh_report": true,
+			"shot": "navmesh_after_bake",
+		},
+		{
+			# Give the periodic check time to notice the mesh, then confirm enemies
+			# switched from steering to pathing.
+			"wait": 1.0,
+			"navmesh_report": true,
+		},
+		{
+			# And that they can actually close in: everyone is told where the player is
+			# and given three seconds to path there. Distances in the report should
+			# shrink, and nobody should end up inside a wall.
+			"alert_all": true,
+			"god": true,
+			"wait": 3.0,
+			"report": true,
+			"shot": "navmesh_chase",
+		},
+	],
 	## Lint every level (the same checks the editor plugin's button runs).
 	"lint": [
 		{
@@ -285,6 +311,9 @@ func _ready() -> void:
 	await _run(scenario)
 	print("[probe] done")
 	get_tree().quit()
+
+
+var _probe_region: NavigationRegion2D = null
 
 
 func _arg(name: String) -> String:
@@ -412,6 +441,14 @@ func _run(scenario: String) -> void:
 		if step.has("keys_press"):
 			for action: String in step["keys_press"]:
 				Input.action_press(action)
+		# Actions happen *before* the wait, observations after it: a step that says
+		# "bake the mesh, wait, then report" has to bake first.
+		if step.has("bake_navmesh"):
+			_bake_navmesh_runtime()
+		if step.has("alert_all"):
+			var alerted: Node = GameDirector.current_level
+			if alerted != null and alerted.has_method("debug_alert_all"):
+				alerted.call("debug_alert_all")
 
 		# Holding is expressed as a longer wait; keeping the naming separate makes
 		# the scenarios read better.
@@ -455,6 +492,8 @@ func _run(scenario: String) -> void:
 			_report_facing()
 		if step.has("lint_levels"):
 			_lint_levels()
+		if step.has("navmesh_report"):
+			_report_navmesh()
 		if step.has("shot"):
 			await _screenshot(String(step["shot"]))
 		if step.has("walls"):
@@ -586,6 +625,94 @@ func _report_facing() -> void:
 			enemy.archetype.id, Enemy.STATE_NAMES[enemy.state], looking, drawn,
 			rad_to_deg(nose_error), to_player, rad_to_deg(aim_error),
 		])
+
+
+## Bakes a navigation mesh for the running level at runtime, with the same baker the
+## editor's "Bake navmesh" button uses. Nothing is written to the level file: this
+## exists so path finding can be verified as part of a probe run.
+func _bake_navmesh_runtime() -> void:
+	var level: Node = GameDirector.current_level
+	if level == null or not is_instance_valid(level):
+		print("[probe] no level to bake a navmesh for")
+		return
+	var walls: Array[Wall] = []
+	for node: Node in get_tree().get_nodes_in_group("wall"):
+		var wall := node as Wall
+		if wall != null and wall.is_inside_tree():
+			walls.append(wall)
+	if walls.is_empty():
+		print("[probe] no walls to bake from")
+		return
+	_probe_region = NavigationRegion2D.new()
+	_probe_region.name = "ProbeNav"
+	level.add_child(_probe_region)
+	var report: Dictionary = NavmeshBaker.bake(_probe_region, walls)
+	print("[probe] baked navmesh from %d walls -> %d polygon(s)" % [
+		report["walls"], report["polygons"]])
+
+
+## Verifies a navmesh: that the server knows about it, that enemies have picked it up,
+## and that the paths it hands out actually respect the geometry.
+func _report_navmesh() -> void:
+	if _probe_region == null or not is_instance_valid(_probe_region):
+		print("[probe] no navmesh to report on (bake one first)")
+		return
+	var map: RID = _probe_region.get_navigation_map()
+	var regions: Array = NavigationServer2D.map_get_regions(map)
+	print("[probe] navmesh: %d region(s) registered, iteration %d" % [
+		regions.size(), NavigationServer2D.map_get_iteration_id(map)])
+	if regions.is_empty():
+		return
+
+	var enemies: Variant = GameDirector.current_level.get("enemies")
+	var using: int = 0
+	var total: int = 0
+	if enemies != null:
+		for entry: Variant in (enemies as Array):
+			if not is_instance_valid(entry):
+				continue
+			var enemy := entry as Enemy
+			if enemy == null or enemy.is_dead():
+				continue
+			total += 1
+			if enemy.uses_navmesh():
+				using += 1
+	print("[probe] enemies pathing: %d/%d" % [using, total])
+
+	var level: Node2D = GameDirector.current_level as Node2D
+	var space: PhysicsDirectSpaceState2D = level.get_world_2d().direct_space_state
+	# Endpoints are sampled *on* the navmesh, so they are guaranteed to be walkable.
+	# Both raw paths and corner-cut ones are tested.
+	for optimize: bool in [false, true]:
+		var checked: int = 0
+		var crossings: int = 0
+		for i: int in 12:
+			var from: Vector2 = NavigationServer2D.map_get_random_point(map, 1, true)
+			var to: Vector2 = NavigationServer2D.map_get_random_point(map, 1, true)
+			if from.distance_squared_to(to) < 4096.0:
+				continue
+			var path: PackedVector2Array = NavigationServer2D.map_get_path(map, from, to, optimize, 1)
+			if path.size() < 2:
+				continue
+			checked += 1
+			crossings += _wall_crossings(path, space)
+		print("[probe] paths (optimize=%s): %d checked, %d wall crossings" % [
+			optimize, checked, crossings])
+
+
+## How many segments of a polyline pass through a wall.
+func _wall_crossings(path: PackedVector2Array, space: PhysicsDirectSpaceState2D) -> int:
+	var crossings: int = 0
+	for i: int in range(path.size() - 1):
+		var from: Vector2 = path[i]
+		var to: Vector2 = path[i + 1]
+		if from.distance_squared_to(to) < 1.0:
+			continue
+		var query := PhysicsRayQueryParameters2D.create(from, to, Layers.WORLD)
+		query.hit_from_inside = false
+		if not space.intersect_ray(query).is_empty():
+			crossings += 1
+	return crossings
 
 
 ## Lints every level scene. This runs inside a real game run rather than as a

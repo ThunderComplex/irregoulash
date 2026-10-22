@@ -165,6 +165,10 @@ maps, the editor's own error log) rather than guessed at.
 	  cue for which way an enemy's vision cone points — was permanently off by up to
 	  133°. Measured, then fixed, then measured again (`nose_err` is 0.0° in all states)
 - [x] Pickup and exit lights now cast shadows; they were leaking light through walls
+- [x] Enemy navigation is a navigation mesh baked from the level's walls by one click in
+      the plugin ("Bake navmesh"), with direct steering as the fallback for levels that
+      have none. Verified by baking at runtime and raycasting every sampled path against
+      the geometry: 24 paths, 0 wall crossings
 - [x] Lamps are gated on line of sight: a lamp the player can neither see nor stand
 	  inside no longer lights the world for them, so sealed rooms stay dark
 
@@ -173,8 +177,9 @@ maps, the editor's own error log) rather than guessed at.
 - Per-pixel visibility from the player (a screen-space shadow pass) would remove the
   last case where a lit room reveals what is inside it, including things behind its own
   furniture. Too expensive for a WIP; see the decision table in `DESIGN_NOTES.md`.
-- Enemy navigation is steering with whisker raycasts, not a navigation mesh — they come
-  around corners, but can wedge on awkward geometry.
+- Enemy navigation is a baked mesh now, but agents do not avoid *each other*: a group
+  converging on the player will overlap. (`NavigationAgent2D.avoidance_enabled` is the
+  switch; it needs tuning for jitter.)
 - Quitting with a sound playing prints a spurious "leaked ObjectDB instances" warning
   (engine-side, documented in the README).
 - The levels are still first drafts: cover and lamp placement will matter more than

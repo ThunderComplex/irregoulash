@@ -81,11 +81,11 @@ Walk over weapons, ammo and medkits to pick them up.
   install and every entity is a clean silhouette.
 - **In-editor authoring tools** (`addons/level_tools/`): a wall brush (drag to draw
   walls, with undo), an enemy tool (pick an archetype, click to place, click again to
-  lay out its patrol route, right-click to finish — one route per enemy), editor
-  gizmos for everything (enemies with facing wedges and vision cones, patrol routes
-  with direction arrows, labelled pickups and exits, camera bounds, the spawn point's
-  vision reach), an opt-in lighting preview, and a level linter. See
-  `docs/LEVEL_AUTHORING.md`.
+  lay out its patrol route, right-click to finish — one route per enemy), a one-click
+  **Bake navmesh** that generates enemy path finding from the walls, editor gizmos for
+  everything (enemies with facing wedges and vision cones, patrol routes with direction
+  arrows, labelled pickups and exits, camera bounds, the spawn point's vision reach), an
+  opt-in lighting preview, and a level linter. See `docs/LEVEL_AUTHORING.md`.
 
 ## What is deliberately *not* in this WIP
 
@@ -191,10 +191,10 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path . --import
   authority on their own senses, and lamps plus wall memory are your
   counterweight), but it does mean an unaware enemy can spot you before you can
   see them. Tuning it is one number: `Tuning.enemy_sight_range`.
-- **Enemies use steering with whisker raycasts, not a navigation mesh.** They
-  navigate rooms and doorways fine and will come around corners, but they can
-  wedge themselves on awkward geometry. A `NavigationRegion2D` bake is the
-  obvious upgrade.
+- **Enemy navigation is baked per level.** Enemies path with a navigation mesh
+  generated from the walls by the plugin's **Bake navmesh** button; a level without one
+  falls back to direct steering, which is worse around corners. Re-bake after moving
+  walls — the linter reports when the mesh no longer matches the level.
 - **Levels are hand-laid-out ASCII, and the layouts are first drafts.** They are
   completable and linted, not tuned. Expect to want to move cover around.
 - **The HUD is built in code**, not as a scene, so it cannot be nudged around in
