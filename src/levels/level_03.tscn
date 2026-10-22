@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cm18cddlcskw1" path="res://src/levels/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
+[ext_resource type="Script" uid="uid://42vdeppvwt1a" path="res://src/levels/wall.gd" id="3_2bp2o"]
 [ext_resource type="PackedScene" path="res://src/levels/lamp.tscn" id="3_lamp"]
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="4_enemy"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]
@@ -22,36 +23,35 @@ metadata/_edit_lock_ = true
 
 [node name="Walls" type="Node2D" parent="." unique_id=489981281]
 
-[node name="WallTop" parent="Walls" unique_id=17300684 instance=ExtResource("2_wall")]
-position = Vector2(640, 32)
-size = Vector2(1280, 64)
+[node name="DrawnWall1" type="StaticBody2D" parent="Walls" unique_id=914626189 instance=ExtResource("2_wall")]
+position = Vector2(496, 16)
+collision_mask = 0
+script = ExtResource("3_2bp2o")
+size = Vector2(992, 32)
 
-[node name="WallBottom" parent="Walls" unique_id=78466082 instance=ExtResource("2_wall")]
-position = Vector2(640, 736)
-size = Vector2(1280, 64)
+[node name="DrawnWall2" type="StaticBody2D" parent="Walls" unique_id=501171098 instance=ExtResource("2_wall")]
+position = Vector2(1008, 352)
+collision_mask = 0
+script = ExtResource("3_2bp2o")
+size = Vector2(32, 704)
 
-[node name="WallLeft" parent="Walls" unique_id=2006809252 instance=ExtResource("2_wall")]
-position = Vector2(32, 384)
-size = Vector2(64, 768)
+[node name="DrawnWall3" type="StaticBody2D" parent="Walls" unique_id=943275266 instance=ExtResource("2_wall")]
+position = Vector2(1136, 720)
+collision_mask = 0
+script = ExtResource("3_2bp2o")
+size = Vector2(288, 32)
 
-[node name="WallRight" parent="Walls" unique_id=1136490913 instance=ExtResource("2_wall")]
-position = Vector2(1248, 384)
-size = Vector2(64, 768)
+[node name="DrawnWall4" type="StaticBody2D" parent="Walls" unique_id=1659130937 instance=ExtResource("2_wall")]
+position = Vector2(1264, 832)
+collision_mask = 0
+script = ExtResource("3_2bp2o")
+size = Vector2(32, 192)
 
-[node name="DividerUpper" parent="Walls" unique_id=1852971389 instance=ExtResource("2_wall")]
-position = Vector2(640, 207)
-size = Vector2(64, 287)
-color = Color(0.45, 0.4, 0.34, 1)
-
-[node name="DividerLower" parent="Walls" unique_id=852049043 instance=ExtResource("2_wall")]
-position = Vector2(640, 609)
-size = Vector2(64, 287)
-color = Color(0.45, 0.4, 0.34, 1)
-
-[node name="Pillar" parent="Walls" unique_id=189256165 instance=ExtResource("2_wall")]
-position = Vector2(950, 384)
-size = Vector2(96, 96)
-color = Color(0.36, 0.38, 0.46, 1)
+[node name="DrawnWall5" type="StaticBody2D" parent="Walls" unique_id=1695043896 instance=ExtResource("2_wall")]
+position = Vector2(624, 912)
+collision_mask = 0
+script = ExtResource("3_2bp2o")
+size = Vector2(1248, 32)
 
 [node name="Routes" type="Node2D" parent="." unique_id=1877469654]
 
@@ -70,7 +70,7 @@ position = Vector2(220, 384)
 [node name="Lamps" type="Node2D" parent="." unique_id=1513915081]
 
 [node name="Lamp0" parent="Lamps" unique_id=942547430 instance=ExtResource("3_lamp")]
-position = Vector2(1030, 180)
+position = Vector2(1098, 296)
 radius = 210.0
 flicker = false
 

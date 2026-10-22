@@ -44,7 +44,12 @@ var _dragging: bool = false
 var _drag_start: Vector2 = Vector2.ZERO
 var _drag_rect: Rect2 = Rect2()
 var _preview: Wall = null
+## The container walls are drawn into. Resolved once and kept, so drawing does not
+## depend on whatever happens to be selected.
 var _target_parent: Node = null
+## The node this plugin last put into the selection itself, so a selection that is
+## *not* this can be recognised as the user picking a different container.
+var _our_selection: Node = null
 ## Raw event positions, used only as a last-resort pointer fallback.
 var _last_event_position: Vector2 = Vector2.ZERO
 var _reported_sources: bool = false
@@ -56,16 +61,18 @@ func _enter_tree() -> void:
 	_brush_button = CheckButton.new()
 	_brush_button.text = "Wall brush"
 	_brush_button.tooltip_text = ("Left-drag to draw a wall. Drag along an axis for a wall band, "
-		+ "diagonally for a rectangle, click for a block.\nCtrl = square, Alt = no snap, "
-		+ "right-click or Esc = cancel.\nWalls are created in the selected Node2D, or in "
-		+ "\"Walls\".\nTurn the brush off to select and move nodes again.")
+		+"diagonally for a rectangle, click for a block.\nCtrl = square, Alt = no snap, "
+		+"right-click or Esc = cancel.\nWalls go into the container the brush is pinned to "
+		+"(a selected Node2D, else \"Walls\"), which stays selected so you can keep drawing.\n"
+		+"Select a different Node2D in the Scene dock to redirect it. Turn the brush off to "
+		+"select, move and resize nodes.")
 	_brush_button.toggled.connect(_on_brush_toggled)
 	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _brush_button)
 
 	_lint_button = Button.new()
 	_lint_button.text = "Lint level"
 	_lint_button.tooltip_text = ("Check this level for problems: no spawn, no exit, exits that go "
-		+ "nowhere, content inside walls, broken patrol routes, unreachable content.")
+		+"nowhere, content inside walls, broken patrol routes, unreachable content.")
 	_lint_button.pressed.connect(lint_level)
 	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _lint_button)
 
@@ -93,6 +100,10 @@ func _on_brush_toggled(on: bool) -> void:
 	_brush_on = on
 	if not on:
 		_cancel_drag()
+		return
+	# Anchor the brush to a container and select it, so the editor keeps forwarding
+	# canvas input and the first drag already goes to the right place.
+	_resolve_target_parent()
 
 #endregion
 
@@ -201,7 +212,7 @@ func _begin_drag(world: Vector2) -> void:
 	var root: Node = get_tree().edited_scene_root
 	if root == null:
 		return
-	_target_parent = _wall_parent(root)
+	_target_parent = _resolve_target_parent()
 	if _target_parent == null:
 		return
 	_report_pointer_once(world)
@@ -285,15 +296,53 @@ func _rect_between(from: Vector2, to: Vector2) -> Rect2:
 
 #region wall creation
 
-## Where a drawn wall should go: the selected Node2D, else a node named "Walls",
-## else the scene root. Never inside level content.
-func _wall_parent(root: Node) -> Node:
+## Where a drawn wall should go, resolved once and then remembered.
+##
+## The editor forwards canvas input based on what is selected, and this used to be
+## re-derived from the selection on every drag while drawing *changed* the selection
+## to the new wall -- so after the first wall the brush had to guess at a parent and
+## stopped behaving. Now:
+##   * a selection that is not the one this plugin made means the user picked a
+##     different container, so that wins,
+##   * otherwise the remembered container is reused (draw wall after wall),
+##   * and failing all that, the conventional "Walls" node, else the scene root.
+func _resolve_target_parent() -> Node:
+	var root: Node = get_tree().edited_scene_root
+	if root == null:
+		return null
+
 	var selection: Array = get_editor_interface().get_selection().get_selected_nodes()
 	for node: Node in selection:
-		if node is Node2D and not _is_content_node(node):
-			return node
-	var container: Node = root.find_child("Walls", true, false)
-	return container if container != null else root
+		if node is Node2D and not _is_content_node(node) and node != _our_selection:
+			_target_parent = node
+			_focus_target_parent()
+			return _target_parent
+
+	if _target_parent != null and is_instance_valid(_target_parent):
+		return _target_parent
+
+	_target_parent = root.find_child("Walls", true, false)
+	if _target_parent == null:
+		_target_parent = root
+	_focus_target_parent()
+	return _target_parent
+
+
+## Puts the drawing container back in the selection, and remembers that this selection
+## was ours. Keeping a plain Node2D selected is what lets canvas input keep reaching
+## the plugin, so the brush can be used over and over without touching the Scene dock.
+func _focus_target_parent() -> void:
+	if _target_parent == null or not is_instance_valid(_target_parent):
+		return
+	_our_selection = _target_parent
+	var selection: EditorSelection = get_editor_interface().get_selection()
+	if selection == null:
+		return
+	var current: Array = selection.get_selected_nodes()
+	if current.size() == 1 and current[0] == _target_parent:
+		return
+	selection.clear()
+	selection.add_node(_target_parent)
 
 
 func _is_content_node(node: Node) -> bool:
@@ -328,9 +377,9 @@ func _create_wall(rect: Rect2) -> void:
 	undo.add_do_reference(wall)
 	undo.commit_action()
 
-	var selection: EditorSelection = get_editor_interface().get_selection()
-	if selection != null:
-		selection.add_node(wall)
+	# Keep the container selected, not the new wall: canvas input forwarding follows
+	# the selection, and the whole point is to draw several walls in a row.
+	_focus_target_parent()
 
 #endregion
 

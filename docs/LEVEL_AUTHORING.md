@@ -53,6 +53,12 @@ While the brush is on it takes over left-clicks in the viewport, so **turn it of
 select, move or resize nodes** with the mouse (you can always select from the Scene
 dock).
 
+**The brush stays ready.** It pins itself to a container — the `Node2D` you had
+selected, otherwise the node called `Walls` — and keeps that container selected after
+every wall, so you can draw wall after wall without touching the Scene dock. To send
+walls somewhere else, select a different `Node2D` in the Scene dock (never a `Wall`
+itself: the brush deliberately refuses to nest walls inside level content).
+
 The wall appears as you drag it: the brush creates a real (but unsaved) `Wall` and
 moves it with your drag, so what you see while dragging *is* the geometry you will
 get. Release to keep it, right-click or `Esc` to cancel, `Ctrl+Z` to undo.
