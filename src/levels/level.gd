@@ -1,3 +1,4 @@
+@tool
 class_name Level
 extends Node2D
 ## Base behaviour for every level.
@@ -7,38 +8,76 @@ extends Node2D
 ## by this script or by an autoload, so it is impossible to create a level that
 ## is broken because a required node was forgotten (see AGENTS.md):
 ##
-##   * the black fog (CanvasModulate)      -> created if missing
-##   * the explored-geometry memory        -> created if missing
-##   * the effect layer                    -> created if missing
-##   * the HUD                             -> created if missing
+##   * the black fog (CanvasModulate)      -> created at runtime if missing
+##   * the explored-geometry memory        -> created at runtime if missing
+##   * the effect layer                    -> created at runtime if missing
+##   * the HUD                             -> created at runtime if missing
 ##   * the player                           -> always spawned here, from PlayerSpawn
 ##   * camera limits                        -> derived from the walls themselves
 ##
-## If a spawn marker is missing the player simply starts at the origin, and if
-## there is no exit the level warns instead of breaking.
+## Note that the fog is deliberately *not* part of a level scene: a
+## `CanvasModulate` in an authored scene makes Godot's own 2D editor render that
+## scene black, which makes levels unauthorable. Use `editor_lighting_preview`
+## below if you want to see how the lighting reads while editing.
+##
+## Only content nodes exist in the editor, so this script draws the level's
+## camera bounds and the player's spawn point and vision reach as gizmos.
 
 const PLAYER_SCENE: PackedScene = preload("res://src/player/player.tscn")
 const HUD_SCENE: PackedScene = preload("res://src/ui/hud.tscn")
+## Read only for its exported defaults: autoloads are not available to editor code.
+const TUNING_SCRIPT: GDScript = preload("res://src/autoload/tuning.gd")
+const EDITOR_PREVIEW_NODE: StringName = &"EditorLightingPreview"
 
 @export var level_title: String = "LEVEL"
 @export var objective: String = "Find the way out."
-## Set on every exit that is not the last one; empty means "this is the end".
+## Where this level's non-final exits lead. An exit with no `next_level` of its own
+## falls back to this, so a level with several exits only needs it set once here.
 @export var next_level: PackedScene
 @export var start_weapons: Array[String] = ["pistol"]
 @export var starting_ammo_bonus: int = 0
 
 @export_group("Camera bounds")
 ## Derive the camera limit rectangle from the walls. Recommended.
-@export var auto_bounds: bool = true
+@export var auto_bounds: bool = true:
+	set(value):
+		auto_bounds = value
+		if Engine.is_editor_hint():
+			queue_redraw()
 ## Used when `auto_bounds` is off.
-@export var bounds_rect: Rect2 = Rect2(-900.0, -600.0, 1800.0, 1200.0)
-@export var bounds_margin: float = 90.0
+@export var bounds_rect: Rect2 = Rect2(-900.0, -600.0, 1800.0, 1200.0):
+	set(value):
+		bounds_rect = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+@export var bounds_margin: float = 90.0:
+	set(value):
+		bounds_margin = value
+		if Engine.is_editor_hint():
+			queue_redraw()
 @export var min_bound_size: Vector2 = Vector2(1700.0, 1000.0)
 
 @export_group("Fog")
 @export var fog_color: Color = Color(0.0, 0.0, 0.0, 1.0)
 ## Ambient used by the F4 debug reveal.
 @export var reveal_color: Color = Color(0.34, 0.34, 0.36, 1.0)
+
+@export_group("Editor")
+## Dim the editing viewport so lamp pools and wall shadows are visible while
+## authoring. Off by default, because a dark editing viewport is unusable -- which
+## is exactly why levels no longer contain a fog node.
+@export var editor_lighting_preview: bool = false:
+	set(value):
+		editor_lighting_preview = value
+		if Engine.is_editor_hint():
+			_apply_editor_preview()
+## How dark the preview is. The real fog is black; this only needs to be dark
+## enough for a lamp pool to read.
+@export_range(0.0, 1.0, 0.01) var editor_preview_ambient: float = 0.34:
+	set(value):
+		editor_preview_ambient = value
+		if Engine.is_editor_hint():
+			_apply_editor_preview()
 
 var player: Player = null
 var walls: Array[Wall] = []
@@ -51,8 +90,19 @@ var _fx_layer: Node2D = null
 var _memory: VisionMemory = null
 var _hud: HUD = null
 
+#region editor-only state
+var _gizmo_hash: int = 0
+var _editor_cone_reach: float = 560.0
+var _editor_cone_half: float = deg_to_rad(39.0)
+var _editor_near_radius: float = 115.0
+#endregion
+
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		_editor_ready()
+		return
+	set_process(false)
 	GameDirector.on_level_ready(self)
 	_collect_groups()
 	_ensure_fog()
@@ -72,11 +122,7 @@ func _ready() -> void:
 #region setup
 
 func _collect_groups() -> void:
-	walls.clear()
-	for node: Node in get_tree().get_nodes_in_group("wall"):
-		var wall := node as Wall
-		if wall != null:
-			walls.append(wall)
+	_collect_walls()
 	enemies.clear()
 	for node: Node in get_tree().get_nodes_in_group("enemy"):
 		var enemy := node as Enemy
@@ -88,6 +134,14 @@ func _collect_groups() -> void:
 		var exit := node as ExitZone
 		if exit != null:
 			exits.append(exit)
+
+
+func _collect_walls() -> void:
+	walls.clear()
+	for node: Node in get_tree().get_nodes_in_group("wall"):
+		var wall := node as Wall
+		if wall != null:
+			walls.append(wall)
 
 
 func _ensure_fog() -> void:
@@ -194,6 +248,134 @@ func level_bounds() -> Rect2:
 		rect.position.y -= (min_size.y - size.y) * 0.5
 		rect.size.y = min_size.y
 	return rect
+
+#endregion
+
+
+#region editor gizmo
+
+## Editor-only setup. Never touches autoloads (they are not available to editor
+## code) and never generates nodes that could be written into the level file.
+func _editor_ready() -> void:
+	_collect_editor_objects()
+	_find_spawn_point()
+	_read_tuning_defaults()
+	_apply_editor_preview()
+	_warn_about_missing_content()
+	set_process(true)
+	queue_redraw()
+
+
+## Editor-only gathering: the same groups the runtime uses, but without connecting
+## signals (this runs every editor frame to notice newly added or moved nodes).
+func _collect_editor_objects() -> void:
+	_collect_walls()
+	enemies.clear()
+	for node: Node in get_tree().get_nodes_in_group("enemy"):
+		var enemy := node as Enemy
+		if enemy != null:
+			enemies.append(enemy)
+	exits.clear()
+	for node: Node in get_tree().get_nodes_in_group("exit"):
+		var exit := node as ExitZone
+		if exit != null:
+			exits.append(exit)
+
+
+## The vision numbers live in an autoload, so read the exported defaults off a
+## throwaway instance of that script instead.
+func _read_tuning_defaults() -> void:
+	var tuning: Node = TUNING_SCRIPT.new()
+	_editor_near_radius = tuning.sight_near_radius
+	_editor_cone_reach = tuning.sight_far_range
+	_editor_cone_half = deg_to_rad(tuning.sight_far_degrees * 0.5)
+	tuning.free()
+
+
+## An *unowned* CanvasModulate: Godot only serialises nodes owned by the scene
+## root, so this can never end up saved into a level file.
+func _apply_editor_preview() -> void:
+	var existing: CanvasModulate = get_node_or_null(NodePath(EDITOR_PREVIEW_NODE)) as CanvasModulate
+	if not editor_lighting_preview:
+		if existing != null:
+			existing.free()
+		return
+	var ambient: float = editor_preview_ambient
+	var fog: CanvasModulate = existing
+	if fog == null:
+		fog = CanvasModulate.new()
+		fog.name = String(EDITOR_PREVIEW_NODE)
+		add_child(fog, false, Node.INTERNAL_MODE_DISABLED)
+	fog.color = Color(ambient, ambient, minf(1.0, ambient * 1.08), 1.0)
+
+
+func _process(_delta: float) -> void:
+	# Editor only (see _ready).
+	if not Engine.is_editor_hint():
+		return
+	_collect_editor_objects()
+	var current: int = _editor_state()
+	if current != _gizmo_hash:
+		_gizmo_hash = current
+		queue_redraw()
+
+
+func _editor_state() -> int:
+	var parts: Array = [level_bounds(), walls.size()]
+	for wall: Wall in walls:
+		if is_instance_valid(wall):
+			parts.append(wall.world_rect())
+	parts.append(exits.size())
+	var marker := find_child("PlayerSpawn", true, false) as Marker2D
+	parts.append(marker.global_position if marker != null else Vector2.ZERO)
+	return hash(parts)
+
+
+## Draws what the player will actually be able to see, and flags the two mistakes
+## that make a level unplayable. Drawn underneath the walls (the level's own
+## drawing happens before its children), so it lives in open floor space.
+func _draw() -> void:
+	if not Engine.is_editor_hint():
+		return
+	var font: Font = ThemeDB.fallback_font
+	var info := Color(0.62, 0.80, 0.95, 0.7)
+	var warning := Color(1.0, 0.55, 0.4, 0.95)
+
+	var bounds: Rect2 = level_bounds()
+	var corners: Array[Vector2] = [
+		bounds.position,
+		Vector2(bounds.end.x, bounds.position.y),
+		bounds.end,
+		Vector2(bounds.position.x, bounds.end.y),
+	]
+	for i: int in corners.size():
+		draw_dashed_line(corners[i], corners[(i + 1) % corners.size()], Color(info, 0.55), 1.0, 12.0)
+	draw_string(font, bounds.position + Vector2(8.0, 18.0),
+		"camera bounds: how far the camera may follow", HORIZONTAL_ALIGNMENT_LEFT, -1, 12,
+		Color(info, 0.9))
+
+	var marker := find_child("PlayerSpawn", true, false) as Marker2D
+	if marker == null:
+		draw_string(font, Vector2(30.0, 44.0),
+			"no PlayerSpawn marker: the player will start at the origin",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 13, warning)
+	else:
+		var origin: Vector2 = to_local(marker.global_position)
+		var faint := Color(0.55, 0.85, 1.0, 0.25)
+		draw_arc(origin, _editor_near_radius, 0.0, TAU, 28, faint, 1.0)
+		draw_arc(origin, _editor_cone_reach, -_editor_cone_half, _editor_cone_half, 40, faint, 1.0)
+		draw_line(origin, origin + Vector2.from_angle(-_editor_cone_half) * _editor_cone_reach,
+			faint, 1.0)
+		draw_line(origin, origin + Vector2.from_angle(_editor_cone_half) * _editor_cone_reach,
+			faint, 1.0)
+		draw_circle(origin, 8.0, Color(0.55, 0.85, 1.0, 0.85))
+		draw_string(font, origin + Vector2(13.0, -13.0), "spawn + vision reach",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.75, 0.92, 1.0, 0.9))
+
+	if exits.is_empty():
+		draw_string(font, Vector2(30.0, 66.0),
+			"no ExitZone in this level: it cannot be finished",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 13, warning)
 
 #endregion
 

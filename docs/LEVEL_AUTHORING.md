@@ -5,39 +5,189 @@ Two rules, straight from `AGENTS.md`:
 1. **Making a level must be easy.**
 2. **It must not be possible to break a level by forgetting a node.**
 
-Both are handled by `src/levels/level.gd`. A level scene contains *only*
-content — walls, lamps, enemies, pickups, exits and marker points. Everything the
-game needs in order to function is created by the base script if it is missing:
+Both are handled by `src/levels/level.gd`. A level scene contains *only* content —
+walls, lamps, enemies, pickups, exits and marker points:
 
 | Thing | If it is missing from the level scene |
 |---|---|
-| Black fog (`CanvasModulate`) | created by `Level` |
-| Explored-geometry memory | created by `Level` |
-| Effect layer (bullets, blood, sparks) | created by `Level` |
-| HUD | created by `Level` |
+| Black fog (`CanvasModulate`) | created at runtime by `Level` |
+| Explored-geometry memory | created at runtime by `Level` |
+| Effect layer (bullets, blood, sparks) | created at runtime by `Level` |
+| HUD | created at runtime by `Level` |
 | Player | always spawned by `Level`, at the `PlayerSpawn` marker |
 | Camera limits | derived from the walls |
 | Spawn marker | falls back to the origin, with a warning |
 | Exit | warns loudly at load, does not crash |
 
-So a new level is: **walls + a spawn marker + an exit.** Everything else is
-optional.
+So a new level is: **walls + a spawn marker + an exit.**
+
+> **Never put a `CanvasModulate` (the fog) in a level scene.** Godot's 2D editor
+> renders the scene you are editing *through* it, so a black fog node turns the
+> editing viewport black and makes the level unauthorable. `Level` creates the fog
+> at runtime. To see how a level reads in the dark, turn on `editor_lighting_preview`
+> (below) or run it and press `F4`.
 
 ---
 
-## Fastest way: the ASCII builder
+## Drawing walls: the wall brush
 
-`dev/build_levels.gd` turns a text map into a real, editable scene. Edit the maps
-at the top of that file, run:
+Levels are authored in Godot's own 2D editor, using the **Level Tools** plugin
+(`addons/level_tools/`, enabled in Project Settings). In the 2D editor's toolbar
+you get two buttons:
+
+- **Wall brush** (toggle)
+- **Lint level** (button)
+
+With the brush on, left-drag in the viewport:
+
+| Gesture | Result |
+|---|---|
+| Drag along an axis | a wall band, 64px thick, along that axis |
+| Drag diagonally | a rectangle (rooms, blocks, big open-plan shapes) |
+| Click without dragging | a 64px block |
+| Hold `Ctrl` | force a square |
+| Hold `Alt` | ignore grid snapping (32px) |
+| Right-click or `Esc` while dragging | cancel |
+
+While the brush is on it takes over left-clicks in the viewport, so **turn it off to
+select, move or resize nodes** with the mouse (you can always select from the Scene
+dock).
+
+The wall appears as you drag it: the brush creates a real (but unsaved) `Wall` and
+moves it with your drag, so what you see while dragging *is* the geometry you will
+get. Release to keep it, right-click or `Esc` to cancel, `Ctrl+Z` to undo.
+
+> Note for anyone touching the brush code: the 2D editor delivers canvas input
+> events in **editor window** coordinates, and the 2D viewport does *not* sit at the
+> window's origin — the docks and toolbar offset it right and down. Converting a raw
+> event position therefore places the wall down-and-right of the mouse by exactly
+> that offset. The brush asks `Viewport.get_mouse_position()` instead, which is in the
+> viewport's own coordinates — the space `get_canvas_transform()` expects — and it
+> prints what the cursor resolved to once, on the first drag.
+>
+> There used to be an on-canvas preview rectangle drawn through the editor's overlay
+> API as well. The overlay draws in *window* space, so it reintroduced exactly this
+> offset bug (twice, in opposite directions). It is gone; the in-scene wall is the
+> preview.
+
+Walls are created through the editor's undo history (**Ctrl+Z** works), and they
+land in:
+
+1. the currently selected `Node2D` — so **select the `Walls` node first** if you
+   want them grouped,
+2. otherwise a node named `Walls`,
+3. otherwise the scene root.
+
+A drawn wall is an ordinary `Wall` node afterwards: select it and change `size` or
+`color` in the inspector, drag it around, copy/paste it, whatever you like.
+
+### Why walls are one property
+
+`Wall` is authored as **one** property, `size`. From it the script generates the
+collider, the light occluder, the visual and the explored-geometry memory copy.
+Because the occluder is generated, a level cannot be "almost right" — there is no
+way to place a wall that blocks movement but not light, or to forget the occluder
+entirely.
+
+---
+
+## What you can see while editing
+
+The second half of authoring well is being able to *read* a level without running
+it. Everything below is drawn in the editor by `@tool` code:
+
+| What | What it draws |
+|---|---|
+| `Enemy` | body, a **facing wedge** (this is exactly the direction its vision cone follows), a faint outline of that cone, its archetype name, and either `wanders here` or a warning if its `patrol_route` is broken |
+| `PatrolRoute` | the path as a dashed line, **arrows for direction of travel**, numbered waypoints, and a link line from every enemy that patrols it |
+| `Pickup` | a symbol coloured by kind plus a label (`SMG`, `AMMO 40`, `MEDKIT 35`, `WEAPON UPGRADE`) |
+| `ExitZone` | a ring plus its destination (`TO: LEVEL_02`, or `FINAL EXIT: WINS THE RUN`) |
+| `Lamp` | the fixture, its radius, and (thanks to a `GradientTexture2D` baked into `lamp.tscn`) a real light with real shadows |
+| `Level` | the **camera bounds** (how far the camera may follow), the spawn point, **the player's vision reach and cone** at the spawn, and a warning if there is no `ExitZone` |
+
+### Lighting preview
+
+`Level` has an **Editor → Editor Lighting Preview** toggle. Turn it on and the
+editing viewport is dimmed to `editor_preview_ambient` (default 0.34) so lamp
+pools, wall shadows and dark corners read while you are laying things out — you
+can author the lighting, not just the geometry.
+
+It is off by default, because Godot's 2D editor already renders lights and
+shadows: with no fog in the scene you see everything at full material colour and
+the lamps on top of that. The preview node is added as an *unowned* child, and
+Godot does not serialise children that are not owned by the scene root, so it can
+never end up saved into a level file. (That rule is tested by
+`dev/check_scene_hygiene.gd`.)
+
+---
+
+## Patrol routes
+
+`PatrolRoute` is a `Node2D` whose `Marker2D` children are the waypoints, in tree
+order.
+
+1. Add a `PatrolRoute` (e.g. under a `Routes` node).
+2. Add two or more `Marker2D` children and drag them where you want the patrol to
+   go — the path, arrows and numbered points update as you drag.
+3. On each enemy, set **`patrol_route`** to that node (drag the node from the
+   Scene dock into the property, or use the node picker).
+
+The route draws a link line from every enemy that uses it, and an enemy with a
+route that does not resolve says so on itself. An enemy with no route uses
+`wander_radius` instead, which is a good fit for "stand here and scan" posts and
+for loose roaming.
+
+Routes live in the level rather than under the enemy on purpose: they must not
+move when the enemy does, and several enemies can share one.
+
+---
+
+## Linting a level
+
+**Lint level** in the toolbar (or the command below) reports the mistakes that
+make a level unplayable:
+
+- no `PlayerSpawn` marker (`Level` falls back to the origin and warns)
+- no `ExitZone`
+- an exit that is neither final nor has a `next_level`
+- an enemy whose `patrol_route` does not resolve, or is not a `PatrolRoute`
+- a patrol route with fewer than two waypoints
+- any enemy, pickup, exit or spawn point sitting inside a wall
+- **content the player cannot actually walk to** (flood fill from the spawn)
+
+When it finds a reachability problem it also prints a small map — `#` wall, `.`
+walkable, ` ` sealed off — because that is the fastest way to see which room is
+cut off.
+
+From a terminal (works headlessly, exits non-zero if anything is wrong, so it can
+be a pre-commit hook):
+
+```
+Godot_v4.7.2-stable_win64_console.exe --headless --path . \
+	res://src/ui/title_screen.tscn -- --probe=lint
+```
+
+It is approximate: reachability is rasterised onto a 32px grid, so a gap narrower
+than about 32px reads as sealed even though the player (a 28px circle) might
+technically squeeze through.
+
+---
+
+## The ASCII builder (optional, for roughing out a layout)
+
+`dev/build_levels.gd` turns a text map into a real, editable scene:
 
 ```
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://dev/build_levels.gd
 ```
 
-and it writes `src/levels/level_XX.tscn`. Open that scene in the editor and tweak
-it by hand afterwards if you like — from that point on it is an ordinary scene.
+It is a *sketching* tool, not the workflow — it is grid-locked to 64px and cannot
+express what the editor can. It is handy for blocking out a layout quickly, and it
+writes ordinary `.tscn` files that you then open and finish by hand. It also lints
+what it builds: uneven rows, entities inside walls, unreachable entities, and a
+missing exit or spawn.
 
-### Legend
+Legend:
 
 ```
 #  wall                      .  / space  floor
@@ -51,118 +201,79 @@ A  ammo pickup     %  medkit       U  weapon upgrade crate
 X  exit to the next level     Z  final exit (wins the run)
 ```
 
-One cell is 64 px. Corridors should be at least 2 cells wide, doorways at least
-2 cells — the player is a 28 px circle and enemies are up to 34 px.
-
-### The builder lints what it builds
-
-- reports rows whose lengths disagree (it pads them and seals the border, so a
-  typo becomes extra floor rather than a hole in the map)
-- reports any entity inside a wall
-- flood-fills from the spawn and reports **anything the player cannot reach** —
-  an unreachable exit or pickup is a hard failure, it will be printed
-- reports a missing exit or spawn
-
-A level that lints clean is guaranteed completable.
-
-### Routes
-
-Route markers `1`/`2`/`3` become `Routes/RouteN` nodes with `Marker2D` children.
-Every *uppercase* enemy is wired to route 1. Assigning an enemy to route 2 or 3
-is a one-field edit afterwards (`patrol_route` on the enemy, e.g.
-`NodePath("../../Routes/Route2")`).
+Every uppercase enemy is wired to route 1; assigning one to route 2 or 3 is a
+one-field edit in the editor afterwards.
 
 ---
 
-## Authoring by hand
-
-Start from `src/levels/level_template.tscn`, or just make a new 2D scene and drop
-the pieces in from the FileSystem dock.
+## Property reference
 
 ### `Wall` — `src/levels/wall.tscn`
-
-The single authoring primitive for solid geometry. You set **one** property:
-`size`. The script generates the collider, the light occluder, the visual and the
-explored-geometry memory copy from it, and updates them live in the editor. The
-occluder is what makes walls block light, and because it is generated you cannot
-forget it.
-
-- `color` — wall colour (it is only ever seen lit, or at ~30% as "memory")
-- `occludes_light` — turn off for railings or glass
+| Property | Meaning |
+|---|---|
+| `size` | the whole story: collider, occluder, visual and memory are generated from it |
+| `color` | wall colour (seen lit, or at ~30% as "memory") |
+| `occludes_light` | turn off for railings or glass |
 
 ### `Lamp` — `src/levels/lamp.tscn`
-
-A static level light. Lamps are your main level-design lever:
-
-- they create **lit pockets**, where enemies are visible to you even outside your
-  cone (and where you are easier for them to notice),
-- they are **blocked by walls**, so they never leak through geometry,
-- the fixture itself is drawn unshaded, so distant lamps read as faint gold
-  beacons in the dark and give the player something to navigate by.
-
-`radius`, `energy`, `color`, `shadows`, `flicker`.
+| Property | Meaning |
+|---|---|
+| `radius`, `energy`, `color` | the light |
+| `shadows` | light respects walls (recommended) |
+| `beacon` | keep the fixture itself visible when unlit |
+| `flicker`, `flicker_amount` | candle-style variation |
 
 ### `Enemy` — `src/enemies/enemy.tscn`
-
-- `archetype_id` — `guard`, `scout` or `heavy`
-- `patrol_route` — a `NodePath` to a container whose `Marker2D` children are the
-  route (routes live in the level, not under the enemy, so they stay put)
-- `wander_radius` — used when there is no route
-- `returns_to_post` — set false for a guard who should hold a position
-- `rotation` — the starting facing; rotate the enemy in the editor to choose
-  which way it is looking when the level starts
-
-No route and no wander radius means the enemy stands still and sweeps its view,
-which is a perfectly good "guard at a door" setup.
+| Property | Meaning |
+|---|---|
+| `archetype_id` | `guard`, `scout` or `heavy` |
+| `patrol_route` | path to a `PatrolRoute`; empty means wander instead |
+| `wander_radius` | how far it roams around its spawn point |
+| `patrol_dwell` | seconds spent standing at each waypoint |
+| `returns_to_post` | false for a guard that should hold a position |
+| `rotation` | its starting facing — rotate it in the editor to choose which way it watches |
 
 ### `Pickup` — `src/items/pickup.tscn`
-
-- `kind` — `weapon`, `ammo`, `upgrade` or `health`
-- `weapon_id` — `pistol`, `smg`, `shotgun` (only for `kind = weapon`)
-- `amount` — ammo rounds or health restored
-
-Pickups light themselves, so they are findable in the dark. That is not optional
-polish: **a pickup the player cannot see does not exist.**
+| Property | Meaning |
+|---|---|
+| `kind` | `weapon`, `ammo`, `upgrade` or `health` |
+| `weapon_id` | `pistol`, `smg`, `shotgun` (for `kind = weapon`) |
+| `amount` | ammo rounds, or health restored |
 
 ### `ExitZone` — `src/levels/exit_zone.tscn`
-
-- `next_level` — a `PackedScene` to load when the player walks in
-- `is_final` — wins the run instead
-
-Exits carry a beacon light and an unshaded marker ("ESCAPE" / "WAY OUT"), and
-they poll for overlapping bodies as well as listening to `body_entered`, so an
-exit still works if the player is teleported or respawned into it.
+| Property | Meaning |
+|---|---|
+| `next_level` | scene to load when the player walks in. Leave empty to use the **level's** `next_level` instead, so several exits can share one target |
+| `is_final` | wins the run instead |
+| `radius` | how big the trigger is |
 
 ### `Level` — the scene root
-
-```
-level_title       shown as a banner on entry
-objective         the line in the top-right of the HUD
-next_level        the scene its (non-final) exits lead to
-start_weapons     weapons the player starts with, if they are not carrying any
-auto_bounds       derive camera limits from the walls (leave on)
-bounds_rect       manual camera limits, used when auto_bounds is off
-bounds_margin     how far past the walls the camera may travel
-min_bound_size    stops the camera clamping awkwardly in small levels
-fog_color         black by default; anything else stops seeing being the point
-reveal_color      ambient used by the F4 debug reveal
-```
-
-Weapons **persist between levels** (`GameDirector.carried_loadout`), so
-`start_weapons` is only used on a fresh run or if a level is launched directly.
+| Property | Meaning |
+|---|---|
+| `level_title`, `objective` | the banner and the line in the top-right |
+| `next_level` | what its non-final exits lead to |
+| `start_weapons` | loadout for a fresh run (weapons carried between levels persist) |
+| `auto_bounds`, `bounds_rect`, `bounds_margin`, `min_bound_size` | camera limits |
+| `fog_color`, `reveal_color` | the runtime fog, and its `F4` debug reveal |
+| `editor_lighting_preview`, `editor_preview_ambient` | the editor-only darkness preview |
 
 ---
 
 ## Checklist for a new level
 
-1. Copy `level_template.tscn` (or add an ASCII map to `dev/build_levels.gd`).
-2. Lay out walls. Keep sightlines interesting: long corridors are dangerous,
-   corners are where the mechanic shines.
-3. Add a `PlayerSpawn` marker.
-4. Add at least one `ExitZone`, set `next_level`, and set `next_level` on the
-   Level root too.
-5. Add lamps so there is something to navigate by.
-6. Add enemies: mix archetypes, give some a route and some a post.
-7. Add 1–2 medkits and ammo — the player has no regeneration.
+1. Duplicate `src/levels/level_template.tscn`.
+2. Turn on the **wall brush**, select a `Walls` node, and draw the layout. Drag
+   along an axis for corridors and walls, diagonally for rooms.
+3. Put a `PlayerSpawn` marker where the player starts.
+4. Add an `ExitZone`. Set its own `next_level`, or set `next_level` once on the
+   level root and let every non-final exit fall back to it. Leave `is_final` off
+   unless it is the last level.
+5. Add lamps — they are the player's only landmarks, and they define where enemies
+   are visible.
+6. Add enemies. Rotate them to set their staring direction, give the ones that
+   should walk a route a `PatrolRoute` with two or more waypoints.
+7. Add a medkit and some ammo. The player has no regeneration.
 8. Set `level_title` and `objective`.
-9. Run the game. Turn on `F4` to check the layout and `F3` to watch the AI.
+9. Press **Lint level**.
+10. Play it. `F3` shows what the AI is thinking, `F4` lifts the fog so you can
+	check the layout, `F2` lets you fly through walls.

@@ -92,6 +92,42 @@ Status: **all phases built, mechanically verified, ready for you to play.**
 - [x] `README.md`, `docs/LEVEL_AUTHORING.md`, `docs/DESIGN_NOTES.md`, this file
 - [x] Debug tools: god mode, noclip, debug readout, reveal, spawn enemy, alert all, give all weapons
 
+## Phase 9 — Level authoring tools (added after the first playtest)
+
+The first authoring pass was disliked for concrete reasons, and they were fair: it
+was text instead of drawing, it was grid-locked, enemies and routes were invisible
+in the editor, and **the level scenes contained a black `CanvasModulate`, which made
+Godot's own 2D editor render them black**. That last one was my bug, not a limitation
+of Godot — and it was most of the reason a separate editor app looked necessary.
+
+Authoring now happens in the Godot editor, not in a separate application:
+
+- [x] Removed the fog from level scenes (created at runtime instead) — this is what
+	  made the 2D editor usable again
+- [x] `PatrolRoute`: waypoints as `Marker2D` children, drawn in the editor as a
+	  dashed path with direction arrows and numbered points, plus a link line from
+	  every enemy that patrols it
+- [x] Editor gizmos for every entity: enemies (facing wedge, vision cone, archetype
+	  name, broken-route warnings), pickups (symbol + label), exits (ring +
+	  destination), the spawn point with the player's vision reach, camera bounds
+- [x] Lamps render real lights and shadows in the editor (a hand-authored
+      `GradientTexture2D` in `lamp.tscn`) instead of only a radius arc
+- [x] Opt-in `editor_lighting_preview` on `Level`, so the *lighting* can be authored
+      and not just the geometry
+- [x] **Wall brush** (`addons/level_tools/`): drag to draw walls, with undo/redo,
+      axis bands vs rectangles, `Ctrl` for squares, `Alt` to ignore snapping, and a
+      live size readout while dragging
+- [x] **`LevelLint`**: no spawn / no exit / an exit that goes nowhere / content buried
+      in walls / broken patrol routes / content the player cannot reach, with a
+      walkability map printed when reachability fails. Runs from the editor button or
+      headlessly via `--probe=lint`
+- [x] Verified: three levels lint clean; the editor loads every scene and the plugin
+      with no errors; runtime behaviour is unchanged (fog, occluders, AI, and the
+      enemy-facing check all still pass)
+- [x] `dev/check_scene_hygiene.gd` proves that (a) saving a level cannot bake
+      generated colliders or occluders into it, and (b) editor-only helper nodes are
+      never serialised, which is what makes the lighting preview safe
+
 ## Phase 8 — Playtest verdict (yours to make)
 
 Things I verified mechanically (screenshots + numeric probes, see `dev/shots/`):

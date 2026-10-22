@@ -374,6 +374,9 @@ func _write_scene(entry: Dictionary, width: int, height: int, walls: Array,
 	var has_next: bool = not next_id.is_empty()
 	if has_next:
 		resources.append('[ext_resource type="PackedScene" path="res://src/levels/%s.tscn" id="7_next"]' % next_id)
+	var routes: Dictionary = entities["routes"]
+	if not routes.is_empty():
+		resources.append('[ext_resource type="Script" path="res://src/levels/patrol_route.gd" id="8_route"]')
 
 	lines.append("[gd_scene load_steps=%d format=3]" % (resources.size() + 1))
 	lines.append("")
@@ -394,10 +397,9 @@ func _write_scene(entry: Dictionary, width: int, height: int, walls: Array,
 		lines.append('next_level = ExtResource("7_next")')
 	lines.append("")
 
-	# --- fog + floor
-	lines.append('[node name="Fog" type="CanvasModulate" parent="."]')
-	lines.append("color = Color(0, 0, 0, 1)")
-	lines.append("")
+	# --- floor (deliberately NO fog node here: a CanvasModulate in the scene turns
+	# Godot's own 2D editor viewport black, which makes levels unauthorable. The fog
+	# is created at runtime by level.gd, so it cannot be forgotten either way.)
 	lines.append('[node name="Floor" type="Polygon2D" parent="."]')
 	lines.append("z_index = -20")
 	lines.append("color = %s" % FLOOR_COLOR)
@@ -424,12 +426,12 @@ func _write_scene(entry: Dictionary, width: int, height: int, walls: Array,
 		i += 1
 
 	# --- patrol routes
-	var routes: Dictionary = entities["routes"]
 	if not routes.is_empty():
 		lines.append('[node name="Routes" type="Node2D" parent="."]')
 		lines.append("")
 		for key: String in routes:
 			lines.append('[node name="Route%s" type="Node2D" parent="Routes"]' % key)
+			lines.append('script = ExtResource("8_route")')
 			lines.append("")
 			var points: Array = routes[key]
 			for p: int in points.size():

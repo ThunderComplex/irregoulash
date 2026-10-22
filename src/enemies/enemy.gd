@@ -1,3 +1,4 @@
+@tool
 class_name Enemy
 extends CharacterBody2D
 ## A line-of-sight-driven enemy with a layered alertness state machine.
@@ -21,10 +22,20 @@ const STATE_NAMES: Array[String] = ["PATROL", "SUSPICIOUS", "ALERT", "SEARCH", "
 ## Perception raycasts run on this slower clock.
 const PERCEPTION_DT: float = 0.15
 
-@export_enum("guard", "scout", "heavy") var archetype_id: String = "guard"
+@export_enum("guard", "scout", "heavy") var archetype_id: String = "guard":
+	set(value):
+		archetype_id = value
+		if Engine.is_editor_hint():
+			archetype = EnemyLibrary.by_id(archetype_id)
+			queue_redraw()
+
 ## Node whose Marker2D children are this enemy's patrol route. Routes live in the
 ## level (not under the enemy) so they stay put and can be shared.
-@export var patrol_route: NodePath = NodePath("")
+@export var patrol_route: NodePath = NodePath(""):
+	set(value):
+		patrol_route = value
+		if Engine.is_editor_hint():
+			queue_redraw()
 ## Seconds to stand still at each patrol point.
 @export var patrol_dwell: float = 1.6
 ## Used when the enemy has no PatrolPoints children.
@@ -72,11 +83,21 @@ var _burst_left: int = 0
 var _pause_cd: float = 0.0
 
 var _footstep_accum: float = 0.0
+var _gizmo_hash: int = 0
 
 
 func _ready() -> void:
 	add_to_group("enemy")
 	archetype = EnemyLibrary.by_id(archetype_id)
+	if Engine.is_editor_hint():
+		# Editor: draw a gizmo and nothing else. No runtime nodes, no autoload
+		# access (autoloads are placeholders in the editor, so calling into them
+		# errors), and nothing that could get serialised into the level file.
+		set_process(true)
+		set_physics_process(false)
+		return
+	set_process(false)
+	set_physics_process(true)
 	health = get_node_or_null("Health") as Health
 	visual = get_node_or_null("Visual") as Node2D
 
@@ -649,5 +670,71 @@ func debug_state() -> String:
 		archetype.id, STATE_NAMES[state], awareness, hp,
 		" (dead)" if _dead else "",
 	]
+
+
+#endregion
+
+
+#region editor gizmo
+
+## Editor-only. Draws the body, the facing wedge (the direction the vision cone
+## actually follows), a faint outline of that cone, the archetype name, and a
+## warning if `patrol_route` is set but does not resolve. Together with
+## `PatrolRoute`'s own drawing this makes enemy placement and patrol wiring a
+## visual job instead of a guessing game.
+func _draw() -> void:
+	if not Engine.is_editor_hint():
+		return
+	var a: EnemyArchetype = EnemyLibrary.by_id(archetype_id)
+	var font: Font = ThemeDB.fallback_font
+	var radius: float = a.radius
+
+	# Vision cone first, so everything else reads on top of it.
+	var half_fov: float = deg_to_rad(a.sight_fov * 0.5)
+	var cone_tint := Color(1.0, 1.0, 1.0, 0.15)
+	draw_arc(Vector2.ZERO, a.sight_range, -half_fov, half_fov, 40, cone_tint, 1.0)
+	draw_line(Vector2.ZERO, Vector2.from_angle(-half_fov) * a.sight_range, cone_tint, 1.0)
+	draw_line(Vector2.ZERO, Vector2.from_angle(half_fov) * a.sight_range, cone_tint, 1.0)
+
+	draw_circle(Vector2.ZERO, radius, Color(a.body_color, 0.9))
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 24, a.body_color.darkened(0.55), 1.5)
+
+	var wedge: PackedVector2Array = Shapes.triangle(radius * 1.35, radius * 0.75)
+	for i: int in wedge.size():
+		wedge[i] += Vector2(radius * 0.35, 0.0)
+	draw_colored_polygon(wedge, Color(a.body_color.lightened(0.45), 0.95))
+
+	_draw_upright_text(font, Vector2(-radius, -radius - 22.0), a.id, Color(0.92, 0.96, 1.0, 0.9))
+
+	if patrol_route == NodePath():
+		_draw_upright_text(font, Vector2(-radius, radius + 20.0), "wanders here",
+			Color(0.75, 0.8, 0.85, 0.7))
+		return
+	var route: Node = get_node_or_null(patrol_route)
+	if route == null:
+		_draw_upright_text(font, Vector2(-radius, radius + 20.0), "patrol_route is broken",
+			Color(1.0, 0.4, 0.35, 0.95))
+	elif not route.has_method("points"):
+		_draw_upright_text(font, Vector2(-radius, radius + 20.0), "route is not a PatrolRoute",
+			Color(0.95, 0.8, 0.4, 0.9))
+
+
+## Text stays horizontal even when the enemy is rotated to set its facing.
+func _draw_upright_text(font: Font, at: Vector2, text: String, tint: Color) -> void:
+	var counter: float = global_rotation
+	draw_set_transform(Vector2.ZERO, -counter, Vector2.ONE)
+	draw_string(font, at.rotated(counter), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, tint)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _process(_delta: float) -> void:
+	# Editor only (see _ready): redraw when something the gizmo depends on moves.
+	if not Engine.is_editor_hint():
+		return
+	var current: int = hash([global_position, rotation, archetype_id, patrol_route,
+		patrol_route == NodePath() or get_node_or_null(patrol_route) == null])
+	if current != _gizmo_hash:
+		_gizmo_hash = current
+		queue_redraw()
 
 #endregion

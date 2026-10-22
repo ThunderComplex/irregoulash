@@ -29,8 +29,24 @@ func _ready() -> void:
 	_build_pools()
 
 
+## Stops playback and drops the sound bank on shutdown. Without this, whatever is
+## playing when the tree is torn down is reported as leaked ObjectDB instances,
+## which is noise that hides real leaks.
+func _exit_tree() -> void:
+	var playing: int = 0
+	for p: AudioStreamPlayer in _pool_1d:
+		if p.playing:
+			playing += 1
+		p.stop()
+		p.stream = null
+	for p: AudioStreamPlayer2D in _pool_2d:
+		p.stop()
+		p.stream = null
+	_bank.clear()
+
+
+## Give SFX their own bus so the volume slider (and future ducking) has a home.
 func _ensure_bus() -> void:
-	# Give SFX their own bus so the volume slider (and future ducking) has a home.
 	if AudioServer.get_bus_index("SFX") == -1:
 		AudioServer.add_bus()
 		_sfx_bus = &"SFX"

@@ -18,6 +18,13 @@ Godot 4.7 (built and tested against 4.7.2):
 Godot_v4.7.2-stable_win64_console.exe --path .
 ```
 
+(Or open the project in the editor — `H:\dev\Godot\Engine\4.7\` — and press `F5`.)
+
+Levels are authored in Godot's own 2D editor — see **`docs/LEVEL_AUTHORING.md`**.
+The short version: enable the **Level Tools** plugin's **Wall brush**, drag to draw
+walls, drag the markers and pickups around, then press **Lint level** to check for
+the mistakes that make a level unplayable.
+
 The game opens on the title screen. Enter or left click starts a run on
 **Level 01 — The Yard**; its exit leads to **Level 02 — The Depot**, whose exit
 wins the run.
@@ -72,6 +79,11 @@ Walk over weapons, ammo and medkits to pick them up.
   every sound is generated from code at startup.
 - **Placeholder geometric art** generated in code, so there are no art assets to
   install and every entity is a clean silhouette.
+- **In-editor authoring tools** (`addons/level_tools/`): a wall brush (drag to draw
+  walls, with undo), editor gizmos for everything (enemies with facing wedges and
+  vision cones, patrol routes with direction arrows, labelled pickups and exits,
+  camera bounds, the spawn point's vision reach), an opt-in lighting preview, and a
+  level linter. See `docs/LEVEL_AUTHORING.md`.
 
 ## What is deliberately *not* in this WIP
 
@@ -86,15 +98,17 @@ those was kept possible.
 
 ```
 project.godot            autoloads, physics layer names, display settings
+addons/level_tools/      editor plugin: wall brush + level linter
 src/autoload/            Tuning, GameInput, AudioDirector, FxDirector, GameDirector
 src/common/              Layers, Shapes, Health, VisionTextures
 src/player/              player.gd/.tscn, vision_rig.gd
 src/weapons/             weapon_resource/slot/library, weapon_holder, projectile
 src/items/               pickup.gd/.tscn (weapons, ammo, upgrades, medkits)
 src/enemies/             enemy.gd/.tscn, enemy_archetype, enemy_library
-src/levels/              level.gd (level base), wall, lamp, exit_zone, vision_memory
+src/levels/              level.gd (level base), wall, lamp, exit_zone, patrol_route,
+                         vision_memory, level_lint
 src/ui/                  hud, title_screen
-dev/                     probe.gd + build_levels.gd (dev tools, not shipped)
+dev/                     probe.gd, build_levels.gd, check_scene_hygiene.gd (dev tools)
 docs/                    WIP_TASKS.md, LEVEL_AUTHORING.md, DESIGN_NOTES.md
 ```
 
@@ -145,6 +159,21 @@ builds (unreachable pickups, entities inside walls, missing exits):
 Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://dev/build_levels.gd
 ```
 
+Lint every level — the same checks the editor's "Lint level" button runs, from a
+terminal, exiting non-zero if anything is wrong:
+
+```
+Godot_v4.7.2-stable_win64_console.exe --headless --path . \
+    res://src/ui/title_screen.tscn -- --probe=lint
+```
+
+Check level-file hygiene (that saving a level cannot bake generated colliders into
+it, and that editor-only helper nodes cannot be serialised into it):
+
+```
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://dev/check_scene_hygiene.gd
+```
+
 After adding or removing `class_name` scripts, refresh the editor's class cache
 before running the game headlessly:
 
@@ -169,3 +198,10 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path . --import
 - **The HUD is built in code**, not as a scene, so it cannot be nudged around in
   the editor. That was a deliberate trade while the layout was still changing.
 - **No save/load, no options, no gamepad.**
+- Quitting a level prints `2 ObjectDB instances were leaked at exit` (an
+  `AudioStreamWAV` and its playback). It is a shutdown-ordering artefact in Godot's
+  audio mixer, not a gameplay leak — `AudioDirector._exit_tree()` stops every pooled
+  player and drops the bank — but it does make real leaks harder to spot in logs.
+- **The linter's reachability check is approximate**: it rasterises onto a 32px grid,
+  so a gap narrower than that reads as sealed even if the player could squeeze
+  through.

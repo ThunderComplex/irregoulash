@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://src/levels/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
@@ -6,15 +6,13 @@
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="4_enemy"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
+[ext_resource type="Script" path="res://src/levels/patrol_route.gd" id="7_route"]
 
 [node name="LevelTemplate" type="Node2D"]
 script = ExtResource("1_level")
 level_title = "TEMPLATE"
 objective = "Copy this scene, then move the walls and markers around."
 start_weapons = Array[String](["pistol"])
-
-[node name="Fog" type="CanvasModulate" parent="."]
-color = Color(0, 0, 0, 1)
 
 [node name="Floor" type="Polygon2D" parent="."]
 z_index = -20
@@ -57,6 +55,7 @@ color = Color(0.36, 0.38, 0.46, 1)
 [node name="Routes" type="Node2D" parent="."]
 
 [node name="Route1" type="Node2D" parent="Routes"]
+script = ExtResource("7_route")
 
 [node name="P0" type="Marker2D" parent="Routes/Route1"]
 position = Vector2(900, 180)

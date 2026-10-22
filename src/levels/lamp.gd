@@ -63,12 +63,14 @@ func _rebuild() -> void:
 	_fixture = get_node_or_null("Fixture") as Polygon2D
 
 	if _light != null:
-		# The light texture is generated at runtime. It is deliberately NOT set in
-		# the editor: a generated ImageTexture would be serialised into the scene
-		# file on save. The editor shows the radius with _draw() instead.
+		# The editor renders the GradientTexture2D baked into lamp.tscn, so lights
+		# and their shadows are visible while authoring (turn on the level's
+		# `editor_lighting_preview` to see them properly). At runtime that texture is
+		# replaced by the generated radial falloff. A generated texture must NEVER be
+		# assigned in the editor: it would be serialised into the scene on save.
 		if not Engine.is_editor_hint():
 			_light.texture = VisionTextures.radial()
-			_light.energy = energy
+		_light.energy = energy
 		_light.texture_scale = radius * 2.0 / float(VisionTextures.SIZE)
 		_light.color = color
 		_light.shadow_enabled = shadows

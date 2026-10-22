@@ -1,16 +1,31 @@
+@tool
 class_name ExitZone
 extends Area2D
 ## The way out. Walk into it to finish the level; `is_final` marks the last one,
 ## which wins the run.
 ##
 ## An exit nobody can find is a broken exit, so it carries its own lights and an
-## unshaded marker that is visible through the fog from across a dark room.
+## unshaded marker that is visible through the fog from across a dark room. In the
+## editor it draws a ring plus its destination, so a level's exits and their
+## targets can be checked without running anything.
 
 signal entered(exit: ExitZone)
 
-@export var is_final: bool = false
-@export var next_level: PackedScene
-@export var radius: float = 46.0
+@export var is_final: bool = false:
+	set(value):
+		is_final = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+@export var next_level: PackedScene:
+	set(value):
+		next_level = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+@export var radius: float = 46.0:
+	set(value):
+		radius = value
+		if Engine.is_editor_hint():
+			queue_redraw()
 ## Extra light so the exit reads as a landmark in the dark.
 @export var beacon_range: float = 260.0
 
@@ -24,6 +39,8 @@ var _used: bool = false
 
 func _ready() -> void:
 	add_to_group("exit")
+	if Engine.is_editor_hint():
+		return
 	body_entered.connect(_on_body_entered)
 	_build_collision()
 	_build_art()
@@ -85,6 +102,8 @@ func _build_art() -> void:
 
 
 func _process(delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
 	_t += delta
 	var pulse: float = 0.5 + 0.5 * sin(_t * 3.0)
 	if _light != null:
@@ -124,8 +143,58 @@ func _enter(_player: Player) -> void:
 		return
 
 	GameDirector.notify_level_cleared()
-	if next_level != null:
-		GameDirector.load_level(next_level.resource_path)
+	var target: PackedScene = next_level
+	if target == null:
+		target = level_next_level()
+	if target != null:
+		GameDirector.load_level(target.resource_path)
 	else:
 		GameDirector.announce_message("No next level set", Color(1.0, 0.5, 0.4))
 		GameDirector.notify_win()
+
+
+## The owning level's own `next_level`, used when this exit has none of its own, so a
+## level with several exits only needs the destination set once.
+func level_next_level() -> PackedScene:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("level_bounds"):
+			var fallback: Variant = node.get("next_level")
+			return fallback as PackedScene
+		node = node.get_parent()
+	return null
+
+
+#region editor gizmo
+
+func _draw() -> void:
+	if not Engine.is_editor_hint():
+		return
+	var tint: Color = accent_color()
+	var font: Font = ThemeDB.fallback_font
+
+	draw_circle(Vector2.ZERO, radius, Color(tint, 0.10))
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 32, Color(tint, 0.95), 2.0)
+	draw_arc(Vector2.ZERO, radius * 0.25, 0.0, TAU, 16, Color(tint, 0.6), 1.0)
+
+	var label: String = editor_label()
+	var width: float = font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	draw_string(font, Vector2(-width * 0.5, radius + 20.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1,
+		12, Color(tint, 0.95))
+
+
+## Where this exit goes, for the editor label.
+func editor_label() -> String:
+	if is_final:
+		return "FINAL EXIT: WINS THE RUN"
+	var target: PackedScene = next_level
+	if target == null:
+		target = level_next_level()
+	if target == null:
+		return "NO NEXT LEVEL SET"
+	var path: String = target.resource_path
+	if path.is_empty():
+		return "TO: (unsaved scene)"
+	return "TO: " + path.get_file().get_basename().to_upper()
+
+#endregion

@@ -53,6 +53,19 @@ These three cost the most time and are worth writing down:
 
 Also worth knowing:
 
+- **A `CanvasModulate` in an authored scene makes Godot's own editor render that
+  scene black.** The dark fog is a runtime concern, so it must not live in the
+  level file: `Level` creates it. This one line made hand-authoring levels
+  impossible until it was removed.
+- **Unowned nodes are not serialised, and that is a feature.** Godot's scene saver
+  only writes nodes owned by the scene root, which is verified by
+  `dev/check_scene_hygiene.gd`. It is what makes editor-only helpers safe: the
+  lighting preview and the wall brush's drag preview can be added from `@tool` code
+  without any risk of them being written into a level file on save.
+- **A rasterised reachability check needs cell centres, not overlap.** Marking a cell
+  blocked whenever a wall rectangle overlaps it seals every doorway whose free space
+  does not line up with the grid — which is what made a good 64px doorway read as an
+  unreachable room until the test moved to the cell centre.
 - **A code-driven child rotation plus an authored parent rotation is a double
   application.** The level builder gives every enemy a `rotation` to set its
   starting facing. `Enemy` folded that value into `_facing` but left it on the

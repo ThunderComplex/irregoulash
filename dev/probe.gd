@@ -212,6 +212,13 @@ const SCENARIOS: Dictionary = {
 			"facing_report": true,
 		},
 	],
+	## Lint every level (the same checks the editor plugin's button runs).
+	"lint": [
+		{
+			"wait": 0.3,
+			"lint_levels": true,
+		},
+	],
 	## Deliberately creates the conditions for stale references: enemies die while
 	## their own bullets are still in flight, and those bullets then hit the player.
 	"stress": [
@@ -265,6 +272,19 @@ func _arg(name: String) -> String:
 	return ""
 
 
+## `RenderingServer.frame_post_draw` never fires without a renderer (a `--headless`
+## run), so wait on a plain frame there instead. Without this, the probe hangs.
+func _await_frame() -> void:
+	if _is_headless():
+		await get_tree().process_frame
+		return
+	await RenderingServer.frame_post_draw
+
+
+func _is_headless() -> bool:
+	return DisplayServer.get_name() == "headless"
+
+
 ## Confirms the runtime input map really has what the game polls, including the
 ## mouse buttons (the one part of the real input path a script cannot press).
 func _input_summary() -> String:
@@ -286,7 +306,7 @@ func _input_summary() -> String:
 
 
 func _report_environment() -> void:
-	await RenderingServer.frame_post_draw
+	await _await_frame()
 	# Prove the synthesised audio bank exists and that a sound actually starts.
 	AudioDirector.play(&"shot_pistol", -6.0)
 	AudioDirector.play_at(&"footstep", Vector2.ZERO, -6.0)
@@ -411,6 +431,8 @@ func _run(scenario: String) -> void:
 			_report_state()
 		if step.has("facing_report"):
 			_report_facing()
+		if step.has("lint_levels"):
+			_lint_levels()
 		if step.has("shot"):
 			await _screenshot(String(step["shot"]))
 		if step.has("walls"):
@@ -544,6 +566,48 @@ func _report_facing() -> void:
 		])
 
 
+## Lints every level scene. This runs inside a real game run rather than as a
+## `--script` tool on purpose: levels reference autoloads, and autoloads do not
+## exist in a `--script` run, so every level script would fail to compile and the
+## report would be nonsense.
+func _lint_levels() -> void:
+	var dir := DirAccess.open("res://src/levels")
+	if dir == null:
+		print("[probe] cannot open the level folder")
+		return
+	var files: Array[String] = []
+	for file: String in dir.get_files():
+		if file.begins_with("level_") and file.ends_with(".tscn"):
+			files.append("res://src/levels/%s" % file)
+	files.sort()
+
+	var failures: int = 0
+	for path: String in files:
+		var packed := load(path) as PackedScene
+		if packed == null:
+			print("[probe] %s: cannot load" % path)
+			failures += 1
+			continue
+		# Instantiated but never added to the tree: LevelLint needs no scene tree,
+		# so nothing runs just to be checked.
+		var root: Node = packed.instantiate()
+		var report: Dictionary = LevelLint.run(root)
+		print("[probe] %s: %s" % [path.get_file(), report["summary"]])
+		for note: String in report["notes"]:
+			print("[probe]   note: %s" % note)
+		var problems: Array = report["problems"]
+		if problems.is_empty():
+			print("[probe]   clean")
+		else:
+			failures += problems.size()
+			for problem: String in problems:
+				print("[probe]   PROBLEM: %s" % problem)
+			for line: String in report["map"]:
+				print("[probe]   %s" % line)
+		root.free()
+	print("[probe] lint: %d level(s) checked, %d problem(s)" % [files.size(), failures])
+
+
 func _report_walls() -> void:
 	var total: int = 0
 	var explored: int = 0
@@ -558,7 +622,10 @@ func _report_walls() -> void:
 
 
 func _screenshot(shot_name: String) -> void:
-	await RenderingServer.frame_post_draw
+	if _is_headless():
+		print("[probe] shot %s SKIPPED (headless runs have no renderer)" % shot_name)
+		return
+	await _await_frame()
 	var image: Image = get_viewport().get_texture().get_image()
 	var path: String = "%s/%s.png" % [SHOT_DIR, shot_name]
 	var err: Error = image.save_png(path)
@@ -568,7 +635,10 @@ func _screenshot(shot_name: String) -> void:
 
 
 func _sample(points: Dictionary) -> void:
-	await RenderingServer.frame_post_draw
+	if _is_headless():
+		print("[probe] pixel sampling SKIPPED (headless runs have no renderer)")
+		return
+	await _await_frame()
 	var image: Image = get_viewport().get_texture().get_image()
 	var canvas_transform: Transform2D = get_viewport().get_canvas_transform()
 	var view_size: Vector2 = get_viewport().get_visible_rect().size

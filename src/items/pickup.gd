@@ -1,3 +1,4 @@
+@tool
 class_name Pickup
 extends Area2D
 ## World pickup: weapons, ammo, weapon upgrades and medkits.
@@ -5,10 +6,25 @@ extends Area2D
 ## Pickups carry their own light and an unshaded marker, because a pickup you
 ## cannot see in pitch darkness is a pickup that does not exist. They pulse
 ## gently so they read as "interactable" and are findable across a dark room.
+##
+## In the editor each pickup draws a gizmo coloured by kind and labelled with what
+## it gives you, so pickups can be read and placed without running the level.
 
-@export_enum("weapon", "ammo", "upgrade", "health") var kind: String = "weapon"
-@export_enum("pistol", "smg", "shotgun") var weapon_id: String = "smg"
-@export var amount: int = 24
+@export_enum("weapon", "ammo", "upgrade", "health") var kind: String = "weapon":
+	set(value):
+		kind = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+@export_enum("pistol", "smg", "shotgun") var weapon_id: String = "smg":
+	set(value):
+		weapon_id = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+@export var amount: int = 24:
+	set(value):
+		amount = value
+		if Engine.is_editor_hint():
+			queue_redraw()
 
 var _t: float = 0.0
 var _light: PointLight2D = null
@@ -17,6 +33,10 @@ var _collected: bool = false
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		# Editor: gizmo only. The art nodes are built at runtime, and generating
+		# them here risks them being written into the level file.
+		return
 	var collision: CollisionShape2D = get_node_or_null("Collision") as CollisionShape2D
 	if collision != null and collision.shape == null:
 		var shape := CircleShape2D.new()
@@ -64,6 +84,8 @@ func _build_art() -> void:
 
 
 func _process(delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
 	_t += delta
 	var pulse: float = 0.5 + 0.5 * sin(_t * 2.6)
 	if _light != null:
@@ -141,3 +163,43 @@ func _collect() -> void:
 	FxDirector.flash_light(global_position, _pickup_color(), 1.0, 150.0, 0.25)
 	FxDirector.spark_burst(global_position, Vector2.UP, 8, _pickup_color(), 150.0, 0.3)
 	queue_free()
+
+
+#region editor gizmo
+
+func _draw() -> void:
+	if not Engine.is_editor_hint():
+		return
+	var tint: Color = _pickup_color()
+	var font: Font = ThemeDB.fallback_font
+
+	draw_circle(Vector2.ZERO, 11.0, Color(tint, 0.30))
+	draw_arc(Vector2.ZERO, 15.0, 0.0, TAU, 20, Color(tint, 0.95), 2.0)
+
+	if kind == "health":
+		var arm: float = 7.0
+		var thick: float = 3.0
+		draw_rect(Rect2(-arm, -thick, arm * 2.0, thick * 2.0), Color(tint, 0.9))
+		draw_rect(Rect2(-thick, -arm, thick * 2.0, arm * 2.0), Color(tint, 0.9))
+	elif kind == "upgrade":
+		draw_rect(Rect2(-6.0, -6.0, 12.0, 12.0), Color(tint.lightened(0.2), 0.9))
+	else:
+		draw_circle(Vector2.ZERO, 6.0, Color(tint.lightened(0.2), 0.95))
+
+	draw_string(font, Vector2(-20.0, 34.0), editor_label(), HORIZONTAL_ALIGNMENT_LEFT, -1, 12,
+		Color(tint.lightened(0.35), 0.95))
+
+
+## What this pickup gives you, for the editor label.
+func editor_label() -> String:
+	match kind:
+		"ammo":
+			return "AMMO %d" % amount
+		"health":
+			return "MEDKIT %d" % amount
+		"upgrade":
+			return "WEAPON UPGRADE"
+		_:
+			return WeaponLibrary.by_id(weapon_id).display_name
+
+#endregion
