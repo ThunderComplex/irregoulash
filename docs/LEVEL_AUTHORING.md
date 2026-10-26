@@ -312,7 +312,8 @@ one-field edit in the editor afterwards.
 ### `Pickup` — `src/items/pickup.tscn`
 | Property | Meaning |
 |---|---|
-| `kind` | `weapon`, `ammo`, `upgrade` or `health` |
+| `kind` | `weapon`, `ammo`, `upgrade`, `health` or `ability` |
+| `ability_id` | `fire_wall`, `fire_tempest`, `lightning_bolt` (for `kind = ability`) |
 | `weapon_id` | `pistol`, `smg`, `shotgun` (for `kind = weapon`) |
 | `amount` | ammo rounds, or health restored |
 

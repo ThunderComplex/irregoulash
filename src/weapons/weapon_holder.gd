@@ -73,17 +73,17 @@ func total_ammo_of(id: StringName) -> int:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _can_act():
 		return
-	if event.is_action_pressed("reload"):
+	if event.is_action_pressed(&"reload"):
 		reload()
-	elif event.is_action_pressed("switch_next"):
+	elif event.is_action_pressed(&"switch_next"):
 		cycle(1)
-	elif event.is_action_pressed("switch_prev"):
+	elif event.is_action_pressed(&"switch_prev"):
 		cycle(-1)
-	elif event.is_action_pressed("switch_1"):
+	elif event.is_action_pressed(&"switch_1"):
 		select(0)
-	elif event.is_action_pressed("switch_2"):
+	elif event.is_action_pressed(&"switch_2"):
 		select(1)
-	elif event.is_action_pressed("switch_3"):
+	elif event.is_action_pressed(&"switch_3"):
 		select(2)
 
 
@@ -102,9 +102,9 @@ func _physics_process(delta: float) -> void:
 	if w == null:
 		return
 	if w.automatic:
-		if Input.is_action_pressed("fire"):
+		if Input.is_action_pressed(&"fire"):
 			try_fire()
-	elif Input.is_action_just_pressed("fire"):
+	elif Input.is_action_just_pressed(&"fire"):
 		try_fire()
 
 

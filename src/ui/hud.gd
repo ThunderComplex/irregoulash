@@ -35,6 +35,7 @@ var _ammo_text: Label
 var _slots_text: Label
 var _reload_bar: ColorRect
 var _reload_bg: ColorRect
+var _ability_labels: Array[Label] = []
 var _alert_fill: ColorRect
 var _alert_text: Label
 var _objective: Label
@@ -91,6 +92,7 @@ func _process(delta: float) -> void:
 
 	_update_health()
 	_update_weapons()
+	_update_abilities()
 	_update_debug()
 	_update_overlay()
 
@@ -106,6 +108,31 @@ func _update_health() -> void:
 	_health_fill.size.x = 240.0 * fraction
 	_health_fill.color = Color(0.85, 0.25, 0.25).lerp(Color(0.35, 0.85, 0.45), fraction)
 	_health_text.text = "HP %d" % int(round(hp))
+
+
+## One line per ability slot: name, and either "ready" or the seconds left. Deliberately
+## no bar: the cooldown is the only state an ability has besides its name.
+func _update_abilities() -> void:
+	if _ability_labels.is_empty():
+		return
+	var holder: AbilityHolder = null
+	if _player != null and is_instance_valid(_player):
+		holder = _player.abilities as AbilityHolder
+	for i: int in _ability_labels.size():
+		var label: Label = _ability_labels[i]
+		var key_label: String = "Q" if i == 0 else "E"
+		var slot: AbilitySlot = holder.slot_at(i) if holder != null else null
+		if slot == null or slot.data == null:
+			label.text = "%s  -" % key_label
+			label.modulate = Color(0.5, 0.55, 0.62)
+			continue
+		if slot.is_ready():
+			label.text = "%s  %s" % [key_label, slot.data.display_name.to_upper()]
+			label.modulate = Color(0.85, 0.92, 1.0)
+		else:
+			label.text = "%s  %s  %0.1fs" % [key_label, slot.data.display_name.to_upper(),
+				slot.cooldown_left]
+			label.modulate = Color(0.5, 0.55, 0.62)
 
 
 func _update_weapons() -> void:
@@ -289,7 +316,7 @@ func _update_overlay() -> void:
 
 	match _overlay_kind:
 		"dead", "won":
-			if Input.is_action_just_pressed("ui_accept") and not paused:
+			if Input.is_action_just_pressed(&"ui_accept") and not paused:
 				AudioDirector.play(&"ui_click", -6.0)
 				if _overlay_kind == "dead":
 					GameDirector.retry_level()
@@ -306,13 +333,6 @@ func _update_overlay() -> void:
 		_show_overlay("paused", "PAUSED", "%s\n\n[ Esc ]  resume" % GameDirector.stats_line(),
 			Color(0.92, 0.96, 1.0))
 
-
-func _unhandled_input(event: InputEvent) -> void:
-	if _overlay_kind != "none" and event.is_action_pressed("pause"):
-		# Mark the event handled BEFORE leaving: go_to_title() replaces the scene,
-		# and a node that has left the tree has no viewport to mark it on.
-		get_viewport().set_input_as_handled()
-		GameDirector.go_to_title()
 
 #endregion
 
@@ -357,6 +377,16 @@ func _build() -> void:
 		Color(0.1, 0.11, 0.13, 0.9))
 	_reload_bar = _rect(_root, Control.PRESET_BOTTOM_RIGHT, -180.0, -26.0, -180.0, -20.0,
 		Color(0.95, 0.85, 0.45))
+
+	# --- abilities, one line each, above the weapon readout. The key labels mirror
+	# GameInput's ability_1 / ability_2 bindings.
+	for i: int in AbilityHolder.MAX_SLOTS:
+		var key_label: String = "Q" if i == 0 else "E"
+		var label := _label(_root, Control.PRESET_BOTTOM_RIGHT,
+			-420.0, -178.0 + float(i) * 24.0, -28.0, -154.0 + float(i) * 24.0, 15,
+			HORIZONTAL_ALIGNMENT_RIGHT, Color(0.72, 0.78, 0.9))
+		label.text = "%s  -" % key_label
+		_ability_labels.append(label)
 
 	# --- threat meter, top centre
 	var alert_bg := _rect(_root, Control.PRESET_CENTER_TOP, -140.0, 20.0, 140.0, 32.0,

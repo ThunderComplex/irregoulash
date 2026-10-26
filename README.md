@@ -39,6 +39,7 @@ wins the run.
 | `R` | Reload |
 | `Shift` / `Space` | Dash (fast, and loud enough to be heard) |
 | `1` `2` `3` / wheel | Switch weapon |
+| Q / E | Use ability 1 / 2 |
 | `Esc` | Pause |
 
 Walk over weapons, ammo and medkits to pick them up.
@@ -79,6 +80,11 @@ Walk over weapons, ammo and medkits to pick them up.
   every sound is generated from code at startup.
 - **Placeholder geometric art** generated in code, so there are no art assets to
   install and every entity is a clean silhouette.
+- **Three abilities** (fire wall, fire tempest, lightning bolt) on their own slots (Q/E),
+  each with its own cooldown, upgrade level and pickup. One cast path serves all of them:
+  the resource says how it aims, the effect script does the rest, so the fire wall can be
+  a solid, shadow-casting barrier while the bolt is just a projectile and neither of them
+  needs a branch in the holder.
 - **In-editor authoring tools** (`addons/level_tools/`): a wall brush (drag to draw
   walls, with undo), an enemy tool (pick an archetype, click to place, click again to
   lay out its patrol route, right-click to finish — one route per enemy), a one-click

@@ -29,6 +29,8 @@ this slice exists to make that one idea readable.
 | Explored walls stay visible at 30%; enemies do not | The map has to be memorisable without leaking enemy positions | `Tuning.memory_brightness` |
 | A lamp the player can neither see nor stand inside does not light the world for them | The renderer's rule is "lit = visible", and shadows are cast from each light, so a lamp in a sealed room used to reveal whatever was in its pool straight through the wall. Line of sight is tested from the player to the *lamp*, which removes the case that reads as a bug; a lit room you can already see into still shows you what is inside it | `Lamp.require_line_of_sight`, `Lamp.visibility_fade` |
 | Path finding is a baked navigation mesh, generated from the walls by one click, with direct steering as the fallback | Hand-drawn navigation polygons would be another thing to keep in sync with the geometry. Baking from the `wall` group means the mesh is derived from the same data the vision, collision and linter all use, and a level without one still works | `NavmeshBaker`, the plugin's "Bake navmesh" button, `Enemy._move_toward` |
+| Abilities are one cast path plus a per-ability effect script, not a branch per ability | Weapons share a pipeline (aim -> bullets -> damage), so their uniformity is free. Abilities do not share one, and a `match` in the holder would grow with every ability added. The resource says how it aims and what it costs; the effect script does the rest | `AbilityResource.targeting`, `AbilityResource.effect`, `AbilityHolder.use_ability` |
+| The fire wall blocks movement *and* light | It is the one ability that changes the level, and in a game about line of sight a temporary occluder is worth more than the damage. Free to build: `Wall` already generates occluders from a rectangle, and `DamageField` can be solid | `FireWall`, `DamageField.blocks_light` |
 | The vision cone is a light, not a shader | It is GPU-cheap, it respects occluders automatically, and it means levels stay easy to author | `VisionRig.configure()` |
 | Weapon/level/enemy data lives in code libraries, not `.tres` files | Balance is one edit, diffs are readable, and a new weapon is one function | `weapon_library.gd`, `enemy_library.gd` |
 | The HUD is built in code | It changed constantly while the game was being built; a `.tscn` would have been re-anchored a dozen times | `hud.gd` |
@@ -130,10 +132,12 @@ Roughly in the order that makes sense next:
    the switch, but it needs tuning to avoid jitter.
 3. **Enemy perception polish**: peripheral vision cones drawn for *awareness*
    only, a "last seen" marker the player can see, an enemy that checks corpses.
-4. **ARPG layer** (explicitly out of scope here, but reserved): a `WeaponSlot`
-   already carries an upgrade level, `Health` is a component, and pickups are
-   data-driven — an `Ability` resource + a cooldown holder would slot in beside
-   `WeaponHolder` without touching the player script.
+4. **ARPG layer** — *partly done.* Abilities exist: slots, per-slot cooldowns, upgrade
+   levels, pickups, and one cast path with a per-ability effect script, so a fourth
+   ability is a library entry plus a small script. Still missing: ability upgrade pickups,
+   a targeting telegraph at the cursor (a cast clamps to range and reports refusals, but
+   nothing shows the reach *before* you commit), abilities that target entities rather
+   than points, and consumables.
 5. **More content**: 3–4 more weapons, 2 more archetypes, a proper level chain
    with branching exits (an exit is already just a scene reference).
 6. **Real audio and art**: `AudioDirector` is a drop-in replacement target

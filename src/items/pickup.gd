@@ -10,7 +10,7 @@ extends Area2D
 ## In the editor each pickup draws a gizmo coloured by kind and labelled with what
 ## it gives you, so pickups can be read and placed without running the level.
 
-@export_enum("weapon", "ammo", "upgrade", "health") var kind: String = "weapon":
+@export_enum("weapon", "ammo", "upgrade", "health", "ability") var kind: String = "weapon":
 	set(value):
 		kind = value
 		if Engine.is_editor_hint():
@@ -18,6 +18,11 @@ extends Area2D
 @export_enum("pistol", "smg", "shotgun") var weapon_id: String = "smg":
 	set(value):
 		weapon_id = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+@export_enum("fire_wall", "fire_tempest", "lightning_bolt") var ability_id: String = "fire_wall":
+	set(value):
+		ability_id = value
 		if Engine.is_editor_hint():
 			queue_redraw()
 @export var amount: int = 24:
@@ -113,6 +118,8 @@ func _pickup_color() -> Color:
 			return Color(1.0, 0.7, 0.95)
 		"health":
 			return Color(0.5, 1.0, 0.6)
+		"ability":
+			return Color(0.86, 0.35, 0.03)
 		_:
 			return WeaponLibrary.by_id(weapon_id).pickup_color
 
@@ -128,6 +135,7 @@ func _try_collect(player: Player) -> void:
 	if _collected:
 		return
 	var holder := player.weapons as WeaponHolder
+	var ability_holder := player.abilities as AbilityHolder
 
 	match kind:
 		"ammo":
@@ -147,7 +155,7 @@ func _try_collect(player: Player) -> void:
 				return
 			AudioDirector.play_at(&"upgrade", global_position, -3.0)
 			GameDirector.announce_message("WEAPON UPGRADED", _pickup_color())
-		_:
+		"weapon":
 			if holder == null:
 				return
 			var is_new: bool = holder.add_weapon(weapon_id, -1, true)
@@ -158,6 +166,19 @@ func _try_collect(player: Player) -> void:
 			else:
 				GameDirector.announce_message("+AMMO for %s" % WeaponLibrary.by_id(weapon_id).display_name,
 					_pickup_color())
+		"ability":
+			if ability_holder == null:
+				return
+			var ability: AbilityResource = AbilityLibrary.by_id(ability_id)
+			if not ability_holder.add_ability(ability_id):
+				# Not consumed: either it is already in the slots or they are full, and
+				# leaving it on the ground keeps the choice the player's.
+				GameDirector.announce_message("%s: %s" % [ability.display_name.to_upper(),
+					"already carried" if ability_holder.has_ability(String(ability.id))
+					else "ability slots full"], _pickup_color())
+				return
+			GameDirector.announce_message("GAINED ABILITY %s" % ability.display_name, _pickup_color())
+			AudioDirector.play_at(&"pickup_ability", global_position, -3.0)
 	_collect()
 
 
@@ -202,7 +223,11 @@ func editor_label() -> String:
 			return "MEDKIT %d" % amount
 		"upgrade":
 			return "WEAPON UPGRADE"
-		_:
+		"weapon":
 			return WeaponLibrary.by_id(weapon_id).display_name
+		"ability":
+			return AbilityLibrary.by_id(ability_id).display_name
+		_:
+			return ""
 
 #endregion

@@ -15,11 +15,13 @@ const KEY_BINDINGS: Dictionary = {
 	"move_left": [KEY_A, KEY_LEFT],
 	"move_right": [KEY_D, KEY_RIGHT],
 	"reload": [KEY_R],
-	"interact": [KEY_E],
+	"interact": [KEY_F],
 	"dash": [KEY_SHIFT, KEY_SPACE],
 	"switch_1": [KEY_1],
 	"switch_2": [KEY_2],
 	"switch_3": [KEY_3],
+	"ability_1": [KEY_Q],
+	"ability_2": [KEY_E],
 	"pause": [KEY_ESCAPE],
 	"debug_god": [KEY_F1],
 	"debug_noclip": [KEY_F2],
@@ -44,6 +46,7 @@ Left Mouse        Fire
 R                 Reload
 Shift / Space     Dash
 1 2 3 / Wheel     Switch weapon
+Q E               Use ability
 Esc               Pause
 
 Walk over weapons, ammo and medkits to pick them up.
@@ -89,4 +92,4 @@ func _apply(action: String, events: Array[InputEvent]) -> void:
 ## Movement vector from WASD, normalised. Screen-relative by design: W is always
 ## "up on the monitor", never "forward toward the mouse".
 func move_vector() -> Vector2:
-	return Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	return Input.get_vector(&"move_left", &"move_right", &"move_up", &"move_down")

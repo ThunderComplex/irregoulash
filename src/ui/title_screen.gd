@@ -20,7 +20,7 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_accept") or event.is_action_pressed("fire"):
+	if event.is_action_pressed(&"ui_accept"):
 		# Handled before starting the run, which replaces this scene.
 		get_viewport().set_input_as_handled()
 		AudioDirector.play(&"ui_click", -4.0)
@@ -67,8 +67,8 @@ func _build() -> void:
   sight, and they will search for you.
 - Clear the yard, find the exit, escape.""", 16, Color(0.62, 0.72, 0.84))
 
-	_prompt = _label(Vector2(84.0, 596.0), Vector2(900.0, 50.0),
-		"[ ENTER ]  or  [ LEFT CLICK ]  to start", 26, Color(1.0, 0.9, 0.6))
+	_prompt = _label(Vector2(500.0, 650.0), Vector2(900.0, 50.0),
+		"[ SPACE ] to start", 26, Color(1.0, 0.9, 0.6))
 
 
 func _label(position_: Vector2, size: Vector2, text: String, font_size: int, color: Color) -> Label:

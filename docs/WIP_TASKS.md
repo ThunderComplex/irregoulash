@@ -185,6 +185,36 @@ maps, the editor's own error log) rather than guessed at.
 - The levels are still first drafts: cover and lamp placement will matter more than
   any code change from here.
 
+## Phase 12 — Abilities
+
+Three abilities on their own slots, sharing exactly one cast path.
+
+- [x] `AbilityResource` as a full data sheet (targeting mode, range, placement rules, area,
+      tick, duration, projectile speed, noise, shake, upgrade growth) with all balance in
+      `AbilityLibrary`, in the same shape as weapons
+- [x] Targeting split: `POINT` (clamped to range, optionally requiring a clear spot),
+      `DIRECTION`, and `SELF` reserved
+- [x] `AbilityHolder`: cooldowns **per slot**, one cast path, effects spawned through
+      `GameDirector.spawn_parent()`, sfx + noise + shake driven by the data, and refusals
+      that cost the player nothing
+- [x] `DamageField`: the shared area-damage component (a rectangle for the wall, a circle
+      for the blast), ticking through the same `take_hit()` interface bullets use, and
+      optionally solid and shadow-casting
+- [x] `FireWall` (solid and occluding), `FireTempest` (circular blast), `LightningBolt`
+      (reuses `Projectile`)
+- [x] HUD line per slot; ability pickups are left on the ground when the slots are full or
+      already carrying that ability
+- [x] Fixed four bugs found on the way: a `match` default written as the string `"_"`
+      instead of the wildcard, the ability pickup defaulting to `"smg"`, `add_ability`
+      reporting success with nowhere to put the ability, and cooldowns scaling *up* with
+      upgrades
+- [x] Verified: the bolt removes exactly its 18 damage, the tempest kills a 55hp guard, a
+      wall inside geometry is refused *without* spending its cooldown, a wall in the open
+      reports `solid=true occludes=true`, and an immediate re-cast is refused while cooling
+
+Still open: no aiming telegraph before casting, no ability upgrade pickups, and abilities
+can only target points and directions, not entities.
+
 ## Phase 11 — Playtest verdict (yours to make)
 
 Things I verified mechanically (screenshots + numeric probes, see `dev/shots/`):

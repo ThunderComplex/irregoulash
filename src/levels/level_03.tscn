@@ -78,18 +78,43 @@ position = Vector2(480, 320)
 [node name="P1" type="Marker2D" parent="Routes/Guard1Route" unique_id=952015470]
 position = Vector2(268, 624)
 
+[node name="Scout1Route" type="Node2D" parent="Routes" unique_id=499288454]
+script = ExtResource("7_route")
+
+[node name="P0" type="Marker2D" parent="Routes/Scout1Route" unique_id=1731032514]
+position = Vector2(960, 832)
+
+[node name="P1" type="Marker2D" parent="Routes/Scout1Route" unique_id=922722656]
+position = Vector2(928, 448)
+
+[node name="P2" type="Marker2D" parent="Routes/Scout1Route" unique_id=126228302]
+position = Vector2(736, 672)
+
+[node name="P3" type="Marker2D" parent="Routes/Scout1Route" unique_id=655736037]
+position = Vector2(576, 832)
+
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=299208256]
 position = Vector2(151, 101)
 
 [node name="Lamps" type="Node2D" parent="." unique_id=1513915081]
 
-[node name="Lamp0" parent="Lamps" unique_id=942547430 instance=ExtResource("3_lamp")]
-position = Vector2(223, 97)
+[node name="Lamp1" parent="Lamps" unique_id=280772374 instance=ExtResource("3_lamp")]
+position = Vector2(274, 358)
 radius = 210.0
 flicker = false
 
-[node name="Lamp0" parent="Lamps/Lamp0" unique_id=280772374 instance=ExtResource("3_lamp")]
-position = Vector2(51, 261)
+[node name="Lamp2" parent="Lamps" unique_id=370898011 instance=ExtResource("3_lamp")]
+position = Vector2(262, 698)
+radius = 210.0
+flicker = false
+
+[node name="Lamp3" parent="Lamps" unique_id=1412276573 instance=ExtResource("3_lamp")]
+position = Vector2(834, 829)
+radius = 210.0
+flicker = false
+
+[node name="Lamp0" parent="Lamps" unique_id=942547430 instance=ExtResource("3_lamp")]
+position = Vector2(223, 97)
 radius = 210.0
 flicker = false
 
@@ -99,14 +124,83 @@ flicker = false
 position = Vector2(64, 352)
 patrol_route = NodePath("../../Routes/Guard1Route")
 
+[node name="Scout1" parent="Enemies" unique_id=258231979 instance=ExtResource("4_enemy")]
+position = Vector2(1152, 832)
+archetype_id = "scout"
+patrol_route = NodePath("../../Routes/Scout1Route")
+
 [node name="Pickups" type="Node2D" parent="." unique_id=1600841955]
 
 [node name="Pickup0" parent="Pickups" unique_id=404065510 instance=ExtResource("5_pickup")]
 position = Vector2(400, 620)
+ability_id = "smg"
 
 [node name="Pickup1" parent="Pickups" unique_id=1346110672 instance=ExtResource("5_pickup")]
-position = Vector2(312, 123)
+position = Vector2(269, 121)
 kind = "upgrade"
+weapon_id = "pistol"
+ability_id = "smg"
+amount = 35
+
+[node name="Pickup2" parent="Pickups" unique_id=241351297 instance=ExtResource("5_pickup")]
+position = Vector2(313, 122)
+kind = "upgrade"
+weapon_id = "pistol"
+ability_id = "smg"
+amount = 35
+
+[node name="Pickup3" parent="Pickups" unique_id=735972458 instance=ExtResource("5_pickup")]
+position = Vector2(356, 121)
+kind = "upgrade"
+weapon_id = "pistol"
+ability_id = "smg"
+amount = 35
+
+[node name="Pickup4" parent="Pickups" unique_id=893131834 instance=ExtResource("5_pickup")]
+position = Vector2(311, 76)
+kind = "upgrade"
+weapon_id = "pistol"
+ability_id = "smg"
+amount = 35
+
+[node name="Pickup5" parent="Pickups" unique_id=520406376 instance=ExtResource("5_pickup")]
+position = Vector2(354, 75)
+kind = "upgrade"
+weapon_id = "pistol"
+ability_id = "smg"
+amount = 35
+
+[node name="Pickup6" parent="Pickups" unique_id=1557030005 instance=ExtResource("5_pickup")]
+position = Vector2(402, 76)
+kind = "upgrade"
+weapon_id = "pistol"
+ability_id = "smg"
+amount = 35
+
+[node name="Pickup7" parent="Pickups" unique_id=480363402 instance=ExtResource("5_pickup")]
+position = Vector2(403, 122)
+kind = "upgrade"
+weapon_id = "pistol"
+ability_id = "smg"
+amount = 35
+
+[node name="Pickup8" parent="Pickups" unique_id=1072948857 instance=ExtResource("5_pickup")]
+position = Vector2(447, 74)
+kind = "upgrade"
+weapon_id = "pistol"
+ability_id = "smg"
+amount = 35
+
+[node name="Pickup9" parent="Pickups" unique_id=216457602 instance=ExtResource("5_pickup")]
+position = Vector2(447, 124)
+kind = "upgrade"
+weapon_id = "pistol"
+ability_id = "smg"
+amount = 35
+
+[node name="Pickup10" parent="Pickups" unique_id=1265009373 instance=ExtResource("5_pickup")]
+position = Vector2(201, 147)
+kind = "ability"
 weapon_id = "pistol"
 amount = 35
 
@@ -118,3 +212,15 @@ is_final = true
 visible = false
 navigation_polygon = SubResource("NavigationPolygon_b2oh7")
 metadata/navmesh_hash = 1031051343
+
+[node name="DrawnWall10" parent="." unique_id=1794305106 instance=ExtResource("2_wall")]
+position = Vector2(592, 624)
+size = Vector2(224, 32)
+
+[node name="DrawnWall11" parent="." unique_id=1785928261 instance=ExtResource("2_wall")]
+position = Vector2(496, 768)
+size = Vector2(32, 256)
+
+[node name="DrawnWall12" parent="." unique_id=2028553518 instance=ExtResource("2_wall")]
+position = Vector2(832, 736)
+size = Vector2(128, 64)

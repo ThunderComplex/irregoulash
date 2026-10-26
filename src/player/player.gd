@@ -17,6 +17,7 @@ signal died
 
 var aim_direction: Vector2 = Vector2.RIGHT
 var weapons: Node = null
+var abilities: Node = null
 ## When non-zero the mouse is ignored and this direction is used instead. Only
 ## used by the automated dev probe so scripted tests are deterministic.
 var debug_aim: Vector2 = Vector2.ZERO
@@ -43,6 +44,8 @@ func _ready() -> void:
 	weapons = get_node_or_null("WeaponHolder")
 	if weapons != null and weapons.has_signal("shot_fired"):
 		weapons.shot_fired.connect(_on_weapon_shot)
+
+	abilities = get_node_or_null("AbilityHolder")
 
 	camera.position_smoothing_enabled = true
 	camera.position_smoothing_speed = Tuning.camera_smoothing
@@ -93,7 +96,7 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 
-	if input.length() > 0.1 and _dash_cooldown <= 0.0 and Input.is_action_just_pressed("dash"):
+	if input.length() > 0.1 and _dash_cooldown <= 0.0 and Input.is_action_just_pressed(&"dash"):
 		_start_dash(input)
 		return
 
@@ -237,15 +240,6 @@ func _build_art() -> void:
 	outline.default_color = Color(0.22, 0.30, 0.45)
 	outline.z_index = Layers.Z_ACTOR
 	visual.add_child(outline)
-
-	# Little nose so facing is obvious.
-	var nose := Polygon2D.new()
-	nose.name = "Nose"
-	nose.polygon = Shapes.triangle(9.0, 12.0)
-	nose.color = Color(0.55, 0.72, 1.0)
-	nose.position = Vector2(radius - 1.0, 0.0)
-	nose.z_index = Layers.Z_ACTOR
-	visual.add_child(nose)
 
 	_build_gun()
 

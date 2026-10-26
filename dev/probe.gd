@@ -234,6 +234,77 @@ const SCENARIOS: Dictionary = {
 			"points": {"lamp_pool_lit": Vector2(-240.0, -300.0)},
 		},
 	],
+	## Exercises the *real* input path for firing: an automatic weapon, trigger held
+	## through Input.action_press, so the polled `is_action_pressed` branch runs. This is
+	## what catches a wrong action name, which would otherwise fail silently.
+	"input": [
+		{
+			"give_all": true,
+			"select_weapon": 1,
+			"wait": 0.4,
+			"report": true,
+		},
+		{
+			"fire_for": 1.5,
+			"fire_mode": "hold",
+			"report": true,
+			"shot": "input_held_trigger",
+		},
+	],
+	## Abilities: the holder has one cast path, and these three abilities have to do three
+	## different things through it. Damage is read off the enemies; the fire wall's
+	## solidity and shadow-casting are read off the effect it leaves behind.
+	"abilities": [
+		{
+			"set_abilities": ["fire_tempest", "lightning_bolt"],
+			"wait": 0.4,
+			"report": true,
+		},
+		{
+			"teleport": Vector2(224.0, 900.0),
+			"aim_at_enemy": true,
+			"wait": 0.4,
+			"report": true,
+		},
+		{
+			# DIRECTION targeting: a bolt towards the nearest enemy.
+			"cast_ability": 1,
+			"ability_target_at_enemy": true,
+			"wait": 1.2,
+			"report": true,
+		},
+		{
+			# POINT targeting with no placement rules: a blast centred on that enemy.
+			"cast_ability": 0,
+			"ability_target_at_enemy": true,
+			"wait": 1.0,
+			"report": true,
+		},
+		{
+			"set_abilities": ["fire_wall"],
+			# Inside geometry: refused before anything is spent, so the cooldown stays 0.
+			"cast_ability": 0,
+			"ability_target": Vector2(32.0, 500.0),
+			"wait": 0.7,
+			"report": true,
+			"ability_effects": true,
+		},
+		{
+			# In the open: spawned, and it is solid and shadow-casting.
+			"cast_ability": 0,
+			"ability_target": Vector2(224.0, 620.0),
+			"wait": 0.6,
+			"report": true,
+			"ability_effects": true,
+		},
+		{
+			# Again immediately: refused by the cooldown.
+			"cast_ability": 0,
+			"ability_target": Vector2(224.0, 620.0),
+			"wait": 0.4,
+			"report": true,
+		},
+	],
 	## Bake a navmesh at runtime and verify it: that the server knows about it, that
 	## enemies pick it up, and that its paths never cross walls.
 	"navmesh": [
@@ -336,24 +407,42 @@ func _is_headless() -> bool:
 	return DisplayServer.get_name() == "headless"
 
 
-## Confirms the runtime input map really has what the game polls, including the
-## mouse buttons (the one part of the real input path a script cannot press).
+## Godot's built-in actions the game relies on, checked alongside our own.
+const BUILT_IN_ACTIONS: Array[StringName] = [&"ui_accept"]
+
+
+## Confirms the runtime input map has every action the game polls, and that a press
+## registers. Action names are StringName literals throughout the code now, so this is
+## the check that catches a typo in one of them -- an unknown action name fails
+## silently at runtime, it does not raise an error.
 func _input_summary() -> String:
-	var parts: Array[String] = []
-	for action: String in ["fire", "move_up", "reload", "dash", "switch_1"]:
-		if not InputMap.has_action(action):
-			parts.append("%s=MISSING" % action)
-			continue
-		var kinds: Array[String] = []
-		for event: InputEvent in InputMap.action_get_events(action):
-			if event is InputEventKey:
-				kinds.append("key")
-			elif event is InputEventMouseButton:
-				kinds.append("mouse%s" % (event as InputEventMouseButton).button_index)
-			else:
-				kinds.append("other")
-		parts.append("%s=%s" % [action, "+".join(kinds)])
-	return "  ".join(parts)
+	var missing: Array[String] = []
+	var checked: int = 0
+	for key: Variant in _declared_actions():
+		checked += 1
+		if not InputMap.has_action(key):
+			missing.append(String(key))
+
+	# The held-press path is what automatic weapons poll, so prove it works.
+	Input.action_press(&"fire")
+	var registers: bool = Input.is_action_pressed(&"fire")
+	Input.action_release(&"fire")
+
+	return "%d/%d actions bound%s | synthetic press registers=%s" % [
+		checked - missing.size(), checked,
+		"" if missing.is_empty() else "   MISSING: " + ", ".join(missing),
+		registers]
+
+
+func _declared_actions() -> Array:
+	var out: Array = []
+	for key: Variant in GameInput.KEY_BINDINGS:
+		out.append(key)
+	for key: Variant in GameInput.MOUSE_BINDINGS:
+		out.append(key)
+	for key: Variant in BUILT_IN_ACTIONS:
+		out.append(key)
+	return out
 
 
 func _report_environment() -> void:
@@ -416,6 +505,36 @@ func _run(scenario: String) -> void:
 					player.global_position = exit.global_position
 			if step.has("give_all"):
 				player.debug_give_all_weapons()
+			if step.has("select_weapon"):
+				var holder = player.weapons
+				if holder != null:
+					holder.select(int(step["select_weapon"]))
+			if step.has("set_abilities"):
+				var ability_holder = player.abilities
+				if ability_holder != null:
+					ability_holder.slots.clear()
+					for ability_id: String in step["set_abilities"]:
+						ability_holder.add_ability(ability_id)
+			if step.has("ability_target") or step.has("ability_target_at_enemy"):
+				# Scripted casts need a deterministic target, since the real one is
+				# wherever the mouse happens to be.
+				var aimed_holder = player.abilities
+				if aimed_holder != null:
+					if step.has("ability_target"):
+						aimed_holder.debug_target = step["ability_target"]
+					else:
+						var aim_target: Enemy = _nearest_enemy(player.global_position)
+						if aim_target != null:
+							aimed_holder.debug_target = aim_target.global_position
+			else:
+				var plain_holder = player.abilities
+				if plain_holder != null:
+					plain_holder.debug_target = Vector2.INF
+			if step.has("cast_ability"):
+				var casting_holder = player.abilities
+				if casting_holder != null:
+					var cast: bool = casting_holder.use_ability(int(step["cast_ability"]))
+					print("[probe] cast ability %d -> %s" % [int(step["cast_ability"]), cast])
 			if step.has("aim"):
 				player.debug_aim = (step["aim"] as Vector2).normalized()
 			if step.has("aim_at_enemy"):
@@ -460,9 +579,9 @@ func _run(scenario: String) -> void:
 			var duration: float = float(step["fire_for"])
 			if String(step.get("fire_mode", "single")) == "hold":
 				# Automatic weapons poll is_action_pressed, so a held press works.
-				Input.action_press("fire")
+				Input.action_press(&"fire")
 				await get_tree().create_timer(duration).timeout
-				Input.action_release("fire")
+				Input.action_release(&"fire")
 			else:
 				# Semi-auto needs a discrete press per shot, which synthetic input
 				# cannot reliably fake across the physics-frame boundary, so drive
@@ -494,6 +613,8 @@ func _run(scenario: String) -> void:
 			_lint_levels()
 		if step.has("navmesh_report"):
 			_report_navmesh()
+		if step.has("ability_effects"):
+			_report_ability_effects()
 		if step.has("shot"):
 			await _screenshot(String(step["shot"]))
 		if step.has("walls"):
@@ -577,6 +698,16 @@ func _report_state() -> void:
 		else:
 			print("[probe]   weapon %s  mag %d  reserve %d  slots %d  reloading %s" % [
 				slot.data.id, slot.mag, slot.reserve, holder.slots.size(), holder.is_reloading(),
+			])
+	var abilities = player.abilities
+	if abilities != null:
+		if abilities.slots.is_empty():
+			print("[probe]   no abilities")
+		for i: int in abilities.slots.size():
+			var ability_slot = abilities.slots[i]
+			print("[probe]   ability %d  %-14s cooldown %.1f/%.1f  level %d" % [
+				i, ability_slot.data.id, ability_slot.cooldown_left, ability_slot.cooldown(),
+				ability_slot.level,
 			])
 	var level: Node = GameDirector.current_level
 	if level != null and level.has_method("alive_enemies"):
@@ -713,6 +844,29 @@ func _wall_crossings(path: PackedVector2Array, space: PhysicsDirectSpaceState2D)
 		if not space.intersect_ray(query).is_empty():
 			crossings += 1
 	return crossings
+
+
+## Lists the ability effects alive in the level and what they are made of. A fire wall
+## should report a solid body and a light occluder; a tempest neither.
+func _report_ability_effects() -> void:
+	var parent: Node = GameDirector.spawn_parent()
+	if parent == null:
+		return
+	var found: int = 0
+	for node: Node in _all_nodes(parent):
+		var effect := node as AbilityEffect
+		if effect == null:
+			continue
+		found += 1
+		print("[probe]   effect %-18s solid=%s occludes=%s field=%s  life_left=%.2f" % [
+			effect.get_script().resource_path.get_file(),
+			effect.find_child("Solid", true, false) != null,
+			effect.find_child("Occluder", true, false) != null,
+			effect.find_child("Field", true, false) != null,
+			effect.remaining_fraction(),
+		])
+	if found == 0:
+		print("[probe]   no ability effects alive")
 
 
 ## Lints every level scene. This runs inside a real game run rather than as a

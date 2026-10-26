@@ -245,28 +245,28 @@ func is_paused() -> bool:
 #region debug
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("pause"):
+	if run_active and event.is_action_pressed(&"pause"):
 		toggle_pause()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("debug_god"):
+	elif event.is_action_pressed(&"debug_god"):
 		god_mode = not god_mode
 		announce_message("God mode %s" % ("ON" if god_mode else "off"), Color(1, 0.8, 0.3))
-	elif event.is_action_pressed("debug_noclip"):
+	elif event.is_action_pressed(&"debug_noclip"):
 		noclip = not noclip
 		announce_message("Noclip %s" % ("ON" if noclip else "off"), Color(1, 0.8, 0.3))
-	elif event.is_action_pressed("debug_info"):
+	elif event.is_action_pressed(&"debug_info"):
 		debug_info = not debug_info
-	elif event.is_action_pressed("debug_reveal"):
+	elif event.is_action_pressed(&"debug_reveal"):
 		reveal = not reveal
 		reveal_changed.emit(reveal)
 		announce_message("Reveal %s" % ("ON" if reveal else "off"), Color(1, 0.8, 0.3))
-	elif event.is_action_pressed("debug_slowmo"):
+	elif event.is_action_pressed(&"debug_slowmo"):
 		_set_slowmo(not _slowmo)
-	elif event.is_action_pressed("debug_spawn"):
+	elif event.is_action_pressed(&"debug_spawn"):
 		_debug_call("debug_spawn_enemy")
-	elif event.is_action_pressed("debug_alert_all"):
+	elif event.is_action_pressed(&"debug_alert_all"):
 		_debug_call("debug_alert_all")
-	elif event.is_action_pressed("debug_give"):
+	elif event.is_action_pressed(&"debug_give"):
 		if player != null and player.has_method("debug_give_all_weapons"):
 			player.debug_give_all_weapons()
 			announce_message("All weapons granted", Color(1, 0.8, 0.3))

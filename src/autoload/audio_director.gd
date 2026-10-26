@@ -110,6 +110,18 @@ func _build_bank() -> void:
 		_pad(0.42, _blip(1040.0, 1040.0, 0.9, 3.0)),
 	]))
 	_bank[&"ui_click"] = _wav(_blip(820.0, 820.0, 0.03, 90.0))
+	_bank[&"cast_fire"] = _wav(_mix([
+		_noise(0.45, 14.0, 120.0, 0.35, 0.14), _noise(0.25, 26.0, 260.0, 0.2, 0.3)]))
+	_bank[&"cast_explosion"] = _wav(_mix([
+		_noise(0.5, 10.0, 70.0, 0.5, 0.09), _noise(0.2, 40.0, 180.0, 0.3, 0.25)]))
+	_bank[&"cast_lightning"] = _wav(_mix([
+		_noise(0.22, 34.0, 900.0, 0.25, 0.8), _blip(1400.0, 320.0, 0.2, 16.0)]))
+	_bank[&"cast_refused"] = _wav(_blip(220.0, 160.0, 0.14, 30.0))
+	_bank[&"pickup_ability"] = _wav(_mix([
+		_blip(500.0, 600.0, 0.075, 12.0),
+		_pad(0.075, _blip(550.0, 650.0, 0.075, 12.0)),
+	]))
+	
 
 
 func _wav(samples: PackedFloat32Array) -> AudioStreamWAV:
