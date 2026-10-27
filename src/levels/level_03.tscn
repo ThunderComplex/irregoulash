@@ -199,9 +199,10 @@ ability_id = "smg"
 amount = 35
 
 [node name="Pickup10" parent="Pickups" unique_id=1265009373 instance=ExtResource("5_pickup")]
-position = Vector2(201, 147)
+position = Vector2(200, 149)
 kind = "ability"
 weapon_id = "pistol"
+ability_id = "lightning_bolt"
 amount = 35
 
 [node name="Exit0" parent="." unique_id=1191661962 instance=ExtResource("6_exit")]

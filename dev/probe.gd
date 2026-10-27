@@ -251,6 +251,102 @@ const SCENARIOS: Dictionary = {
 			"shot": "input_held_trigger",
 		},
 	],
+	## Resolution independence, with numbers and with pictures. The window is resized while
+	## the game is running, which is what the settings menu does, and a constant amount of
+	## world must stay visible at every size and aspect.
+	"presentation": [
+		{
+			"center": true,
+			"wait": 0.5,
+			"presentation": true,
+			"shot": "presentation_00_1280x720",
+		},
+		{
+			"window_size": Vector2i(1920, 1080),
+			"wait": 0.6,
+			"presentation": true,
+			"shot": "presentation_01_1920x1080",
+		},
+		{
+			"window_size": Vector2i(1024, 768),
+			"wait": 0.6,
+			"presentation": true,
+			"shot": "presentation_02_1024x768_4x3",
+		},
+		{
+			"window_size": Vector2i(1280, 800),
+			"wait": 0.6,
+			"presentation": true,
+			"shot": "presentation_03_1280x800_16x10",
+		},
+		{
+			"window_size": Vector2i(1600, 600),
+			"wait": 0.6,
+			"presentation": true,
+			"shot": "presentation_04_1600x600_ultrawide",
+		},
+		{
+			# The HUD at a large size and a narrow one, with the debug readout on so the
+			# layout can be judged rather than guessed at.
+			"window_size": Vector2i(2560, 1440),
+			"debug_info": true,
+			"wait": 0.6,
+			"presentation": true,
+			"shot": "presentation_05_2560x1440_debug",
+		},
+		{
+			"window_size": Vector2i(800, 600),
+			"wait": 0.6,
+			"presentation": true,
+			"shot": "presentation_06_800x600_debug",
+		},
+	],
+	## Settings from a paused game, and the persistence round-trip. Both paths a player
+	## takes; neither can be seen from a headless run.
+	"settings_in_game": [
+		{
+			"toggle_pause": true,
+			"press_settings": true,
+			"wait": 0.5,
+			"keys_release": ["settings"],
+			"menu_report": true,
+			"shot": "settings_in_game_paused",
+		},
+		{
+			"settings_roundtrip": true,
+			"wait": 0.2,
+		},
+	],
+	## The title screen and the settings menu at three window sizes, since both lay
+	## themselves out in code and neither may assume 1280x720 any more.
+	"title_layout": [
+		{
+			"wait": 0.6,
+			"presentation": true,
+			"shot": "title_00_1280x720",
+		},
+		{
+			"window_size": Vector2i(1920, 1080),
+			"wait": 0.6,
+			"shot": "title_01_1920x1080",
+		},
+		{
+			"window_size": Vector2i(1024, 768),
+			"wait": 0.6,
+			"shot": "title_02_1024x768_4x3",
+		},
+		{
+			"open_settings": true,
+			"wait": 0.6,
+			"presentation": true,
+			"shot": "title_03_settings_menu",
+		},
+		{
+			"window_size": Vector2i(1920, 1080),
+			"wait": 0.6,
+			"shot": "title_04_settings_large",
+		},
+	],
 	## Abilities: the holder has one cast path, and these three abilities have to do three
 	## different things through it. Damage is read off the enemies; the fire wall's
 	## solidity and shadow-casting are read off the effect it leaves behind.
@@ -477,6 +573,93 @@ func _report_environment() -> void:
 			])
 
 
+## The resolution-independence claim in numbers. Whatever the window size, a constant
+## amount of world must be visible and the HUD must scale with the window; if either of
+## those drifts, this line shows it immediately.
+func _report_presentation() -> void:
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var zoom: Vector2 = Vector2.ONE
+	var player: Node = get_tree().get_first_node_in_group("player")
+	if player != null:
+		# Named "Camera" in the player scene; fall back to any Camera2D under the player.
+		var camera := player.get_node_or_null("Camera") as Camera2D
+		if camera == null:
+			for node: Node in _all_nodes(player):
+				var found := node as Camera2D
+				if found != null:
+					camera = found
+					break
+		if camera != null:
+			zoom = camera.zoom
+	var hud: HUD = null
+	for node: Node in _all_nodes(get_tree().root):
+		var candidate := node as HUD
+		if candidate != null:
+			hud = candidate
+			break
+	print("[probe] window %dx%d  desktop %s  zoom %.3f  visible world %.0fx%.0f  hud scale %.3f" % [
+		int(viewport_size.x), int(viewport_size.y), str(DisplayServer.screen_get_size()),
+		zoom.x, viewport_size.x / maxf(0.001, zoom.x), viewport_size.y / maxf(0.001, zoom.y),
+		hud.ui_scale() if hud != null else -1.0,
+	])
+	# Full-screen overlay controls have to size themselves to the window. A zero-sized one
+	# still draws its children, so it fails silently and half off-screen -- worth reporting.
+	if hud != null:
+		var overlay := hud.get_node_or_null("Root/Overlay") as Control
+		if overlay != null:
+			print("[probe]   hud overlay rect %s" % str(overlay.get_global_rect()))
+	_report_settings_menu()
+
+
+func _report_settings_menu() -> void:
+	var found: int = 0
+	for node: Node in _all_nodes(get_tree().root):
+		var menu := node as SettingsMenu
+		if menu == null:
+			continue
+		found += 1
+		print("[probe]   settings menu rect %s  (visible rect %s)" % [
+			str(menu.get_global_rect()), str(menu.get_viewport_rect()),
+		])
+	if found == 0:
+		print("[probe]   no settings menu open")
+
+
+## Settings persistence, with the player's own file left exactly as it was found: the test
+## writes, reloads, and then puts the original bytes back (or removes the file if there was
+## none to begin with).
+func _report_settings_roundtrip() -> void:
+	var path: String = GameSettings.PATH
+	var existed: bool = FileAccess.file_exists(path)
+	var backup: PackedByteArray = PackedByteArray()
+	if existed:
+		backup = FileAccess.get_file_as_bytes(path)
+
+	var kept: float = Settings.sfx_volume_db
+	Settings.set_master_volume_db(-7.25)
+	Settings.set_sfx_volume_db(-23.5)
+	# Forget the in-memory values and read them back off disk, which is what a restart does.
+	Settings.master_volume_db = 0.0
+	Settings.sfx_volume_db = 0.0
+	Settings.load_settings()
+	var master_ok: bool = is_equal_approx(Settings.master_volume_db, -7.25)
+	var sfx_ok: bool = is_equal_approx(Settings.sfx_volume_db, -23.5)
+	print("[probe] settings round-trip master=%s sfx=%s (read back %.2f / %.2f)" % [
+		master_ok, sfx_ok, Settings.master_volume_db, Settings.sfx_volume_db,
+	])
+
+	Settings.set_sfx_volume_db(kept)
+	if existed:
+		var file := FileAccess.open(path, FileAccess.WRITE)
+		if file != null:
+			file.store_buffer(backup)
+	else:
+		var dir := DirAccess.open("user://")
+		if dir != null and dir.file_exists("settings.cfg"):
+			dir.remove("settings.cfg")
+	print("[probe] settings file restored (existed before the test: %s)" % existed)
+
+
 func _all_nodes(root: Node) -> Array[Node]:
 	var out: Array[Node] = [root]
 	for child: Node in root.get_children():
@@ -548,6 +731,23 @@ func _run(scenario: String) -> void:
 			GameDirector.reveal_changed.emit(GameDirector.reveal)
 		if step.has("debug_info"):
 			GameDirector.debug_info = bool(step["debug_info"])
+		if step.has("window_size"):
+			# Resizing at runtime is the honest test: everything has to adapt while the game
+			# is already running, which is exactly what the settings menu does.
+			var size: Vector2i = step["window_size"]
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			DisplayServer.window_set_size(size)
+		if step.has("open_settings"):
+			var title: Node = get_tree().current_scene
+			if title != null and title.has_method("open_settings"):
+				title.call("open_settings")
+		if step.has("toggle_pause") and bool(step["toggle_pause"]):
+			GameDirector.toggle_pause()
+		if step.has("press_settings"):
+			# Synthetic press, so the pause overlay's `is_action_just_pressed` path runs.
+			Input.action_press(&"settings")
+		if step.has("settings_roundtrip"):
+			_report_settings_roundtrip()
 		if step.has("call_start_run"):
 			GameDirector.start_run()
 		if step.has("god"):
@@ -615,6 +815,10 @@ func _run(scenario: String) -> void:
 			_report_navmesh()
 		if step.has("ability_effects"):
 			_report_ability_effects()
+		if step.has("presentation"):
+			_report_presentation()
+		if step.has("menu_report"):
+			_report_settings_menu()
 		if step.has("shot"):
 			await _screenshot(String(step["shot"]))
 		if step.has("walls"):

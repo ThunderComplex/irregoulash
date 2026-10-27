@@ -50,6 +50,9 @@ func _ready() -> void:
 	camera.position_smoothing_enabled = true
 	camera.position_smoothing_speed = Tuning.camera_smoothing
 	FxDirector.register_camera(camera)
+	_update_camera_zoom()
+	# The window can be resized, or the display settings changed, at any time.
+	get_viewport().size_changed.connect(_update_camera_zoom)
 
 	vision.aim_at(aim_direction)
 	GameDirector.set_player(self)
@@ -141,6 +144,22 @@ func _update_camera_offset() -> void:
 	var distance: float = get_global_mouse_position().distance_to(global_position)
 	var amount: float = minf(distance * Tuning.camera_aim_offset, Tuning.camera_aim_offset_max)
 	camera.position = aim_direction * amount
+
+
+## Zooms so that a constant amount of world is visible vertically, whatever the window
+## size. This is the whole of "resolution independent" from the world's point of view: the
+## vision cone, lamps and enemies cover the same share of the screen on any display, so the
+## game does not become easier or darker just because the window is bigger.
+##
+## The tradeoff is horizontal: a wider aspect ratio shows more world to the sides. That is
+## the standard choice for a 2D game (letterboxing an ultrawide monitor is worse), and it
+## is worth knowing that a 21:9 player sees a little further sideways than a 16:9 one.
+func _update_camera_zoom() -> void:
+	var viewport_height: float = get_viewport().get_visible_rect().size.y
+	if viewport_height <= 0.0:
+		return
+	var visible_height: float = maxf(200.0, Tuning.camera_visible_height)
+	camera.zoom = Vector2.ONE * (viewport_height / visible_height)
 
 
 func _update_noclip() -> void:

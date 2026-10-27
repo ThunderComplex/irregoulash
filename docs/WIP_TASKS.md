@@ -185,6 +185,35 @@ maps, the editor's own error log) rather than guessed at.
 - The levels are still first drafts: cover and lamp placement will matter more than
   any code change from here.
 
+## Phase 13 — Resolution independence and settings
+
+The game no longer assumes 1280x720 anywhere: every window size and aspect ratio works.
+
+- [x] Native rendering (`window/stretch/mode="disabled"`) instead of stretching a 720p canvas,
+      so text and edges stay sharp on a large or high-DPI display
+- [x] `Tuning.camera_visible_height`: the camera zooms so **800px of world is visible
+      vertically at every window size** — verified 800 at 1280x720, 1920x1080, 1024x768,
+      1280x800, 1600x600, 2560x1440 and 800x600. At 1280x720 that is zoom 0.9, exactly the old
+      hardcoded value, so the existing feel is unchanged
+- [x] HUD scaled from `Tuning.ui_reference_height` and rebuilt on resize (measured 0.833 to
+      2.000 across those sizes), so it reads the same relative size on any display
+- [x] Title screen and settings menu laid out in a scaled 1280x720 reference frame and rebuilt
+      on resize, so neither assumes the old resolution
+- [x] `Settings` autoload: window mode (windowed / borderless / exclusive), resolution, vsync,
+      master and SFX volume — applied immediately and persisted to `user://settings.cfg`
+- [x] Settings menu reachable from the title screen (`O`) and from the pause overlay (`O`),
+      with the live window size in its footer
+- [x] `Settings` now owns the SFX bus volume; `AudioDirector` stopped setting it, so the two
+      cannot fight over the same slider
+- [x] Fixed a latent bug found on the way: the HUD's death/victory overlay was zero-sized, so
+      its text was drawn in the top-left corner (see DESIGN_NOTES)
+- [x] Verified: settings open from a paused game, and a save/load round-trip reads back the
+      written values (the probe restores the player's settings file afterwards)
+
+Still open: no in-game keybind rebinding, no mouse sensitivity, and no command-line display
+overrides. A very wide window sees more world sideways, which is documented in
+LEVEL_AUTHORING.
+
 ## Phase 12 — Abilities
 
 Three abilities on their own slots, sharing exactly one cast path.

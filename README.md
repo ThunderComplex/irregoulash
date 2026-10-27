@@ -40,6 +40,7 @@ wins the run.
 | `Shift` / `Space` | Dash (fast, and loud enough to be heard) |
 | `1` `2` `3` / wheel | Switch weapon |
 | Q / E | Use ability 1 / 2 |
+| `O` | Settings (window mode, resolution, vsync, volumes) |
 | `Esc` | Pause |
 
 Walk over weapons, ammo and medkits to pick them up.
@@ -85,6 +86,11 @@ Walk over weapons, ammo and medkits to pick them up.
   the resource says how it aims, the effect script does the rest, so the fire wall can be
   a solid, shadow-casting barrier while the bolt is just a projectile and neither of them
   needs a branch in the holder.
+- **Any resolution and aspect ratio**, with a settings menu (window mode, resolution,
+  vsync, master and effects volume) persisted to `user://settings.cfg`. The game renders
+  natively rather than stretching a fixed canvas, so text stays crisp at 4K, and the camera
+  zooms itself so the same amount of world is visible at every size -- the vision cone
+  covers the same share of the screen whether the window is 800x600 or 2560x1440.
 - **In-editor authoring tools** (`addons/level_tools/`): a wall brush (drag to draw
   walls, with undo), an enemy tool (pick an archetype, click to place, click again to
   lay out its patrol route, right-click to finish — one route per enemy), a one-click
@@ -205,7 +211,9 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path . --import
   completable and linted, not tuned. Expect to want to move cover around.
 - **The HUD is built in code**, not as a scene, so it cannot be nudged around in
   the editor. That was a deliberate trade while the layout was still changing.
-- **No save/load, no options, no gamepad.**
+- **No save/load and no gamepad.** Settings (window, resolution, vsync, volumes) are the
+  exception: they persist in `user://settings.cfg`. There is no save game, and nothing is
+  rebound in-game -- keybinds live in `GameInput.KEY_BINDINGS`.
 - Quitting a level prints `2 ObjectDB instances were leaked at exit` (an
   `AudioStreamWAV` and its playback). It is a shutdown-ordering artefact in Godot's
   audio mixer, not a gameplay leak — `AudioDirector._exit_tree()` stops every pooled

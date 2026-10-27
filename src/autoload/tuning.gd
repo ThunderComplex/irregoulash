@@ -90,4 +90,15 @@ extends Node
 @export var camera_aim_offset_max: float = 110.0
 @export var shake_decay: float = 3.4
 @export var shake_max_offset: float = 26.0
+
+@export_group("Resolution independence")
+## How much world is visible vertically, in pixels, whatever the window size. The camera
+## zooms to keep this constant, so the vision cone covers the same share of the screen at
+## any resolution -- which is what stops a 4K window from being mostly black.
+## (The old hardcoded pairing was a 720-tall viewport at zoom 0.9, i.e. 800.)
+@export var camera_visible_height: float = 800.0
+## The height the HUD is laid out for. Every HUD dimension and font size is scaled from
+## this, so the interface looks the same at 800x600 and at 4K.
+@export var ui_reference_height: float = 720.0
+#endregion
 #endregion

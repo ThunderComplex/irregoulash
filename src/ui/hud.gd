@@ -47,7 +47,16 @@ var _overlay_title: Label
 var _overlay_body: Label
 var _debug: Label
 
+## Layout scale. Every dimension in `_build()` is written for a 720-tall screen and
+## multiplied by this, so the interface keeps the same size relative to the window at any
+## resolution instead of shrinking into a corner on a large display.
+var _scale: float = 1.0
+## Set when the window changes size; the layout is rebuilt on the next frame rather than
+## inside the signal, so nothing is freed mid-notification.
+var _resize_pending: bool = false
+
 var _player: Player = null
+var _settings_menu: SettingsMenu = null
 var _feed_lines: Array[String] = []
 var _feed_age: Array[float] = []
 var _vignette_alpha: float = 0.0
@@ -63,13 +72,19 @@ var _overlay_kind: String = "none"
 func _ready() -> void:
 	layer = 10
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_scale = _compute_scale()
 	_build()
 	GameDirector.announce.connect(_on_announce)
 	GameDirector.game_over.connect(_on_game_over)
 	GameDirector.game_won.connect(_on_game_won)
+	get_viewport().size_changed.connect(_on_viewport_resized)
 
 
 func _process(delta: float) -> void:
+	if _resize_pending:
+		_resize_pending = false
+		_rebuild()
+
 	_tick_feed(delta)
 
 	if not is_instance_valid(_player):
@@ -105,7 +120,7 @@ func _update_health() -> void:
 	if _player != null and is_instance_valid(_player):
 		fraction = _player.health_fraction()
 		hp = _player.health.current
-	_health_fill.size.x = 240.0 * fraction
+	_health_fill.size.x = 240.0 * fraction * _scale
 	_health_fill.color = Color(0.85, 0.25, 0.25).lerp(Color(0.35, 0.85, 0.45), fraction)
 	_health_text.text = "HP %d" % int(round(hp))
 
@@ -167,7 +182,7 @@ func _update_weapons() -> void:
 	_reload_bar.visible = reloading
 	_reload_bg.visible = reloading
 	if reloading:
-		_reload_bar.size.x = 150.0 * holder.reload_progress()
+		_reload_bar.size.x = 150.0 * holder.reload_progress() * _scale
 
 
 func _poll_world() -> void:
@@ -187,7 +202,7 @@ func _poll_world() -> void:
 		alert_state = "UNEASY"
 	_alert_state = alert_state
 
-	_alert_fill.size.x = 280.0 * clampf(highest, 0.0, 1.0)
+	_alert_fill.size.x = 280.0 * clampf(highest, 0.0, 1.0) * _scale
 	_alert_fill.color = Color(0.95, 0.75, 0.3).lerp(Color(0.95, 0.25, 0.2), clampf(highest, 0.0, 1.0))
 	_alert_text.text = "THREAT: %s" % alert_state
 	_alert_text.modulate = Color(1.0, 0.9, 0.6) if highest >= Tuning.awareness_suspicious else Color(0.75, 0.8, 0.85)
@@ -314,6 +329,15 @@ func _hide_overlay() -> void:
 func _update_overlay() -> void:
 	var paused: bool = GameDirector.is_paused()
 
+	# Settings are reachable from a paused game, which is where players look for them.
+	# They apply live, so there is nothing to restart.
+	if paused and Input.is_action_just_pressed(&"settings"):
+		if _settings_menu == null or not is_instance_valid(_settings_menu):
+			AudioDirector.play(&"ui_click", -6.0)
+			_settings_menu = SettingsMenu.new()
+			add_child(_settings_menu)
+		return
+
 	match _overlay_kind:
 		"dead", "won":
 			if Input.is_action_just_pressed(&"ui_accept") and not paused:
@@ -330,7 +354,7 @@ func _update_overlay() -> void:
 			return
 
 	if paused:
-		_show_overlay("paused", "PAUSED", "%s\n\n[ Esc ]  resume" % GameDirector.stats_line(),
+		_show_overlay("paused", "PAUSED", "%s\n\n[ Esc ]  resume        [ O ]  settings" % GameDirector.stats_line(),
 			Color(0.92, 0.96, 1.0))
 
 
@@ -339,10 +363,41 @@ func _update_overlay() -> void:
 
 #region layout
 
+## Current HUD scale: 1.0 on a 720-tall screen, larger on a taller one. Public so the
+## probe can report it alongside the camera zoom.
+func ui_scale() -> float:
+	return _scale
+
+
+func _compute_scale() -> float:
+	var height: float = get_viewport().get_visible_rect().size.y
+	if height <= 0.0:
+		return 1.0
+	return clampf(height / maxf(1.0, Tuning.ui_reference_height), 0.5, 4.0)
+
+
+func _on_viewport_resized() -> void:
+	if absf(_compute_scale() - _scale) < 0.001:
+		return
+	_resize_pending = true
+
+
+## Rebuilds the layout at the current scale. Cheap, and it cannot leave a half-rescaled
+## layout behind, which is exactly the kind of bug a window resize would otherwise cause.
+func _rebuild() -> void:
+	_scale = _compute_scale()
+	_root.free()
+	_ability_labels.clear()
+	_build()
+
+
 func _build() -> void:
 	_root = Control.new()
 	_root.name = "Root"
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT, false)
+	# `set_anchors_and_offsets_preset`, not `set_anchors_preset`: the latter leaves the
+	# offsets alone, which makes a FULL_RECT control zero-sized when its parent is another
+	# Control rather than a CanvasLayer. The overlay below is affected the same way.
+	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
@@ -363,7 +418,7 @@ func _build() -> void:
 		Color(0.08, 0.09, 0.11, 0.85))
 	_health_fill = _rect(_root, Control.PRESET_BOTTOM_LEFT, 30.0, -84.0, 266.0, -68.0,
 		Color(0.35, 0.85, 0.45))
-	_health_fill.size.x = 240.0
+	_health_fill.size.x = 240.0 * _scale
 	health_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	# --- weapon, bottom right
@@ -422,14 +477,14 @@ func _build() -> void:
 func _build_overlay() -> void:
 	_overlay = Control.new()
 	_overlay.name = "Overlay"
-	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT, false)
+	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.visible = false
 	_root.add_child(_overlay)
 
 	var shade := ColorRect.new()
 	shade.color = Color(0.02, 0.02, 0.04, 0.72)
-	shade.set_anchors_preset(Control.PRESET_FULL_RECT, false)
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay.add_child(shade)
 
@@ -443,12 +498,14 @@ func _label(parent: Control, preset: int, l: float, t: float, r: float, b: float
 		halign: int, color: Color) -> Label:
 	var label := Label.new()
 	label.set_anchors_preset(preset, false)
-	label.offset_left = l
-	label.offset_top = t
-	label.offset_right = r
-	label.offset_bottom = b
+	# `l..b` and `font_size` are written in reference (720-tall) units and scaled here, so
+	# every call site above reads at a fixed size no matter the window.
+	label.offset_left = l * _scale
+	label.offset_top = t * _scale
+	label.offset_right = r * _scale
+	label.offset_bottom = b * _scale
 	label.horizontal_alignment = halign
-	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_font_size_override("font_size", int(round(float(font_size) * _scale)))
 	label.modulate = color
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(label)
@@ -458,10 +515,10 @@ func _label(parent: Control, preset: int, l: float, t: float, r: float, b: float
 func _rect(parent: Control, preset: int, l: float, t: float, r: float, b: float, color: Color) -> ColorRect:
 	var rect := ColorRect.new()
 	rect.set_anchors_preset(preset, false)
-	rect.offset_left = l
-	rect.offset_top = t
-	rect.offset_right = r
-	rect.offset_bottom = b
+	rect.offset_left = l * _scale
+	rect.offset_top = t * _scale
+	rect.offset_right = r * _scale
+	rect.offset_bottom = b * _scale
 	rect.color = color
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(rect)

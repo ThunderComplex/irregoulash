@@ -20,6 +20,7 @@ config/icon="res://icon.svg"
 Tuning="*res://src/autoload/tuning.gd"
 GameInput="*res://src/autoload/game_input.gd"
 AudioDirector="*res://src/autoload/audio_director.gd"
+Settings="*res://src/autoload/settings.gd"
 FxDirector="*res://src/autoload/fx_director.gd"
 GameDirector="*res://src/autoload/game_director.gd"
 
@@ -27,8 +28,6 @@ GameDirector="*res://src/autoload/game_director.gd"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
 
 [editor_plugins]
 

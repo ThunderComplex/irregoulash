@@ -45,14 +45,15 @@ func _exit_tree() -> void:
 	_bank.clear()
 
 
-## Give SFX their own bus so the volume slider (and future ducking) has a home.
+## Give SFX their own bus so the volume slider (and future ducking) has a home. The
+## volume itself is owned by Settings, which is why nothing is set here: it would otherwise
+## fight the menu for control of the slider.
 func _ensure_bus() -> void:
 	if AudioServer.get_bus_index("SFX") == -1:
 		AudioServer.add_bus()
 		_sfx_bus = &"SFX"
 		AudioServer.set_bus_name(AudioServer.bus_count - 1, _sfx_bus)
 		AudioServer.set_bus_send(AudioServer.get_bus_index(_sfx_bus), &"Master")
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index(_sfx_bus), Tuning.sfx_volume_db)
 
 
 func _build_pools() -> void:

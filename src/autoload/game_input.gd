@@ -22,6 +22,7 @@ const KEY_BINDINGS: Dictionary = {
 	"switch_3": [KEY_3],
 	"ability_1": [KEY_Q],
 	"ability_2": [KEY_E],
+	"settings": [KEY_O, KEY_F8],
 	"pause": [KEY_ESCAPE],
 	"debug_god": [KEY_F1],
 	"debug_noclip": [KEY_F2],
@@ -47,6 +48,7 @@ R                 Reload
 Shift / Space     Dash
 1 2 3 / Wheel     Switch weapon
 Q E               Use ability
+O                 Settings
 Esc               Pause
 
 Walk over weapons, ammo and medkits to pick them up.

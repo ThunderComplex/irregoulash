@@ -31,6 +31,8 @@ this slice exists to make that one idea readable.
 | Path finding is a baked navigation mesh, generated from the walls by one click, with direct steering as the fallback | Hand-drawn navigation polygons would be another thing to keep in sync with the geometry. Baking from the `wall` group means the mesh is derived from the same data the vision, collision and linter all use, and a level without one still works | `NavmeshBaker`, the plugin's "Bake navmesh" button, `Enemy._move_toward` |
 | Abilities are one cast path plus a per-ability effect script, not a branch per ability | Weapons share a pipeline (aim -> bullets -> damage), so their uniformity is free. Abilities do not share one, and a `match` in the holder would grow with every ability added. The resource says how it aims and what it costs; the effect script does the rest | `AbilityResource.targeting`, `AbilityResource.effect`, `AbilityHolder.use_ability` |
 | The fire wall blocks movement *and* light | It is the one ability that changes the level, and in a game about line of sight a temporary occluder is worth more than the damage. Free to build: `Wall` already generates occluders from a rectangle, and `DamageField` can be solid | `FireWall`, `DamageField.blocks_light` |
+| Render at the window's real resolution and derive the scale, rather than stretching a fixed 1280x720 canvas | Stretching a 720p canvas up to 4K softens text and edges, and this game is flat vector art with a text-heavy HUD, so softness is obvious. Rendering natively and deriving the camera zoom and HUD scale costs a few lines either way and is sharp at every size | `project.godot` (`stretch/mode="disabled"`), `Player._update_camera_zoom`, `HUD._compute_scale` |
+| The camera keeps a constant *height* of world visible (800px) at any window size | Something has to be held constant for the game to play the same at every size, and for a top-down game that is the vertical field of view: the vision cone, lamp radii and enemy sight then cover the same share of the screen everywhere. The accepted tradeoff is horizontal -- an ultrawide window sees further sideways, which is better than letterboxing it | `Tuning.camera_visible_height`, `Player._update_camera_zoom` |
 | The vision cone is a light, not a shader | It is GPU-cheap, it respects occluders automatically, and it means levels stay easy to author | `VisionRig.configure()` |
 | Weapon/level/enemy data lives in code libraries, not `.tres` files | Balance is one edit, diffs are readable, and a new weapon is one function | `weapon_library.gd`, `enemy_library.gd` |
 | The HUD is built in code | It changed constantly while the game was being built; a `.tscn` would have been re-anchored a dozen times | `hud.gd` |
@@ -104,6 +106,15 @@ Also worth knowing:
   a player teleported, respawned or dropped onto them.
 - Swapping scenes from inside a physics callback is not allowed; the level loader
   defers `change_scene_to_file`.
+- `set_anchors_preset(PRESET_FULL_RECT, false)` does **not** make a `Control` fill its
+  parent. It sets the anchors and then recomputes the offsets to keep the control's
+  *current* size, which for a freshly created control is zero -- so a full-screen overlay
+  became a zero-sized rect at the origin. Its children still drew (`clip_contents` is off by
+  default), so the symptom was a settings panel centred on the top-left corner of the
+  screen rather than anything that looked like a sizing bug. `set_anchors_and_offsets_preset`
+  is the call that fills the parent. The HUD's overlay had the same latent bug, which is
+  why the death and victory text used to sit in the corner; a `CanvasLayer` child happens
+  not to need it, which is why the rest of the HUD looked correct for so long.
 
 ## Tuning cheat sheet
 

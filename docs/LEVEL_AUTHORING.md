@@ -357,3 +357,17 @@ one-field edit in the editor afterwards.
 10. Press **Lint level**.
 11. Play it. `F3` shows what the AI is thinking, `F4` lifts the fog so you can
 	check the layout, `F2` lets you fly through walls.
+
+## Resolution
+
+Nothing in a level needs to know the game's resolution. Walls, markers and patrol routes are
+authored in world coordinates, and the camera zooms itself so a constant *height* of world is
+visible at every window size (the reasoning is in DESIGN_NOTES). Two consequences are worth
+knowing while you lay a level out:
+
+- A **wider** window (ultrawide, or a wide borderless window) shows more world to the
+  *sides*, so keep a ring of walls or void around the playable area.
+- The camera is clamped to the level's bounds and `Level.min_bound_size` is a *minimum*: the
+  real bounds grow to the geometry. A level with a generous margin therefore still behaves
+  sensibly at an unusual aspect ratio. A very narrow window sees *less* world, so do not
+  rely on the player being able to see something at the far edge of the screen.
