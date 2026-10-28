@@ -22,11 +22,17 @@ var abilities: Node = null
 ## used by the automated dev probe so scripted tests are deterministic.
 var debug_aim: Vector2 = Vector2.ZERO
 
+## Any key opens any locked door. Carried between levels and saved with the checkpoint, because
+## losing keys at a level boundary would be a nasty surprise.
+var keys: int = 0
+
 var _dead: bool = false
 var _dash_time: float = 0.0
 var _dash_cooldown: float = 0.0
 var _dash_direction: Vector2 = Vector2.RIGHT
 var _footstep_accum: float = 0.0
+## Doors already smashed during the current dash, so one dash cannot hit the same door twice.
+var _dashed_doors: Array[Door] = []
 
 
 func _ready() -> void:
@@ -97,11 +103,15 @@ func _physics_process(delta: float) -> void:
 		_dash_time -= delta
 		velocity = _dash_direction * Tuning.player_dash_speed
 		move_and_slide()
+		_smash_doors_hit()
 		return
 
 	if input.length() > 0.1 and _dash_cooldown <= 0.0 and Input.is_action_just_pressed(&"dash"):
 		_start_dash(input)
 		return
+
+	if Input.is_action_just_pressed(&"interact"):
+		interact_nearby()
 
 	var target: Vector2 = input * Tuning.player_speed
 	var rate: float = Tuning.player_accel if input.length() > 0.1 else Tuning.player_friction
@@ -121,11 +131,76 @@ func _start_dash(input: Vector2) -> void:
 	_dash_time = Tuning.player_dash_time
 	_dash_cooldown = Tuning.player_dash_cooldown
 	_dash_direction = input.normalized()
+	_dashed_doors.clear()
 	velocity = _dash_direction * Tuning.player_dash_speed
 	AudioDirector.play(&"dash", -3.0)
 	GameDirector.make_noise(global_position, Tuning.noise_dash, self)
 	FxDirector.spark_burst(global_position - _dash_direction * 10.0, -_dash_direction, 6,
 		Color(0.72, 0.82, 1.0), 130.0, 0.22)
+
+
+## Doors stopped by this frame's dash. `move_and_slide` reports what it collided with, so this
+## needs no extra raycast: whatever stopped the dash is what gets hit.
+func _smash_doors_hit() -> void:
+	for i: int in get_slide_collision_count():
+		var collision: KinematicCollision2D = get_slide_collision(i)
+		var body: Node = collision.get_collider() as Node
+		if body == null:
+			continue
+		# The door's collider is a child of the door, which is how a StaticBody2D identifies
+		# itself without doors needing a script on the body.
+		var door := body.get_parent() as Door
+		if door == null or _dashed_doors.has(door):
+			continue
+		_dashed_doors.append(door)
+		door.smash(self)
+
+
+## Work the nearest door within reach. Nearest rather than most-faced: doors sit in doorways the
+## player is walking through, so proximity is a better guess than pointer direction.
+func interact_nearby() -> bool:
+	var door := nearest_door()
+	if door == null:
+		return false
+	return door.interact(self)
+
+
+## Debug hook for the probe: starts a real dash, so door smashing is exercised through the same
+## collision path a player uses.
+func debug_dash(direction: Vector2) -> void:
+	if direction.length_squared() < 0.01:
+		return
+	_start_dash(direction)
+
+
+func nearest_door() -> Door:
+	var best: Door = null
+	var best_distance: float = Tuning.player_interact_range
+	for node: Node in get_tree().get_nodes_in_group(&"door"):
+		var door := node as Door
+		if door == null or door.state == Door.State.BROKEN:
+			continue
+		# Distance to the door's surface, not its centre: a wide door's centre is out of reach
+		# while you are standing against it.
+		var distance: float = door.surface_distance(global_position)
+		if distance <= best_distance:
+			best_distance = distance
+			best = door
+	return best
+
+
+## Called by a door that was opened with a key.
+func spend_key() -> bool:
+	if keys <= 0:
+		return false
+	keys -= 1
+	GameDirector.carry_keys(keys)
+	return true
+
+
+func add_key(count: int = 1) -> void:
+	keys = maxi(0, keys + count)
+	GameDirector.carry_keys(keys)
 
 
 func _update_footsteps(delta: float) -> void:

@@ -1,12 +1,11 @@
-# TopDown Shooter — WIP vertical slice
+# TopDown Shooter
 
 A top-down 2D shooter where **line of sight is the whole game**. You can only see
-what your own light reaches, and so can the enemies. This build is a small,
-playable slice built to answer one question: *is this actually fun, and is it
-worth extending into a full game?*
+what your own light reaches, and so can the enemies.
 
-It is not a finished game. It is the smallest thing that contains the whole loop
-end to end: **sneak → get noticed → fight → loot → escape to the next level.**
+It is in active development towards a finished game, but it is playable end to end
+today: **sneak → get noticed → fight → loot → escape to the next level.** Art and
+audio are still placeholders, generated in code.
 
 ---
 
@@ -37,7 +36,8 @@ wins the run.
 | Mouse | Aim; your vision cone follows the cursor |
 | Left mouse | Fire |
 | `R` | Reload |
-| `Shift` / `Space` | Dash (fast, and loud enough to be heard) |
+| `F` | Open / close a door (locked ones need a key) |
+| `Shift` / `Space` | Dash: fast, loud, and it smashes unlocked doors off their hinges |
 | `1` `2` `3` / wheel | Switch weapon |
 | Q / E | Use ability 1 / 2 |
 | `Esc` | Pause (opens the pause menu) |
@@ -85,6 +85,11 @@ Walk over weapons, ammo and medkits to pick them up.
   the resource says how it aims, the effect script does the rest, so the fire wall can be
   a solid, shadow-casting barrier while the bolt is just a projectile and neither of them
   needs a branch in the holder.
+- **Doors, and keys.** A shut door blocks movement, bullets and light, so it hides a room as
+  well as blocking a path; opening one reveals the room *and* you. Doors can be opened and shut
+  by hand or smashed with a dash, locked ones need a key (any key opens any door, and you can
+  carry as many as you find), and enemies open doors in their way and shut them again behind
+  themselves. The navmesh deliberately ignores doors, so a doorway is never a dead end to the AI.
 - **Menus, and one checkpoint.** The title screen offers New Game, Continue, Settings and Quit;
   the pause menu offers Settings, Continue and Quit to Menu. Continue resumes the level you were
   on with the weapons you were carrying, from a single `user://progress.cfg` written on level
@@ -103,12 +108,12 @@ Walk over weapons, ammo and medkits to pick them up.
   arrows, labelled pickups and exits, camera bounds, the spawn point's vision reach), an
   opt-in lighting preview, and a level linter. See `docs/LEVEL_AUTHORING.md`.
 
-## What is deliberately *not* in this WIP
+## Not built yet
 
-ARPG abilities and a talent tree, a real inventory, consumables, procgen levels,
-saving, shops, boss fights, controller support, an options menu, real audio
-assets, and enemy navigation meshes. See `docs/DESIGN_NOTES.md` for how each of
-those was kept possible.
+A talent tree, a real inventory, consumables, procgen levels, mid-level saving,
+shops, boss fights, controller support, keybind remapping, and real art/audio
+assets. `docs/OPEN_QUESTIONS.md` lists the design questions that are still open;
+`docs/DESIGN_NOTES.md` records how the existing systems were built and why.
 
 ---
 
@@ -121,13 +126,14 @@ src/autoload/            Tuning, GameInput, AudioDirector, FxDirector, GameDirec
 src/common/              Layers, Shapes, Health, VisionTextures
 src/player/              player.gd/.tscn, vision_rig.gd
 src/weapons/             weapon_resource/slot/library, weapon_holder, projectile
-src/items/               pickup.gd/.tscn (weapons, ammo, upgrades, medkits)
+src/abilities/           ability_resource/slot/library/holder, casting, effects, damage_field
+src/items/               pickup.gd/.tscn (weapons, ammo, upgrades, medkits, keys, abilities)
 src/enemies/             enemy.gd/.tscn, enemy_archetype, enemy_library
-src/levels/              level.gd (level base), wall, lamp, exit_zone, patrol_route,
-                         vision_memory, level_lint
-src/ui/                  hud, title_screen
+src/levels/              level.gd (level base), wall, door, lamp, exit_zone, patrol_route,
+                         vision_memory, level_lint, navmesh_baker
+src/ui/                  hud, menu_list, title_screen, settings_menu
 dev/                     probe.gd, build_levels.gd, check_scene_hygiene.gd (dev tools)
-docs/                    WIP_TASKS.md, LEVEL_AUTHORING.md, DESIGN_NOTES.md
+docs/                    LEVEL_AUTHORING.md, DESIGN_NOTES.md, OPEN_QUESTIONS.md
 ```
 
 ### Two things worth knowing before reading the code

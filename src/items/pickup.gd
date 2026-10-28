@@ -10,7 +10,7 @@ extends Area2D
 ## In the editor each pickup draws a gizmo coloured by kind and labelled with what
 ## it gives you, so pickups can be read and placed without running the level.
 
-@export_enum("weapon", "ammo", "upgrade", "health", "ability") var kind: String = "weapon":
+@export_enum("weapon", "ammo", "upgrade", "health", "ability", "key") var kind: String = "weapon":
 	set(value):
 		kind = value
 		if Engine.is_editor_hint():
@@ -78,12 +78,18 @@ func _build_art() -> void:
 	add_child(_light)
 
 	_marker = Polygon2D.new()
-	# Medkits are drawn as a cross so they read differently at a glance.
+	# Distinct silhouettes, so a pickup reads as what it is at a glance in the dark: a cross for
+	# medkits, a key shape for keys, a dot for everything else.
 	if kind == "health":
 		_marker.polygon = PackedVector2Array([
 			Vector2(-8.0, -3.0), Vector2(-3.0, -3.0), Vector2(-3.0, -8.0), Vector2(3.0, -8.0),
 			Vector2(3.0, -3.0), Vector2(8.0, -3.0), Vector2(8.0, 3.0), Vector2(3.0, 3.0),
 			Vector2(3.0, 8.0), Vector2(-3.0, 8.0), Vector2(-3.0, 3.0), Vector2(-8.0, 3.0),
+		])
+	elif kind == "key":
+		_marker.polygon = PackedVector2Array([
+			Vector2(-8.0, -4.0), Vector2(-8.0, 4.0), Vector2(-2.0, 4.0), Vector2(-2.0, 1.5),
+			Vector2(8.0, 1.5), Vector2(8.0, -1.5), Vector2(-2.0, -1.5), Vector2(-2.0, -4.0),
 		])
 	else:
 		_marker.polygon = Shapes.circle(9.0, 6)
@@ -131,6 +137,8 @@ func _pickup_color() -> Color:
 			return Color(0.5, 1.0, 0.6)
 		"ability":
 			return Color(0.86, 0.35, 0.03)
+		"key":
+			return Color(1.0, 0.82, 0.32)
 		_:
 			return WeaponLibrary.by_id(weapon_id).pickup_color
 
@@ -177,6 +185,12 @@ func _try_collect(player: Player) -> void:
 			else:
 				GameDirector.announce_message("+AMMO for %s" % WeaponLibrary.by_id(weapon_id).display_name,
 					_pickup_color())
+		"key":
+			# Always exactly one key. Deliberately not `amount`: an ammo pickup's default of 24
+			# would silently hand out 24 keys the moment someone switched the kind.
+			player.add_key(1)
+			AudioDirector.play_at(&"pickup_ability", global_position, -4.0)
+			GameDirector.announce_message("+KEY  (%d)" % player.keys, _pickup_color())
 		"ability":
 			if ability_holder == null:
 				return
@@ -218,6 +232,9 @@ func _draw() -> void:
 		draw_rect(Rect2(-thick, -arm, thick * 2.0, arm * 2.0), Color(tint, 0.9))
 	elif kind == "upgrade":
 		draw_rect(Rect2(-6.0, -6.0, 12.0, 12.0), Color(tint.lightened(0.2), 0.9))
+	elif kind == "key":
+		draw_rect(Rect2(-8.0, -2.0, 16.0, 4.0), Color(tint.lightened(0.2), 0.95))
+		draw_circle(Vector2(-7.0, 0.0), 3.0, Color(tint.lightened(0.2), 0.95))
 	else:
 		draw_circle(Vector2.ZERO, 6.0, Color(tint.lightened(0.2), 0.95))
 
@@ -238,6 +255,8 @@ func editor_label() -> String:
 			return WeaponLibrary.by_id(weapon_id).display_name
 		"ability":
 			return AbilityLibrary.by_id(ability_id).display_name
+		"key":
+			return "KEY"
 		_:
 			return ""
 

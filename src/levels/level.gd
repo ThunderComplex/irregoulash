@@ -193,6 +193,9 @@ func _spawn_player() -> void:
 	player = PLAYER_SCENE.instantiate() as Player
 	add_child(player)
 	player.global_position = spawn_point
+	# Keys are inventory like the loadout: they survive the level change, so a key found in a level
+	# cannot be lost by walking through an exit.
+	player.keys = GameDirector.carried_keys
 	var holder := player.weapons as WeaponHolder
 	if holder != null:
 		if GameDirector.carried_loadout.is_empty():

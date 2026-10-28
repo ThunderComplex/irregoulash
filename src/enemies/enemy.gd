@@ -96,6 +96,10 @@ var _gizmo_hash: int = 0
 ## Path finding. `agent` is optional: without a navmesh in the level the enemy steers
 ## directly instead, so no level can be broken by forgetting to bake one.
 var agent: NavigationAgent2D = null
+## The door this enemy opened to get through, to shut again once it is past.
+var _door_i_opened: Door = null
+## Set briefly when a locked door is in the way, so `_move_toward` stops pushing.
+var _blocked_by_door_cd: float = 0.0
 var _has_navmesh: bool = false
 var _nav_check_cd: float = 0.0
 var _path_target_valid: bool = false
@@ -169,6 +173,7 @@ func _physics_process(delta: float) -> void:
 		_has_navmesh = _navigation_available()
 	_fire_cd = maxf(0.0, _fire_cd - delta)
 	_pause_cd = maxf(0.0, _pause_cd - delta)
+	_blocked_by_door_cd = maxf(0.0, _blocked_by_door_cd - delta)
 	_react_timer = maxf(0.0, _react_timer - delta)
 	_perception_cd -= delta
 	if _perception_cd <= 0.0:
@@ -187,6 +192,7 @@ func _physics_process(delta: float) -> void:
 		State.RETURN:
 			_tick_return(delta)
 
+	_handle_doors()
 	move_and_slide()
 	_update_facing(delta)
 	_update_footsteps(delta)
@@ -504,6 +510,11 @@ func take_hit(amount: float, source = null, hit_position: Vector2 = Vector2.ZERO
 #region movement
 
 func _move_toward(target: Vector2, speed: float, delta: float) -> void:
+	# A locked door the navmesh thinks is passable: stand still rather than shove it. The state
+	# machine keeps running, so the enemy still looks around and gives up on its own.
+	if _blocked_by_door_cd > 0.0:
+		_brake(delta)
+		return
 	var desired: Vector2 = target - global_position
 	if desired.length_squared() < 1.0:
 		_brake(delta)
@@ -524,6 +535,64 @@ func _move_toward(target: Vector2, speed: float, delta: float) -> void:
 
 func _brake(delta: float) -> void:
 	velocity = velocity.move_toward(Vector2.ZERO, 1100.0 * delta)
+
+
+## Doors, from the AI's side.
+##
+## The navmesh is baked without doors in it, on purpose: doors have to be passable in the mesh or
+## a doorway would be a permanent wall to path finding. So a shut door is a physical surprise
+## rather than a planning fact, and the enemy deals with it the way a person would -- walk up to
+## it and open it. A locked one they cannot open, so they stop shoving it instead of grinding.
+##
+## Anything an enemy opened, it shuts behind itself once it is clear.
+func _handle_doors() -> void:
+	if velocity.length_squared() < 400.0:
+		_close_door_behind()
+		return
+	var ahead: Vector2 = global_position + velocity.normalized() * (archetype.radius + 26.0)
+	var door: Door = _door_near(ahead)
+	if door == null:
+		_close_door_behind()
+		return
+	if not door.is_shut():
+		return
+	if door.is_openable():
+		if door.open_for_enemy(self):
+			_door_i_opened = door
+	else:
+		# Locked: do not push against it forever. Brake, and let the state machine pick another
+		# approach. The navmesh has no idea this doorway is impassable, so there is nothing
+		# cleverer to do here without a real path-search cost.
+		_brake(1.0 / 60.0)
+		velocity = Vector2.ZERO
+		_blocked_by_door_cd = 1.0
+
+
+func _close_door_behind() -> void:
+	if _door_i_opened == null:
+		return
+	if not is_instance_valid(_door_i_opened):
+		_door_i_opened = null
+		return
+	_door_i_opened.close_if_enemy_clear(self)
+
+
+func _door_near(point: Vector2) -> Door:
+	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	if space == null:
+		return null
+	var query := PhysicsPointQueryParameters2D.new()
+	query.position = point
+	query.collision_mask = Layers.WORLD
+	query.collide_with_areas = false
+	for hit: Dictionary in space.intersect_point(query, 4):
+		var body: Node = hit.get("collider") as Node
+		if body == null:
+			continue
+		var door := body.get_parent() as Door
+		if door != null:
+			return door
+	return null
 
 
 #region navigation

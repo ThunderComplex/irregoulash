@@ -306,6 +306,85 @@ const SCENARIOS: Dictionary = {
 			"shot": "presentation_06_800x600_debug",
 		},
 	],
+	## Doors, from every direction: the player working one, a key being spent on a lock, dashing
+	## an unlocked door apart, dashing a locked one for nothing, and an enemy opening a door and
+	## shutting it behind itself.
+	"doors": [
+		{
+			# A shut door blocks light, movement and enemy sight. God mode: the door tests make
+			# noise, which legitimately draws enemies, and a test should not end in a firefight.
+			"god": true,
+			"add_keys": 2,
+			"spawn_door": {"at": Vector2(520.0, 544.0), "locked": false, "rotation": 0.0},
+			"wait": 0.3,
+			"door_report": true,
+			"report": true,
+		},
+		{
+			# Standing beside it, working it: opens, sight opens, the swing makes a noise.
+			"teleport": Vector2(520.0, 500.0),
+			"clear_noise": true,
+			"interact_door": true,
+			"wait": 0.5,
+			"door_report": true,
+			"noise_report": true,
+		},
+		{
+			# And shut again from the same spot.
+			"interact_door": true,
+			"wait": 0.5,
+			"door_report": true,
+		},
+		{
+			# A locked door, with keys in hand: nothing happens until it is tried.
+			"spawn_door": {"at": Vector2(640.0, 640.0), "locked": true, "rotation": 0.0},
+			"teleport": Vector2(640.0, 596.0),
+			"wait": 0.3,
+			"door_report": true,
+			"report": true,
+		},
+		{
+			# One key spent, and it opens.
+			"interact_door": true,
+			"wait": 0.5,
+			"door_report": true,
+			"report": true,
+		},
+		{
+			# A second locked door, dashed into: loud, stays shut, no key spent.
+			"spawn_door": {"at": Vector2(640.0, 900.0), "locked": true, "rotation": 0.0},
+			"teleport": Vector2(640.0, 1010.0),
+			"clear_noise": true,
+			"wait": 0.2,
+			"door_report": true,
+		},
+		{
+			"dash_at_door": true,
+			"wait": 0.6,
+			"door_report": true,
+			"report": true,
+			"noise_report": true,
+		},
+		{
+			# An unlocked door, dashed into: smashed permanently.
+			"spawn_door": {"at": Vector2(900.0, 640.0), "locked": false, "rotation": 0.0},
+			"teleport": Vector2(900.0, 750.0),
+			"clear_noise": true,
+			"wait": 0.2,
+		},
+		{
+			"dash_at_door": true,
+			"wait": 0.6,
+			"door_report": true,
+			"noise_report": true,
+		},
+		{
+			# An enemy opens a shut door in its way, then shuts it once it is past.
+			"enemy_door_test": true,
+			"wait": 0.4,
+			"door_report": true,
+		},
+	],
 	## Loot. Kill a shotgun-carrying enemy while standing on its corpse: the drop has to have a
 	## collision shape on the right layers, and walking over it has to actually collect it.
 	"loot": [
@@ -760,6 +839,187 @@ func _report_settings_roundtrip() -> void:
 	])
 
 
+#region doors
+
+## Puts a door in the level at `player + offset`, rotated `rotation` radians. Runtime-only, so
+## the door behaviour can be tested without editing a level file.
+func _spawn_test_door(at: Vector2, locked: bool, rotation: float) -> Door:
+	var player := GameDirector.valid_player()
+	if player == null:
+		print("[probe] door: no player")
+		return null
+	var parent: Node = GameDirector.spawn_parent()
+	var door := (load("res://src/levels/door.tscn") as PackedScene).instantiate() as Door
+	door.starts_locked = locked
+	door.rotation = rotation
+	door.name = "TestDoor%d" % _door_counter
+	_door_counter += 1
+	parent.add_child(door)
+	door.global_position = at
+	print("[probe] spawned door at %s locked=%s rotation=%.0f deg" % [
+		str(Vector2i(door.global_position)), locked, rad_to_deg(rotation)])
+	return door
+
+
+func _report_doors() -> void:
+	var level: Node = GameDirector.current_level
+	if level == null:
+		return
+	var player := GameDirector.valid_player()
+	var found: int = 0
+	for node: Node in _all_nodes(level):
+		var door := node as Door
+		if door == null:
+			continue
+		found += 1
+		var collision := door.get_node_or_null("Solid/Collision") as CollisionShape2D
+		var occluder := door.get_node_or_null("Occluder") as LightOccluder2D
+		var blocked: bool = collision != null and not collision.disabled
+		var shadow: bool = occluder != null and occluder.occluder_light_mask != 0
+		var sight: String = "clear" if _sight_clear_through(door) else "blocked"
+		print("[probe]   door %s state=%s locked=%s blocks=%s shadows=%s sight=%s dist=%d" % [
+			door.name, _door_state_name(door.state), door.locked, blocked, shadow, sight,
+			int(door.global_position.distance_to(player.global_position)) if player != null else -1,
+		])
+	if found == 0:
+		print("[probe]   no doors in the level")
+
+
+func _door_state_name(state: Door.State) -> String:
+	match state:
+		Door.State.OPEN:
+			return "OPEN"
+		Door.State.BROKEN:
+			return "BROKEN"
+		_:
+			return "CLOSED"
+
+
+## Whether an enemy standing on one side of the door could see a point on the other side. This is
+## the raycast `Enemy._can_see` uses, so it answers the gameplay question rather than a proxy.
+func _sight_clear_through(door: Door) -> bool:
+	var space: PhysicsDirectSpaceState2D = door.get_world_2d().direct_space_state
+	if space == null:
+		return true
+	# Across the doorway, i.e. through the leaf's thickness: that is the line of sight a shut door
+	# is supposed to take away.
+	var axis: Vector2 = Vector2.UP.rotated(door.rotation)
+	var from: Vector2 = door.global_position - axis * 120.0
+	var to: Vector2 = door.global_position + axis * 120.0
+	var query := PhysicsRayQueryParameters2D.create(from, to, Layers.SOLID)
+	query.hit_from_inside = false
+	return space.intersect_ray(query).is_empty()
+
+
+func _add_test_keys(count: int) -> void:
+	var player := GameDirector.valid_player()
+	if player == null:
+		return
+	player.add_key(count)
+	print("[probe] player now carries %d key(s)" % player.keys)
+
+
+## Self-contained: spawns its own door and enemy, so it cannot be thrown off by whatever earlier
+## steps did to the level. Waits a physics frame first: a body created this frame is not visible
+## to `intersect_point` until the server has ticked, which made the first version of this test
+## report "closed" no matter what.
+func _enemy_open_test() -> void:
+	var player := GameDirector.valid_player()
+	if player == null:
+		print("[probe] enemy door test: no player")
+		return
+	var door := _spawn_test_door(player.global_position + Vector2(0.0, -180.0), false, 0.0)
+	if door == null:
+		return
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var level: Node = GameDirector.current_level
+	var enemy := (load("res://src/enemies/enemy.tscn") as PackedScene).instantiate() as Enemy
+	level.add_child(enemy)
+	await get_tree().physics_frame
+	# Approaching through the doorway (across the leaf's thickness), which is what `_handle_doors`
+	# looks for: a shut door just ahead of its own velocity.
+	enemy.global_position = door.global_position - Vector2(0.0, 46.0).rotated(door.rotation)
+	enemy.velocity = Vector2(0.0, 120.0).rotated(door.rotation)
+	enemy.call("_handle_doors")
+	print("[probe] enemy walked at the door: state=%s (expected OPEN)" % _door_state_name(door.state))
+	# Once clearly past, it shuts the door behind itself.
+	enemy.global_position = door.global_position + Vector2(0.0, 150.0).rotated(door.rotation)
+	door.close_if_enemy_clear(enemy)
+	print("[probe] enemy moved on: state=%s (expected CLOSED)" % _door_state_name(door.state))
+	enemy.queue_free()
+	door.queue_free()
+
+
+## The shut door nearest the player: what a dash test should be aimed at.
+func _nearest_shut_door() -> Door:
+	var player := GameDirector.valid_player()
+	var level: Node = GameDirector.current_level
+	if level == null or player == null:
+		return null
+	var best: Door = null
+	var best_distance: float = INF
+	for node: Node in _all_nodes(level):
+		var door := node as Door
+		if door == null or not door.is_shut():
+			continue
+		var distance: float = door.surface_distance(player.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = door
+	return best
+
+
+func _dash_at_newest_door() -> void:
+	var player := GameDirector.valid_player()
+	var door := _nearest_shut_door()
+	if player == null or door == null:
+		print("[probe] dash: no shut door near the player")
+		return
+	# Stand back from the door and dash straight into it, so the hit comes from a real
+	# `move_and_slide` collision rather than from calling smash() directly.
+	var towards: Vector2 = (door.global_position - player.global_position)
+	if towards.length() < 1.0:
+		towards = Vector2.RIGHT.rotated(door.rotation)
+	player.debug_dash(towards.normalized())
+	print("[probe] dashing at the door from %d px away" % int(towards.length()))
+
+
+## Records every noise broadcast, so tests can assert on how loud an action was. In order: the
+## radius and whether it was heard at the door.
+var _noise_log: Array[Dictionary] = []
+var _noise_connected: bool = false
+## Names test doors TestDoor0, TestDoor1... so a report reads like a test, not like a dump.
+var _door_counter: int = 0
+
+
+func _connect_noise_log() -> void:
+	if _noise_connected:
+		return
+	GameDirector.noise_made.connect(_on_noise_made)
+	_noise_connected = true
+
+
+func _on_noise_made(position: Vector2, radius: float, _source: Node) -> void:
+	_noise_log.append({"position": position, "radius": radius})
+	if _noise_log.size() > 40:
+		_noise_log.remove_at(0)
+
+
+func _report_noise(tail: int = 8) -> void:
+	if _noise_log.is_empty():
+		print("[probe]   no noise recorded")
+		return
+	var start: int = maxi(0, _noise_log.size() - tail)
+	for i: int in range(start, _noise_log.size()):
+		var entry: Dictionary = _noise_log[i]
+		print("[probe]   noise #%d radius %.0f at %s" % [
+			i, entry["radius"], str(Vector2i(entry["position"])),
+		])
+
+#endregion
+
+
 #region menus
 
 func _menu_lists() -> Array[MenuList]:
@@ -971,6 +1231,7 @@ func _run(scenario: String) -> void:
 	if steps.is_empty():
 		print("[probe] no scenario named '%s'" % scenario)
 		return
+	_connect_noise_log()
 	var player = get_tree().get_first_node_in_group("player")
 
 	for step: Dictionary in steps:
@@ -1051,6 +1312,22 @@ func _run(scenario: String) -> void:
 			_backup_progress()
 		if step.has("loot_kill"):
 			_loot_kill()
+		if step.has("clear_noise"):
+			_noise_log.clear()
+		if step.has("spawn_door"):
+			var spec: Dictionary = step["spawn_door"]
+			_spawn_test_door(spec.get("at", Vector2.ZERO), bool(spec.get("locked", false)),
+				float(spec.get("rotation", 0.0)))
+		if step.has("add_keys"):
+			_add_test_keys(int(step["add_keys"]))
+		if step.has("interact_door"):
+			var who := GameDirector.valid_player()
+			if who != null:
+				print("[probe] interact -> %s" % who.interact_nearby())
+		if step.has("dash_at_door"):
+			_dash_at_newest_door()
+		if step.has("enemy_door_test"):
+			await _enemy_open_test()
 		if step.has("clear_progress"):
 			Progress.clear()
 			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())
@@ -1150,6 +1427,10 @@ func _run(scenario: String) -> void:
 			_report_progress()
 		if step.has("loot_report"):
 			_report_pickups()
+		if step.has("door_report"):
+			_report_doors()
+		if step.has("noise_report"):
+			_report_noise()
 		if step.has("scene_report"):
 			_report_scene()
 		if step.has("shot"):
@@ -1260,8 +1541,12 @@ func _report_state() -> void:
 				enemy.debug_state(),
 				int(enemy.global_position.distance_to(player.global_position)),
 			])
-	print("[probe] kills %d  shots %d  alerts %d" % [
-		GameDirector.kills, GameDirector.shots_fired, GameDirector.enemies_alerted,
+	var key_count: int = 0
+	var who := GameDirector.valid_player()
+	if who != null:
+		key_count = who.keys
+	print("[probe] kills %d  shots %d  alerts %d  keys %d" % [
+		GameDirector.kills, GameDirector.shots_fired, GameDirector.enemies_alerted, key_count,
 	])
 
 

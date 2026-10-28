@@ -124,7 +124,7 @@ func _build() -> void:
 	_label(Vector2(80.0, 90.0), Vector2(1100.0, 80.0), "TOP DOWN SHOOTER", 52,
 		Color(0.93, 0.96, 1.0))
 	_label(Vector2(84.0, 176.0), Vector2(1100.0, 40.0),
-		"work-in-progress vertical slice  --  line of sight is the whole game", 18,
+		"in development  --  line of sight is the whole game", 18,
 		Color(0.6, 0.68, 0.8))
 
 	_label(Vector2(84.0, 256.0), Vector2(520.0, 340.0), GameInput.CONTROLS_TEXT, 17,

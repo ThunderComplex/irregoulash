@@ -17,10 +17,28 @@ extends Node
 @export var player_dash_speed: float = 620.0
 @export var player_dash_time: float = 0.16
 @export var player_dash_cooldown: float = 1.1
+## How close the player has to be to work a door, measured from the door's surface.
+@export var player_interact_range: float = 44.0
 ## Noise radius created by each action. Enemies inside it gain awareness.
 @export var noise_footstep: float = 130.0
 @export var noise_dash: float = 300.0
 @export var noise_gunshot: float = 950.0
+#endregion
+
+#region Doors
+@export_group("Doors")
+## Seconds for the leaf to swing open or shut. Short enough not to feel like waiting.
+@export var door_open_time: float = 0.22
+## An enemy that opened a door shuts it again once it is this far past it.
+@export var door_close_distance: float = 52.0
+## Opening or closing a door. Quiet, but not silent: a door tells you someone is moving.
+@export var noise_door: float = 420.0
+## Dashing an unlocked door off its hinges. This is the loud option.
+@export var noise_door_smash: float = 700.0
+## Trying a locked door by hand: a rattle, heard only nearby.
+@export var noise_door_locked: float = 120.0
+## Dashing into a locked door: louder than trying it, quieter than breaking one.
+@export var noise_door_smash_locked: float = 380.0
 #endregion
 
 #region Vision

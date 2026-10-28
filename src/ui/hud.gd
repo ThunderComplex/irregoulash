@@ -30,6 +30,7 @@ void fragment() {
 var _root: Control
 var _health_fill: ColorRect
 var _health_text: Label
+var _keys_text: Label
 var _weapon_name: Label
 var _ammo_text: Label
 var _slots_text: Label
@@ -107,6 +108,7 @@ func _process(delta: float) -> void:
 		_poll_world()
 
 	_update_health()
+	_update_keys()
 	_update_weapons()
 	_update_abilities()
 	_update_debug()
@@ -124,6 +126,17 @@ func _update_health() -> void:
 	_health_fill.size.x = 240.0 * fraction * _scale
 	_health_fill.color = Color(0.85, 0.25, 0.25).lerp(Color(0.35, 0.85, 0.45), fraction)
 	_health_text.text = "HP %d" % int(round(hp))
+
+
+## Hidden at zero: a permanent "KEYS 0" is noise, and the count only matters once it is not zero.
+func _update_keys() -> void:
+	if _keys_text == null:
+		return
+	var count: int = 0
+	if _player != null and is_instance_valid(_player):
+		count = _player.keys
+	_keys_text.visible = count > 0
+	_keys_text.text = "KEYS  %d" % count
 
 
 ## One line per ability slot: name, and either "ready" or the seconds left. Deliberately
@@ -438,6 +451,11 @@ func _build() -> void:
 	_vignette_material.shader = vignette_shader
 	_vignette = _rect(_root, Control.PRESET_FULL_RECT, 0.0, 0.0, 0.0, 0.0, Color.WHITE)
 	_vignette.material = _vignette_material
+
+	# --- keys, above the health readout and only while carrying any
+	_keys_text = _label(_root, Control.PRESET_BOTTOM_LEFT, 28.0, -142.0, 268.0, -118.0, 15,
+		HORIZONTAL_ALIGNMENT_LEFT, Color(1.0, 0.85, 0.4))
+	_keys_text.visible = false
 
 	# --- health, bottom left
 	_health_text = _label(_root, Control.PRESET_BOTTOM_LEFT, 28.0, -114.0, 268.0, -90.0, 16,

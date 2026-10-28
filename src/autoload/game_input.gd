@@ -44,19 +44,19 @@ const CONTROLS_TEXT := """WASD / Arrows     Move
 Mouse             Aim
 Left Mouse        Fire
 R                 Reload
-Shift / Space     Dash
+F                 Open / close doors
+Shift / Space     Dash (smash doors, loudly)
 1 2 3 / Wheel     Switch weapon
 Q E               Use ability
 Esc               Pause / menu
 
-Walk over weapons, ammo and medkits to pick them up.
+Walk over weapons, ammo, medkits and keys to pick them up.
 
 Debug
 F1  god mode        F2  noclip
 F3  debug readout   F4  lift the fog
 F5  spawn enemy     F6  alert everything
-F7  give all weapons
-F9  slow motion"""
+F7  give all weapons   F9  slow motion"""
 
 
 func _ready() -> void:

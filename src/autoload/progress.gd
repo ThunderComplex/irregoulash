@@ -21,6 +21,8 @@ var level_title: String = ""
 ## The same plain-data shape `WeaponHolder.serialize()` produces, so restoring it uses code
 ## that already exists and is already exercised by the level chain.
 var loadout: Array = []
+## Keys are inventory, so a checkpoint that forgot them would make a player lose progress.
+var carried_keys: int = 0
 
 
 func _ready() -> void:
@@ -47,6 +49,7 @@ func record() -> void:
 	# moment before quitting to the menu, so this is where the save is worth refreshing.
 	GameDirector.snapshot_loadout()
 	loadout = GameDirector.carried_loadout.duplicate(true)
+	carried_keys = GameDirector.carried_keys
 	save()
 
 
@@ -56,6 +59,7 @@ func clear() -> void:
 	level_path = ""
 	level_title = ""
 	loadout = []
+	carried_keys = 0
 	remove_file()
 	changed.emit()
 
@@ -83,6 +87,7 @@ func save() -> void:
 	config.set_value("progress", "level_path", level_path)
 	config.set_value("progress", "level_title", level_title)
 	config.set_value("progress", "loadout", loadout)
+	config.set_value("progress", "carried_keys", carried_keys)
 	var error: Error = config.save(PATH)
 	if error != OK:
 		push_warning("Could not save progress to %s (error %d)." % [PATH, error])
@@ -99,4 +104,5 @@ func load_progress() -> void:
 	# what deserialize() expects.
 	var stored: Variant = config.get_value("progress", "loadout", [])
 	loadout = stored if stored is Array else []
+	carried_keys = int(config.get_value("progress", "carried_keys", 0))
 	changed.emit()

@@ -118,6 +118,19 @@ func _build_bank() -> void:
 	_bank[&"cast_lightning"] = _wav(_mix([
 		_noise(0.22, 34.0, 900.0, 0.25, 0.8), _blip(1400.0, 320.0, 0.2, 16.0)]))
 	_bank[&"cast_refused"] = _wav(_blip(220.0, 160.0, 0.14, 30.0))
+	# Doors. A creak is a slow noise sweep; a thud is a low blip with grit on it; a smash is a
+	# short burst with a wooden body under it.
+	_bank[&"door_open"] = _wav(_mix([
+		_noise(0.34, 5.0, 320.0, 0.45, 0.06), _blip(320.0, 210.0, 0.3, 9.0)]))
+	_bank[&"door_close"] = _wav(_mix([
+		_noise(0.2, 16.0, 150.0, 0.4, 0.1), _blip(150.0, 90.0, 0.18, 26.0)]))
+	_bank[&"door_locked"] = _wav(_mix([
+		_noise(0.16, 30.0, 900.0, 0.2, 0.6), _blip(1200.0, 700.0, 0.1, 40.0)]))
+	_bank[&"door_unlock"] = _wav(_mix([
+		_noise(0.22, 24.0, 1100.0, 0.25, 0.7), _blip(700.0, 1100.0, 0.16, 30.0)]))
+	_bank[&"door_smash"] = _wav(_mix([
+		_noise(0.4, 11.0, 220.0, 0.5, 0.12), _noise(0.2, 26.0, 900.0, 0.28, 0.5),
+		_blip(180.0, 70.0, 0.28, 14.0)]))
 	_bank[&"pickup_ability"] = _wav(_mix([
 		_blip(500.0, 600.0, 0.075, 12.0),
 		_pad(0.075, _blip(550.0, 650.0, 0.075, 12.0)),

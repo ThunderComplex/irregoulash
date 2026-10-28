@@ -38,6 +38,8 @@ var reveal: bool = false
 ## Weapons carried between levels. Each level spawns a fresh player, so the
 ## loadout is snapshotted on exit and restored on entry.
 var carried_loadout: Array = []
+## Keys carried between levels, for the same reason. Any key opens any locked door.
+var carried_keys: int = 0
 
 var _slowmo: bool = false
 
@@ -81,6 +83,7 @@ func start_run() -> void:
 	levels_cleared = 0
 	_outcome_reported = false
 	carried_loadout = []
+	carried_keys = 0
 	god_mode = false
 	noclip = false
 	reveal = false
@@ -111,6 +114,7 @@ func continue_run() -> void:
 	debug_info = false
 	# Copied, so continuing twice cannot alias the same array.
 	carried_loadout = Progress.loadout.duplicate(true)
+	carried_keys = Progress.carried_keys
 	run_started.emit()
 	load_level(path)
 
@@ -183,10 +187,19 @@ func notify_level_cleared() -> void:
 func snapshot_loadout() -> void:
 	if player == null or not is_instance_valid(player):
 		return
+	var who := valid_player()
+	if who != null:
+		carried_keys = who.keys
 	var holder := player.weapons as WeaponHolder
 	if holder == null:
 		return
 	carried_loadout = holder.serialize()
+
+
+## Kept in step by the player whenever a key changes hands, so nothing has to remember to
+## snapshot before a level change.
+func carry_keys(count: int) -> void:
+	carried_keys = maxi(0, count)
 
 
 func notify_player_died() -> void:

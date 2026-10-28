@@ -182,6 +182,36 @@ that editing one patrol never surprises another enemy.
 
 ---
 
+## Doors and keys
+
+A door is the level's way of hiding something. Shut, it blocks movement, bullets **and light**, so
+you cannot see into the room behind it and whatever is inside cannot see you. Open, it does none of
+those things: the room becomes visible, and so do you.
+
+**Placing one:** turn on **Place door**, click where the doorway should be, and drag along the wall
+to set which way the leaf lies; release to place it. A plain click places it horizontally. Tick
+**Locked** first to place a door that needs a key. Doors go into a `Doors` container when the level
+has one.
+
+**Leave a gap for it.** The tool places the door; it does not cut the wall. Draw the wall with a
+door-sized opening, then put the door in the opening. The linter reports a door that overlaps a
+wall, because that door is sealed and can never be used.
+
+**Doors are not walls.** They are excluded from the navmesh bake on purpose: a doorway has to be
+passable in the baked mesh, or enemies could never path through one. So the AI walks up to a shut
+door and opens it, and shuts it again after passing — that is deliberate behaviour, not a bug. A
+*locked* door is the exception: enemies cannot open it, so they stop and give up on that route.
+
+**Locked doors and keys.** Any key opens any locked door, and opening one consumes a single key.
+Keys are a `Pickup` with `kind = key`, and the player can carry as many as they find; the count
+survives level changes and is saved with the checkpoint. Put a key somewhere the player has to
+work for, and a locked door somewhere that makes them want it.
+
+**Smashing.** The player's dash destroys an unlocked door permanently, with the loudest noise in
+the level. Dashing into a *locked* door does not open it: it only rattles, louder than trying the
+handle but quieter than a smash. So a locked door can never be bypassed by force — if you want a
+door that is a real barrier, lock it.
+
 ## Enemy navigation: the "Bake navmesh" button
 
 Enemies path around geometry with Godot's navigation server, and the mesh is generated
@@ -289,6 +319,13 @@ one-field edit in the editor afterwards.
 | `color` | wall colour (seen lit, or at ~30% as "memory") |
 | `occludes_light` | turn off for railings or glass |
 
+### `Door` — `src/levels/door.tscn`
+| Property | Meaning |
+|---|---|
+| `size` | the closed footprint; the leaf's long axis is local X, so a gap in a north-south wall needs the door rotated 90° |
+| `starts_locked` | needs a key, and cannot be smashed |
+| `starts_open` | the doorway starts used/open |
+
 ### `Lamp` — `src/levels/lamp.tscn`
 | Property | Meaning |
 |---|---|
@@ -312,8 +349,9 @@ one-field edit in the editor afterwards.
 ### `Pickup` — `src/items/pickup.tscn`
 | Property | Meaning |
 |---|---|
-| `kind` | `weapon`, `ammo`, `upgrade`, `health` or `ability` |
+| `kind` | `weapon`, `ammo`, `upgrade`, `health`, `ability` or `key` |
 | `ability_id` | `fire_wall`, `fire_tempest`, `lightning_bolt` (for `kind = ability`) |
+| (`key` pickups) | always give exactly one key; there is nothing to configure |
 | `weapon_id` | `pistol`, `smg`, `shotgun` (for `kind = weapon`) |
 | `amount` | ammo rounds, or health restored |
 
@@ -351,13 +389,15 @@ one-field edit in the editor afterwards.
    click out its patrol waypoints, then right-click to finish. Rotate one afterwards
    to set the direction it starts facing.
 7. Add a medkit and some ammo. The player has no regeneration.
-8. Set `level_title` and `objective`. `level_title` is what the title screen's Continue button
+8. Optional: leave a gap in a wall, turn on **Place door** and drag along the wall to fill it.
+   For a locked door, tick **Locked** and put a **key** pickup somewhere worth the trip.
+9. Set `level_title` and `objective`. `level_title` is what the title screen's Continue button
    shows ("CONTINUE   THE YARD"), so keep it short — a level left on the template's `TEMPLATE`
    will say so on the main menu.
-9. Press **Bake navmesh**, and again any time you move walls (the linter says when the
+10. Press **Bake navmesh**, and again any time you move walls (the linter says when the
    mesh is stale).
-10. Press **Lint level**.
-11. Play it. `F3` shows what the AI is thinking, `F4` lifts the fog so you can
+11. Press **Lint level**.
+12. Play it. `F3` shows what the AI is thinking, `F4` lifts the fog so you can
 	check the layout, `F2` lets you fly through walls.
 
 ## Resolution

@@ -38,6 +38,9 @@ this slice exists to make that one idea readable.
 | The HUD is built in code | It changed constantly while the game was being built; a `.tscn` would have been re-anchored a dozen times | `hud.gd` |
 | Audio is synthesised at startup | The slice ships with no assets, and gunfire needed to exist before it could be tuned | `audio_director.gd` |
 | "Continue" resumes a level and a loadout, not a position | A real save system (position, enemy state, items already taken) is a large feature and fragile against levels being re-edited. A checkpoint storing the level path and the loadout is a few lines, reuses `WeaponHolder.serialize()` exactly as the level chain already does, and covers what a player actually minds losing -- their guns | `Progress`, `GameDirector.continue_run` |
+| A door is an occluder *and* an obstacle, not just a state flag | In a game where sight is the mechanic, a door that only blocks movement would be decoration. One `StaticBody2D` on the WORLD layer blocks movement, bullets, enemy sight rays and lamp visibility at once, so shutting a door genuinely takes a room off the board | `Door._apply_state`, `Layers.WORLD` |
+| The navmesh is baked *without* doors in it | If doors were bake geometry, a shut door would make its doorway permanently impassable to path finding, and an open one would be a hole the mesh was cut around. Leaving them out means doorways always connect, and a shut door becomes something the AI handles at the door (`open_for_enemy`) rather than something it plans around | `Door` not being a `Wall`, `Enemy._handle_doors` |
+| Locked doors need a key, any key, and can never be smashed | One key type keeps the player from juggling colours, and consuming a key makes the door a real cost. Making locks immune to dashing is what stops the dash from trivialising every door in the game: force opens the cheap doors, keys open the real ones | `Door.interact`, `Door.smash` |
 | The pause state is a real menu, not text with key hints | A text overlay can only advertise one binding per action, cannot be clicked, and is unreadable to anyone who has not memorised the hints. `MenuList` is one widget for both menus, and the settings menu hangs off it | `MenuList`, `HUD._show_overlay` |
 
 ## Findings from building this (measured, not guessed)
@@ -108,6 +111,15 @@ Also worth knowing:
   a player teleported, respawned or dropped onto them.
 - Swapping scenes from inside a physics callback is not allowed; the level loader
   defers `change_scene_to_file`.
+- **A physics query cannot see a body created in the same frame.** The door test's first version
+  spawned a door and immediately asked `intersect_point` whether an enemy was at it; the door did
+  not exist to the physics server yet, so the answer was always "nothing there" and the test read
+  as a broken AI. The probe now waits two physics frames after spawning before querying. Worth
+  remembering for any gameplay code that spawns a body and looks for it immediately.
+- **Interaction range has to be measured to a surface, not a centre.** A 96-pixel-wide door's
+  centre is 48px from its edge, and the player's own radius puts them ~62px away when standing
+  against it, so a 58px centre-to-centre range made wide doors unusable while narrow ones worked.
+  `Door.surface_distance` measures to the rectangle, which behaves the way a player expects.
 - **A class with both a scene and a script can be built two ways, and only one of them is
   complete.** `Pickup.new()` produces a bare `Area2D` with no collision shape and the default
   layers, while `pickup.tscn` carries both -- so enemy loot rendered perfectly and could never

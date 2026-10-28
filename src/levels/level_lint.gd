@@ -26,11 +26,14 @@ static func run(root: Node) -> Dictionary:
 	var pickups: Array[Pickup] = []
 	var exits: Array[ExitZone] = []
 	var routes: Array[PatrolRoute] = []
+	var doors: Array[Door] = []
 	var navigation: NavigationRegion2D = null
 	var lamps: int = 0
 	for node: Node in _descendants(root):
 		if node is Wall:
 			walls.append(node)
+		elif node is Door:
+			doors.append(node)
 		elif node is Enemy:
 			enemies.append(node)
 		elif node is Pickup:
@@ -118,6 +121,30 @@ static func run(root: Node) -> Dictionary:
 		if not unreachable.is_empty():
 			problems.append("the player cannot walk to: %s" % ", ".join(unreachable))
 
+	# --- doors
+	# A door inside a wall is jammed: its leaf overlaps solid geometry, so the doorway reads as a
+	# wall and the door can never be used.
+	for door: Door in doors:
+		var door_rect := Rect2(door.global_position - door.size * 0.5, door.size)
+		for wall: Wall in walls:
+			if wall.world_rect().intersects(door_rect):
+				problems.append("door '%s' overlaps wall '%s': it is sealed, not a doorway" % [
+					door.name, wall.name])
+				break
+	# Locked doors need keys, and keys carry between levels, so this is a note rather than an
+	# error -- but a level full of locks with no key anywhere is worth looking at twice.
+	var locked: int = 0
+	for door: Door in doors:
+		if door.starts_locked:
+			locked += 1
+	var keys_in_level: int = 0
+	for pickup: Pickup in pickups:
+		if pickup.kind == "key":
+			keys_in_level += 1
+	if locked > 0 and keys_in_level == 0:
+		notes.append("%d locked door(s) and no key in this level: possible only if the player "
+			% locked + "brings one from an earlier level")
+
 	# --- gentle nudges, not errors
 	for route: PatrolRoute in routes:
 		if route.users().is_empty():
@@ -136,8 +163,9 @@ static func run(root: Node) -> Dictionary:
 	return {
 		"problems": problems,
 		"notes": notes,
-		"summary": "%d walls, %d enemies, %d pickups, %d exits, %d lamps, %d routes" % [
-			walls.size(), enemies.size(), pickups.size(), exits.size(), lamps, routes.size(),
+		"summary": "%d walls, %d doors, %d enemies, %d pickups, %d exits, %d lamps, %d routes" % [
+			walls.size(), doors.size(), enemies.size(), pickups.size(), exits.size(), lamps,
+			routes.size(),
 		],
 		# Included only when something is wrong: a picture of which ground the player
 		# can actually walk to is the fastest way to understand a "cannot walk to"

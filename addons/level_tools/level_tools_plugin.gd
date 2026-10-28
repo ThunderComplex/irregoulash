@@ -29,6 +29,7 @@ extends EditorPlugin
 
 const WALL_SCENE: PackedScene = preload("res://src/levels/wall.tscn")
 const ENEMY_SCENE: PackedScene = preload("res://src/enemies/enemy.tscn")
+const DOOR_SCENE: PackedScene = preload("res://src/levels/door.tscn")
 
 ## Grid step for snapping. Hold Alt while drawing or placing to ignore it.
 const SNAP: float = 32.0
@@ -43,7 +44,14 @@ var _enemy_button: CheckButton = null
 var _enemy_type: OptionButton = null
 var _nav_button: Button = null
 
+var _door_button: CheckButton = null
+var _door_lock: CheckButton = null
+
 var _brush_on: bool = false
+var _door_on: bool = false
+## Where a door drag started, so the drag direction can set the door's orientation.
+var _door_drag_start: Vector2 = Vector2.ZERO
+var _door_dragging: bool = false
 var _dragging: bool = false
 var _drag_start: Vector2 = Vector2.ZERO
 var _drag_rect: Rect2 = Rect2()
@@ -103,6 +111,22 @@ func _enter_tree() -> void:
 	_nav_button.pressed.connect(bake_navmesh)
 	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _nav_button)
 
+	_door_button = CheckButton.new()
+	_door_button.text = "Place door"
+	_door_button.tooltip_text = ("Click where a doorway should be, then drag along the wall to set "
+		+"its direction; release to place it. A plain click places a door across the gap "
+		+"horizontally.\nA door belongs IN a gap: leave a door-sized opening in the wall first "
+		+"(the door does not cut the wall for you).\nDoors are left out of the navmesh bake on "
+		+"purpose, so enemies path through doorways and then open the door.\nAlt = no snap.")
+	_door_button.toggled.connect(_on_door_toggled)
+	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _door_button)
+
+	_door_lock = CheckButton.new()
+	_door_lock.text = "Locked"
+	_door_lock.tooltip_text = ("Place locked doors: they need a key to open, and dashing into one "
+		+"only makes noise. Keys are universal, and the player can carry as many as they find.")
+	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _door_lock)
+
 	_lint_button = Button.new()
 	_lint_button.text = "Lint level"
 	_lint_button.tooltip_text = ("Check this level for problems: no spawn, no exit, exits that go "
@@ -130,6 +154,14 @@ func _exit_tree() -> void:
 		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _nav_button)
 		_nav_button.queue_free()
 		_nav_button = null
+	if _door_button != null:
+		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _door_button)
+		_door_button.queue_free()
+		_door_button = null
+	if _door_lock != null:
+		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _door_lock)
+		_door_lock.queue_free()
+		_door_lock = null
 	if _lint_button != null:
 		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _lint_button)
 		_lint_button.queue_free()
@@ -183,6 +215,8 @@ func _forward_canvas_gui_input(event: InputEvent) -> bool:
 		return _brush_input(event)
 	if _enemy_on:
 		return _enemy_input(event)
+	if _door_on:
+		return _door_input(event)
 	return false
 
 
@@ -219,6 +253,82 @@ func _brush_input(event: InputEvent) -> bool:
 			return true
 
 	return false
+
+#endregion
+
+
+#region door tool
+
+func _on_door_toggled(on: bool) -> void:
+	_door_on = on
+	if not on:
+		_door_dragging = false
+		return
+	# One left-mouse tool at a time.
+	if _brush_button != null and _brush_button.button_pressed:
+		_brush_button.button_pressed = false
+	if _enemy_button != null and _enemy_button.button_pressed:
+		_enemy_button.button_pressed = false
+
+
+## Click where the doorway is, drag along the wall, release. The drag direction decides whether
+## the leaf lies horizontally or vertically, which is the only thing about a door that has to
+## match the wall it sits in.
+func _door_input(event: InputEvent) -> bool:
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event
+		_last_event_position = mb.position
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed:
+				_door_drag_start = _snap_point(_cursor_world())
+				_door_dragging = true
+			elif _door_dragging:
+				_door_dragging = false
+				_place_door(_door_drag_start, _door_rotation(_cursor_world()))
+			return true
+		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed and _door_dragging:
+			_door_dragging = false
+			return true
+		return false
+
+	if event is InputEventKey:
+		var key: InputEventKey = event
+		if key.pressed and key.keycode == KEY_ESCAPE and _door_dragging:
+			_door_dragging = false
+			return true
+
+	return false
+
+
+## 0 puts the leaf along X (a gap in a north-south wall), PI/2 along Y (a gap in an east-west
+## wall). A click with no drag builds the first.
+func _door_rotation(at: Vector2) -> float:
+	var delta: Vector2 = at - _door_drag_start
+	if delta.length() < 8.0:
+		return 0.0
+	return 0.0 if absf(delta.x) >= absf(delta.y) else PI * 0.5
+
+
+func _place_door(at: Vector2, rotation: float) -> void:
+	var root: Node = get_tree().edited_scene_root
+	if root == null:
+		return
+	var door: Door = DOOR_SCENE.instantiate() as Door
+	if door == null:
+		return
+	door.name = _unique_child_name(root, "Door")
+	door.starts_locked = _door_lock != null and _door_lock.button_pressed
+	door.position = at
+	door.rotation = rotation
+	_add_through_undo("Place door", _door_parent(root), door, root)
+	_focus_node(door)
+
+
+## Doors live in the level's "Doors" container when it has one.
+func _door_parent(root: Node) -> Node:
+	var container: Node = root.find_child("Doors", true, false)
+	return container if container != null else root
+
 
 #endregion
 
