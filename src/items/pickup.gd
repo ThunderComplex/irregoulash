@@ -42,8 +42,19 @@ func _ready() -> void:
 		# Editor: gizmo only. The art nodes are built at runtime, and generating
 		# them here risks them being written into the level file.
 		return
+	# Everything a pickup needs to actually be collectable is guaranteed here rather than trusted
+	# to whoever spawned it. Loot dropped by an enemy used to be a bare `Pickup.new()`, which had
+	# no Collision node and Area2D's default layers (both "world"), so it rendered and glowed
+	# exactly like a real pickup while being impossible to walk over. Anything that creates a
+	# pickup in code now gets a working one.
+	collision_layer = Layers.PICKUP
+	collision_mask = Layers.PLAYER
 	var collision: CollisionShape2D = get_node_or_null("Collision") as CollisionShape2D
-	if collision != null and collision.shape == null:
+	if collision == null:
+		collision = CollisionShape2D.new()
+		collision.name = "Collision"
+		add_child(collision)
+	if collision.shape == null:
 		var shape := CircleShape2D.new()
 		shape.radius = 20.0
 		collision.shape = shape

@@ -35,7 +35,13 @@ func _ready() -> void:
 func _refresh_continue() -> void:
 	if _main_menu == null or not is_instance_valid(_main_menu):
 		return
-	_main_menu.set_item(&"continue", Progress.continue_label(), Progress.has_progress())
+	var had_focus: bool = _main_menu.item_has_focus(&"continue")
+	var enabled: bool = Progress.has_progress()
+	_main_menu.set_item(&"continue", Progress.continue_label(), enabled)
+	# Disabling the focused Control drops focus entirely, which would leave the keyboard with
+	# nothing to activate. Move it to New Game rather than leaving the menu dead.
+	if had_focus and not enabled:
+		_main_menu.focus_item(&"new_game")
 
 
 func _process(_delta: float) -> void:
@@ -153,7 +159,12 @@ func _build() -> void:
 	_main_menu.add_item(&"quit", "QUIT")
 	_main_menu.activated.connect(_on_menu_item)
 	add_child(_main_menu)
-	_main_menu.focus_first()
+	# Opens on Continue when there is something to continue, because pressing Space on reflex is
+	# what a returning player does -- and with New Game focused that reflex threw the run away.
+	# `focus_item` falls back to the first enabled item, so a fresh install still lands on New
+	# Game. Focus is only set here, not in `_refresh_continue`, so it never moves under the
+	# player's hands if the checkpoint changes while the title is up.
+	_main_menu.focus_item(&"continue")
 
 
 ## Reference frame -> screen pixels.

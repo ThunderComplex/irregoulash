@@ -19,6 +19,10 @@ signal died(enemy: Enemy)
 enum State { PATROL, SUSPICIOUS, ALERT, SEARCH, RETURN }
 
 const STATE_NAMES: Array[String] = ["PATROL", "SUSPICIOUS", "ALERT", "SEARCH", "RETURN"]
+## Dropped loot is an instance of the authored scene, not a script instance. The scene carries
+## the collision shape and the pickup layers; a bare `Pickup.new()` has neither, so the loot was
+## visible but impossible to walk over.
+const PICKUP_SCENE: PackedScene = preload("res://src/items/pickup.tscn")
 ## Perception raycasts run on this slower clock.
 const PERCEPTION_DT: float = 0.15
 ## How far the destination has to move before the path is re-requested.
@@ -418,6 +422,8 @@ func _on_noise(where: Vector2, radius: float, source: Node) -> void:
 			_enter_alert(where)
 		elif state != State.ALERT and heard > 0.15:
 			awareness = minf(1.0, awareness + 0.45 * heard)
+			if awareness == 1.0:
+				_enter_alert(where)
 			if state == State.PATROL or state == State.RETURN:
 				_enter_suspicious(where)
 		return
@@ -684,11 +690,13 @@ func _drop_loot() -> void:
 	var parent: Node = GameDirector.spawn_parent()
 	if parent == null:
 		return
-	var pickup := Pickup.new()
+	var pickup := PICKUP_SCENE.instantiate() as Pickup
+	if pickup == null:
+		return
 	pickup.kind = "weapon"
 	pickup.weapon_id = archetype.drop_weapon
-	parent.add_child(pickup)
 	pickup.global_position = global_position + Vector2(0.0, 6.0)
+	parent.add_child(pickup)
 
 #endregion
 

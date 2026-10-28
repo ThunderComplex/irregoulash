@@ -108,6 +108,12 @@ Also worth knowing:
   a player teleported, respawned or dropped onto them.
 - Swapping scenes from inside a physics callback is not allowed; the level loader
   defers `change_scene_to_file`.
+- **A class with both a scene and a script can be built two ways, and only one of them is
+  complete.** `Pickup.new()` produces a bare `Area2D` with no collision shape and the default
+  layers, while `pickup.tscn` carries both -- so enemy loot rendered perfectly and could never
+  be collected. Either always instance the scene, or have the script guarantee what it needs in
+  `_ready`; `Pickup` now does the latter so neither path can be wrong. A linter-style check in
+  the probe (shape + layer + mask per pickup) is what makes this visible.
 - `set_anchors_preset(PRESET_FULL_RECT, false)` does **not** make a `Control` fill its
   parent. It sets the anchors and then recomputes the offsets to keep the control's
   *current* size, which for a freshly created control is zero -- so a full-screen overlay

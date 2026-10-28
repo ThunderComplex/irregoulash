@@ -84,6 +84,15 @@ func focus_first() -> void:
 			return
 
 
+## Whether this item currently holds keyboard focus. (Not called `has_focus`: that is a native
+## `Control` method, and overriding it with a different signature is an error.)
+func item_has_focus(id: StringName) -> bool:
+	var button := button_for(id)
+	if button == null:
+		return false
+	return get_viewport().gui_get_focus_owner() == button
+
+
 ## Focus a particular item, so a menu can open on its most likely choice (Enter should resume a
 ## paused game, not open the settings). Falls back to the first enabled item.
 func focus_item(id: StringName) -> void:

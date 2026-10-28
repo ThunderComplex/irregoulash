@@ -306,6 +306,21 @@ const SCENARIOS: Dictionary = {
 			"shot": "presentation_06_800x600_debug",
 		},
 	],
+	## Loot. Kill a shotgun-carrying enemy while standing on its corpse: the drop has to have a
+	## collision shape on the right layers, and walking over it has to actually collect it.
+	"loot": [
+		{
+			"wait": 0.5,
+			"report": true,
+			"loot_report": true,
+		},
+		{
+			"loot_kill": true,
+			"wait": 1.2,
+			"loot_report": true,
+			"report": true,
+		},
+	],
 	## Both menus, end to end: what they offer, what is greyed out, that a *paused* menu still
 	## answers the mouse, and that Continue brings back the level and the loadout. It runs from
 	## the title screen, because a run has to be started the way a player starts one.
@@ -370,8 +385,11 @@ const SCENARIOS: Dictionary = {
 			"shot": "menu_04_title_with_progress",
 		},
 		{
-			# Continue has to bring back both the level and the three weapons.
-			"menu_activate": "continue",
+			# The reported bug, exactly: with a checkpoint available, pressing Space on the title
+			# screen started a new game and threw the run away. Space now activates whatever is
+			# focused, and the loadout proves which path ran -- a new game would have the pistol
+			# alone, only Continue has all three weapons.
+			"press_space": true,
 			"wait": 1.8,
 			"scene_report": true,
 			"report": true,
@@ -809,6 +827,16 @@ func _click_menu_item(id: String) -> void:
 	print("[probe] clicked '%s' at %s" % [id, str(centre)])
 
 
+## A real key event. `Input.action_press` only ticks the input state and never reaches a
+## focused Control, so it cannot test a menu activated by Space or Enter.
+func _send_key(code: Key, pressed: bool) -> void:
+	var event := InputEventKey.new()
+	event.keycode = code
+	event.physical_keycode = code
+	event.pressed = pressed
+	Input.parse_input_event(event)
+
+
 func _send_mouse(at: Vector2, pressed: bool) -> void:
 	var event := InputEventMouseButton.new()
 	event.button_index = MOUSE_BUTTON_LEFT
@@ -850,6 +878,71 @@ func _restore_progress() -> void:
 	print("[probe] progress file after restore: exists=%s (existed before: %s)" % [
 		Progress.file_exists(), _progress_existed,
 	])
+
+
+## Every pickup in the level, with the thing that decides whether it can be collected at all: a
+## collision shape and the pickup/player layers. Loot that renders but has `shape=false` is the
+## exact failure this test exists to catch.
+func _report_pickups() -> void:
+	var level: Node = GameDirector.current_level
+	if level == null or not is_instance_valid(level):
+		print("[probe]   no level")
+		return
+	var player := GameDirector.valid_player()
+	var found: int = 0
+	for node: Node in _all_nodes(level):
+		var pickup := node as Pickup
+		if pickup == null:
+			continue
+		found += 1
+		var collision := pickup.get_node_or_null("Collision") as CollisionShape2D
+		var shape_ok: bool = collision != null and collision.shape != null
+		var distance: int = int(pickup.global_position.distance_to(player.global_position)) \
+			if player != null else -1
+		var drop: String = pickup.weapon_id if pickup.kind == "weapon" else "-"
+		print("[probe]   pickup kind=%s drop=%s shape=%s layer=%d mask=%d dist=%d" % [
+			pickup.kind, drop, shape_ok, pickup.collision_layer, pickup.collision_mask, distance,
+		])
+	if found == 0:
+		print("[probe]   no pickups left in the level")
+
+
+## Kill an enemy that drops a weapon, while standing where the loot will land. A shotgun is
+## preferred: the player does not start with one, so "the shotgun is in the slots" proves a real
+## pickup rather than an ammo top-up.
+func _loot_kill() -> void:
+	var level: Node = GameDirector.current_level
+	if level == null or not is_instance_valid(level):
+		print("[probe] loot: no level")
+		return
+	var player := GameDirector.valid_player()
+	if player == null:
+		print("[probe] loot: no player")
+		return
+	var list: Variant = level.get("enemies")
+	if list == null:
+		print("[probe] loot: level has no enemy list")
+		return
+	var target: Enemy = null
+	for entry: Variant in (list as Array):
+		var enemy := entry as Enemy
+		if enemy == null or enemy.is_dead():
+			continue
+		var drop: String = String(enemy.archetype.drop_weapon)
+		if drop.is_empty():
+			continue
+		# Keep looking for a shotgun; otherwise take the first dropper.
+		if target == null or drop == "shotgun":
+			target = enemy
+		if drop == "shotgun":
+			break
+	if target == null:
+		print("[probe] loot: no enemy in this level drops a weapon")
+		return
+	print("[probe] loot: killing %s which drops '%s'" % [
+		target.archetype_id, target.archetype.drop_weapon])
+	player.global_position = target.global_position
+	target.take_hit(1000.0, player, target.global_position, Vector2.RIGHT, 0.0)
 
 
 func _report_progress() -> void:
@@ -956,6 +1049,8 @@ func _run(scenario: String) -> void:
 		# Backed up first: the clear below would otherwise destroy a real player's checkpoint.
 		if step.has("backup_progress"):
 			_backup_progress()
+		if step.has("loot_kill"):
+			_loot_kill()
 		if step.has("clear_progress"):
 			Progress.clear()
 			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())
@@ -968,6 +1063,14 @@ func _run(scenario: String) -> void:
 			# A synthesised click needs a frame to travel through the GUI before it lands.
 			await get_tree().process_frame
 			await get_tree().process_frame
+		if step.has("press_space"):
+			# Space on the title screen, on reflex: activates whatever is focused.
+			_send_key(KEY_SPACE, true)
+			await get_tree().process_frame
+			_send_key(KEY_SPACE, false)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			print("[probe] pressed Space (activates the focused menu item)")
 		if step.has("close_menus"):
 			_close_settings_menus()
 		if step.has("call_start_run"):
@@ -1045,6 +1148,8 @@ func _run(scenario: String) -> void:
 			_report_menus()
 		if step.has("progress_report"):
 			_report_progress()
+		if step.has("loot_report"):
+			_report_pickups()
 		if step.has("scene_report"):
 			_report_scene()
 		if step.has("shot"):

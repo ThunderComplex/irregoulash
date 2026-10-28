@@ -185,10 +185,24 @@ maps, the editor's own error log) rather than guessed at.
 - The levels are still first drafts: cover and lamp placement will matter more than
   any code change from here.
 
+## Phase 15 — Loot drop fix
+
+- [x] Enemy loot could not be picked up. `Enemy._drop_loot()` built a bare `Pickup.new()`
+      instead of instancing `pickup.tscn`, so the drop had **no collision shape** and Area2D's
+      default layers (both "world") — it rendered, glowed and pulsed exactly like a real pickup
+      while being impossible to walk over. It now instantiates the authored scene
+- [x] `Pickup._ready()` guarantees its own collision shape and the pickup/player layers, so any
+      future code-spawned pickup is collectable instead of silently inert
+- [x] Added a `loot` probe scenario: kill a shotgun-carrying enemy while standing on the corpse,
+      report every pickup's shape and layers, and check the shotgun actually lands in the slots
+
 ## Phase 14 — Menus and a checkpoint
 
 - [x] The title screen is a real menu: New Game / Continue / Settings / Quit, driven by keyboard
-      *or* mouse, with Continue greyed out when there is nothing to resume
+      *or* mouse, with Continue greyed out when there is nothing to resume. It **opens on
+      Continue** when a checkpoint exists, so Space on reflex resumes instead of starting over;
+      if the checkpoint vanishes while Continue has focus, focus moves to New Game rather than
+      being dropped (disabling the focused Control clears focus, leaving the keyboard dead)
 - [x] Pause menu: Settings / Continue / Quit to Menu, opening on Continue so Enter resumes
 - [x] `Progress`: a single checkpoint (`user://progress.cfg`) holding the level and the loadout,
       written on level entry, refreshed on pause (the moment before quitting to the menu), and
