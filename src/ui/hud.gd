@@ -57,6 +57,7 @@ var _resize_pending: bool = false
 
 var _player: Player = null
 var _settings_menu: SettingsMenu = null
+var _pause_menu: MenuList = null
 var _feed_lines: Array[String] = []
 var _feed_age: Array[float] = []
 var _vignette_alpha: float = 0.0
@@ -319,24 +320,44 @@ func _show_overlay(kind: String, title: String, body: String, color: Color) -> v
 	_overlay_title.text = title
 	_overlay_title.modulate = color
 	_overlay_body.text = body
+	# The pause state is a real menu; death and victory are still text with a key hint, and the
+	# menu must not sit underneath either of them.
+	_pause_menu.visible = kind == "paused"
+	if kind == "paused":
+		# Opens on Continue, so Enter resumes: the muscle memory every player already has.
+		_pause_menu.focus_item(&"continue")
 
 
 func _hide_overlay() -> void:
 	_overlay_kind = "none"
 	_overlay.visible = false
+	if _pause_menu != null:
+		_pause_menu.visible = false
+
+
+## Whatever the pause menu asks for. "Quit to Menu" deliberately leaves the checkpoint alone:
+## pausing already refreshed it, so the title screen can offer to resume this level.
+func _on_pause_menu(id: StringName) -> void:
+	match id:
+		&"settings":
+			open_settings_menu()
+		&"continue":
+			GameDirector.set_paused(false)
+		&"quit_to_menu":
+			GameDirector.go_to_title()
+
+
+## Settings, opened from the pause menu. They apply live, so closing them returns here with the
+## game still paused, exactly where the player left it.
+func open_settings_menu() -> void:
+	if _settings_menu != null and is_instance_valid(_settings_menu):
+		return
+	_settings_menu = SettingsMenu.new()
+	add_child(_settings_menu)
 
 
 func _update_overlay() -> void:
 	var paused: bool = GameDirector.is_paused()
-
-	# Settings are reachable from a paused game, which is where players look for them.
-	# They apply live, so there is nothing to restart.
-	if paused and Input.is_action_just_pressed(&"settings"):
-		if _settings_menu == null or not is_instance_valid(_settings_menu):
-			AudioDirector.play(&"ui_click", -6.0)
-			_settings_menu = SettingsMenu.new()
-			add_child(_settings_menu)
-		return
 
 	match _overlay_kind:
 		"dead", "won":
@@ -347,6 +368,10 @@ func _update_overlay() -> void:
 				else:
 					GameDirector.start_run()
 				_hide_overlay()
+			elif Input.is_action_just_pressed(&"ui_cancel") and not paused:
+				# The hint under this text has always promised this, and nothing implemented
+				# it: the pause action is ignored here because the run is already over.
+				GameDirector.go_to_title()
 			return
 		"paused":
 			if not paused:
@@ -354,8 +379,7 @@ func _update_overlay() -> void:
 			return
 
 	if paused:
-		_show_overlay("paused", "PAUSED", "%s\n\n[ Esc ]  resume        [ O ]  settings" % GameDirector.stats_line(),
-			Color(0.92, 0.96, 1.0))
+		_show_overlay("paused", "PAUSED", GameDirector.stats_line(), Color(0.92, 0.96, 1.0))
 
 
 #endregion
@@ -389,6 +413,10 @@ func _rebuild() -> void:
 	_root.free()
 	_ability_labels.clear()
 	_build()
+	# A window resize while paused rebuilds the overlay the pause menu lives in, so put it back
+	# the way the player left it instead of leaving them staring at a bare PAUSED title.
+	if _overlay_kind == "paused":
+		_show_overlay("paused", "PAUSED", GameDirector.stats_line(), Color(0.92, 0.96, 1.0))
 
 
 func _build() -> void:
@@ -490,8 +518,18 @@ func _build_overlay() -> void:
 
 	_overlay_title = _label(_overlay, Control.PRESET_CENTER, -400.0, -170.0, 400.0, -90.0, 54,
 		HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE)
-	_overlay_body = _label(_overlay, Control.PRESET_CENTER, -400.0, -80.0, 400.0, 120.0, 20,
+	_overlay_body = _label(_overlay, Control.PRESET_CENTER, -400.0, -80.0, 400.0, 40.0, 20,
 		HORIZONTAL_ALIGNMENT_CENTER, Color(0.85, 0.9, 0.95))
+
+	# Paused menu, centred under the stats line. Added after the shade so it draws on top of it.
+	_pause_menu = MenuList.new()
+	_pause_menu.configure(Rect2(480.0, 330.0, 320.0, 3.0 * MenuList.ROW_HEIGHT), _scale)
+	_pause_menu.add_item(&"settings", "SETTINGS")
+	_pause_menu.add_item(&"continue", "CONTINUE")
+	_pause_menu.add_item(&"quit_to_menu", "QUIT TO MENU")
+	_pause_menu.activated.connect(_on_pause_menu)
+	_pause_menu.visible = false
+	_overlay.add_child(_pause_menu)
 
 
 func _label(parent: Control, preset: int, l: float, t: float, r: float, b: float, font_size: int,

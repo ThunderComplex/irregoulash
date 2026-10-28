@@ -13,14 +13,13 @@ const REFERENCE: Vector2 = Vector2(1280.0, 720.0)
 ## How much of that frame the two columns occupy, used to work out the margins.
 const CONTENT_WIDTH: float = 1160.0
 
-var _pulse: float = 0.0
-var _prompt: Label = null
 var _scale: float = 1.0
 ## Top-left of the reference frame in screen pixels. The frame is centred, so an unusual
 ## aspect ratio gets even bands around the content rather than everything hugging a corner.
 var _origin: Vector2 = Vector2.ZERO
 var _resize_pending: bool = false
-var _menu: Control = null
+var _main_menu: MenuList = null
+var _settings_menu: Control = null
 
 
 func _ready() -> void:
@@ -28,40 +27,44 @@ func _ready() -> void:
 	_compute_layout()
 	_build()
 	get_viewport().size_changed.connect(_on_viewport_resized)
+	Progress.changed.connect(_refresh_continue)
 
 
-func _process(delta: float) -> void:
+## Keeps Continue honest if the checkpoint changes while the title is up, so the button can
+## never disagree with what is actually on disk.
+func _refresh_continue() -> void:
+	if _main_menu == null or not is_instance_valid(_main_menu):
+		return
+	_main_menu.set_item(&"continue", Progress.continue_label(), Progress.has_progress())
+
+
+func _process(_delta: float) -> void:
 	if _resize_pending:
 		_resize_pending = false
 		_rebuild()
-	_pulse += delta
-	if _prompt != null:
-		_prompt.modulate.a = 0.55 + 0.45 * sin(_pulse * 2.4)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if _menu != null and is_instance_valid(_menu):
-		return
-	if event.is_action_pressed(&"settings"):
-		get_viewport().set_input_as_handled()
-		open_settings()
-	elif event.is_action_pressed(&"ui_accept"):
-		# Handled before starting the run, which replaces this scene.
-		get_viewport().set_input_as_handled()
-		AudioDirector.play(&"ui_click", -4.0)
-		GameDirector.start_run()
-	elif event.is_action_pressed(&"ui_cancel"):
-		get_viewport().set_input_as_handled()
-		get_tree().quit()
+## There is deliberately no `_unhandled_input` here any more: every action is a button, so
+## nothing else can shadow the focused one. In particular, a stray `ui_accept` handler would
+## fight the menu, activating "New Game" while the player had Continue selected.
+func _on_menu_item(id: StringName) -> void:
+	match id:
+		&"new_game":
+			GameDirector.start_run()
+		&"continue":
+			GameDirector.continue_run()
+		&"settings":
+			open_settings()
+		&"quit":
+			get_tree().quit()
 
 
 ## Opens the settings menu over the title. Public so the dev probe can open it too.
 func open_settings() -> void:
-	if _menu != null and is_instance_valid(_menu):
+	if _settings_menu != null and is_instance_valid(_settings_menu):
 		return
-	AudioDirector.play(&"ui_click", -6.0)
-	_menu = SettingsMenu.new()
-	add_child(_menu)
+	_settings_menu = SettingsMenu.new()
+	add_child(_settings_menu)
 
 
 func _compute_layout() -> void:
@@ -78,10 +81,11 @@ func _on_viewport_resized() -> void:
 	_resize_pending = true
 
 
-## Rebuilds everything except an open settings menu, which stays put.
+## Rebuilds everything except an open settings menu, which stays put. The main menu *is*
+## rebuilt, so it is never the node left holding stale coordinates.
 func _rebuild() -> void:
 	for child: Node in get_children():
-		if child == _menu:
+		if child == _settings_menu:
 			continue
 		child.free()
 	_compute_layout()
@@ -136,9 +140,20 @@ func _build() -> void:
   sight, and they will search for you.
 - Clear the yard, find the exit, escape.""", 16, Color(0.62, 0.72, 0.84))
 
-	_prompt = _label(Vector2(0.0, 650.0), Vector2(1280.0, 50.0),
-		"[ SPACE ] start        [ S ] settings        [ ESC ] quit", 26, Color(1.0, 0.9, 0.6),
-		HORIZONTAL_ALIGNMENT_CENTER)
+	# --- main menu: a 2x2 grid of buttons in the bottom right, which is the only free space on
+	# this screen. A single column collided with the control list and its debug keys, both of
+	# which are longer than they look, and a row along the bottom collided with them too.
+	# Continue knows where the last run got to, and is greyed out rather than hidden when there
+	# is nothing to resume.
+	_main_menu = MenuList.new()
+	_main_menu.configure(Rect2(640.0, 620.0, 560.0, 2.0 * MenuList.ROW_HEIGHT), _scale, 2)
+	_main_menu.add_item(&"new_game", "NEW GAME")
+	_main_menu.add_item(&"continue", Progress.continue_label(), Progress.has_progress())
+	_main_menu.add_item(&"settings", "SETTINGS")
+	_main_menu.add_item(&"quit", "QUIT")
+	_main_menu.activated.connect(_on_menu_item)
+	add_child(_main_menu)
+	_main_menu.focus_first()
 
 
 ## Reference frame -> screen pixels.

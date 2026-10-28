@@ -40,8 +40,7 @@ wins the run.
 | `Shift` / `Space` | Dash (fast, and loud enough to be heard) |
 | `1` `2` `3` / wheel | Switch weapon |
 | Q / E | Use ability 1 / 2 |
-| `O` | Settings (window mode, resolution, vsync, volumes) |
-| `Esc` | Pause |
+| `Esc` | Pause (opens the pause menu) |
 
 Walk over weapons, ammo and medkits to pick them up.
 
@@ -86,6 +85,11 @@ Walk over weapons, ammo and medkits to pick them up.
   the resource says how it aims, the effect script does the rest, so the fire wall can be
   a solid, shadow-casting barrier while the bolt is just a projectile and neither of them
   needs a branch in the holder.
+- **Menus, and one checkpoint.** The title screen offers New Game, Continue, Settings and Quit;
+  the pause menu offers Settings, Continue and Quit to Menu. Continue resumes the level you were
+  on with the weapons you were carrying, from a single `user://progress.cfg` written on level
+  entry and refreshed whenever you pause. It is a level checkpoint, not a save system: no
+  position, no enemy state, no items already taken.
 - **Any resolution and aspect ratio**, with a settings menu (window mode, resolution,
   vsync, master and effects volume) persisted to `user://settings.cfg`. The game renders
   natively rather than stretching a fixed canvas, so text stays crisp at 4K, and the camera

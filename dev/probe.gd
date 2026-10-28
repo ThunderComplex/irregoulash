@@ -12,6 +12,11 @@ extends Node
 
 const SHOT_DIR: String = "res://dev/shots"
 
+## The player's own checkpoint, saved before a test that clears or writes it, and put back
+## afterwards. A dev tool must never eat a save.
+var _progress_existed: bool = false
+var _progress_backup: PackedByteArray = PackedByteArray()
+
 const SCENARIOS: Dictionary = {
 	"vision": [
 		{
@@ -301,20 +306,83 @@ const SCENARIOS: Dictionary = {
 			"shot": "presentation_06_800x600_debug",
 		},
 	],
-	## Settings from a paused game, and the persistence round-trip. Both paths a player
-	## takes; neither can be seen from a headless run.
-	"settings_in_game": [
+	## Both menus, end to end: what they offer, what is greyed out, that a *paused* menu still
+	## answers the mouse, and that Continue brings back the level and the loadout. It runs from
+	## the title screen, because a run has to be started the way a player starts one.
+	"menus": [
 		{
-			"toggle_pause": true,
-			"press_settings": true,
-			"wait": 0.5,
-			"keys_release": ["settings"],
+			# A fresh install has nothing to resume, and the button has to say so.
+			"backup_progress": true,
+			"clear_progress": true,
+			"wait": 0.3,
+			"progress_report": true,
 			"menu_report": true,
-			"shot": "settings_in_game_paused",
+			"shot": "menu_00_title_continue_disabled",
 		},
 		{
+			"menu_activate": "settings",
+			"wait": 0.5,
+			"menu_report": true,
+			"shot": "menu_01_title_settings",
+		},
+		{
+			"close_menus": true,
+			"wait": 0.3,
+			"menu_report": true,
+		},
+		{
+			"menu_activate": "new_game",
+			"wait": 1.6,
+			"scene_report": true,
+			"progress_report": true,
+		},
+		{
+			"give_all": true,
+			"wait": 0.4,
+			"report": true,
+		},
+		{
+			# Pausing refreshes the checkpoint with the live loadout, which is the whole point.
+			"toggle_pause": true,
+			"wait": 0.6,
+			"progress_report": true,
+			"menu_report": true,
+			"shot": "menu_02_pause",
+		},
+		{
+			# A real click through the GUI, on a paused tree.
+			"menu_click": "settings",
+			"wait": 0.6,
+			"menu_report": true,
+			"shot": "menu_03_pause_settings",
+		},
+		{
+			"close_menus": true,
+			"wait": 0.4,
+			"menu_report": true,
+		},
+		{
+			"menu_activate": "quit_to_menu",
+			"wait": 1.8,
+			"scene_report": true,
+			"progress_report": true,
+			"menu_report": true,
+			"shot": "menu_04_title_with_progress",
+		},
+		{
+			# Continue has to bring back both the level and the three weapons.
+			"menu_activate": "continue",
+			"wait": 1.8,
+			"scene_report": true,
+			"report": true,
+		},
+		{
+			# And put the player's own checkpoint and settings back: a dev tool must not leave
+			# test-made saves behind.
 			"settings_roundtrip": true,
+			"restore_progress": true,
 			"wait": 0.2,
+			"progress_report": true,
 		},
 	],
 	## The title screen and the settings menu at three window sizes, since both lay
@@ -618,46 +686,184 @@ func _report_settings_menu() -> void:
 		if menu == null:
 			continue
 		found += 1
-		print("[probe]   settings menu rect %s  (visible rect %s)" % [
+		print("[probe]   settings menu rect %s  (visible rect %s)  embedded=%s" % [
 			str(menu.get_global_rect()), str(menu.get_viewport_rect()),
+			Engine.is_embedded_in_editor(),
 		])
 	if found == 0:
 		print("[probe]   no settings menu open")
 
 
 ## Settings persistence, with the player's own file left exactly as it was found: the test
-## writes, reloads, and then puts the original bytes back (or removes the file if there was
-## none to begin with).
+## writes, reloads, then puts the original bytes back (or removes the file if the probe
+## created it) and *reports* whether the file is really gone.
+##
+## The reporting matters. Leaving a file behind is a nasty side effect, because it also
+## stores a resolution adopted from whatever window the probe happened to use -- and an
+## earlier version of this test did exactly that, by calling a `set_*` setter (which saves)
+## after the cleanup.
 func _report_settings_roundtrip() -> void:
 	var path: String = GameSettings.PATH
 	var existed: bool = FileAccess.file_exists(path)
 	var backup: PackedByteArray = PackedByteArray()
 	if existed:
 		backup = FileAccess.get_file_as_bytes(path)
+	var master_before: float = Settings.master_volume_db
+	var sfx_before: float = Settings.sfx_volume_db
 
-	var kept: float = Settings.sfx_volume_db
 	Settings.set_master_volume_db(-7.25)
 	Settings.set_sfx_volume_db(-23.5)
 	# Forget the in-memory values and read them back off disk, which is what a restart does.
 	Settings.master_volume_db = 0.0
 	Settings.sfx_volume_db = 0.0
 	Settings.load_settings()
-	var master_ok: bool = is_equal_approx(Settings.master_volume_db, -7.25)
-	var sfx_ok: bool = is_equal_approx(Settings.sfx_volume_db, -23.5)
 	print("[probe] settings round-trip master=%s sfx=%s (read back %.2f / %.2f)" % [
-		master_ok, sfx_ok, Settings.master_volume_db, Settings.sfx_volume_db,
+		is_equal_approx(Settings.master_volume_db, -7.25),
+		is_equal_approx(Settings.sfx_volume_db, -23.5),
+		Settings.master_volume_db, Settings.sfx_volume_db,
 	])
 
-	Settings.set_sfx_volume_db(kept)
+	# Undo, bytes first, and only direct field writes after that: a `set_*` call would save
+	# the file again and undo the cleanup.
 	if existed:
 		var file := FileAccess.open(path, FileAccess.WRITE)
 		if file != null:
 			file.store_buffer(backup)
+			file.close()
 	else:
 		var dir := DirAccess.open("user://")
-		if dir != null and dir.file_exists("settings.cfg"):
+		if dir != null:
 			dir.remove("settings.cfg")
-	print("[probe] settings file restored (existed before the test: %s)" % existed)
+	Settings.master_volume_db = master_before
+	Settings.sfx_volume_db = sfx_before
+	Settings.apply()
+	print("[probe] settings file after restore: exists=%s (existed before the test: %s)" % [
+		FileAccess.file_exists(path), existed,
+	])
+
+
+#region menus
+
+func _menu_lists() -> Array[MenuList]:
+	var out: Array[MenuList] = []
+	for node: Node in _all_nodes(get_tree().root):
+		var menu := node as MenuList
+		if menu != null and menu.is_visible_in_tree():
+			out.append(menu)
+	return out
+
+
+## What the menus offer and where focus is. An open menu with no focused item cannot be driven
+## from the keyboard at all, which is invisible in a screenshot.
+func _report_menus() -> void:
+	var menus: Array[MenuList] = _menu_lists()
+	var settings_menus: Array[SettingsMenu] = []
+	for node: Node in _all_nodes(get_tree().root):
+		var settings := node as SettingsMenu
+		if settings != null:
+			settings_menus.append(settings)
+	if menus.is_empty() and settings_menus.is_empty():
+		print("[probe]   no menu open")
+		return
+	var focus: Control = get_viewport().gui_get_focus_owner()
+	var focus_text: String = "-"
+	if focus is Button:
+		focus_text = (focus as Button).text
+	for menu: MenuList in menus:
+		var parts: Array[String] = []
+		for i: int in menu.item_count():
+			parts.append("%s%s" % [
+				menu.item_text(i), "" if menu.item_enabled(i) else " (disabled)",
+			])
+		print("[probe]   menu [%s]  focused=%s" % [" | ".join(parts), focus_text])
+	for settings: SettingsMenu in settings_menus:
+		print("[probe]   settings menu (rect %s)" % str(settings.get_global_rect()))
+
+
+## Programmatic activation: reliable, but it bypasses the GUI, so it does not prove a menu is
+## clickable. `_click_menu_item` is the one that proves that.
+func _activate_menu_item(id: String) -> void:
+	for menu: MenuList in _menu_lists():
+		if menu.activate(StringName(id)):
+			print("[probe] activated menu item '%s'" % id)
+			return
+	print("[probe] menu item '%s' not found, or disabled" % id)
+
+
+## A synthetic click, which goes through the viewport's GUI hit-testing and only then reaches
+## the button. Worth testing explicitly: a paused SceneTree is exactly the situation where
+## Controls stop responding to the mouse.
+func _click_menu_item(id: String) -> void:
+	var target: Button = null
+	for menu: MenuList in _menu_lists():
+		var button := menu.button_for(StringName(id))
+		if button != null and not button.disabled:
+			target = button
+			break
+	if target == null:
+		print("[probe] cannot click '%s': no such enabled item" % id)
+		return
+	var centre: Vector2 = target.get_global_rect().get_center()
+	_send_mouse(centre, true)
+	_send_mouse(centre, false)
+	print("[probe] clicked '%s' at %s" % [id, str(centre)])
+
+
+func _send_mouse(at: Vector2, pressed: bool) -> void:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.position = at
+	event.global_position = at
+	Input.parse_input_event(event)
+
+
+func _close_settings_menus() -> void:
+	var closed: int = 0
+	for node: Node in _all_nodes(get_tree().root):
+		var menu := node as SettingsMenu
+		if menu != null:
+			menu.close()
+			closed += 1
+	print("[probe] closed %d settings menu(s)" % closed)
+
+
+func _backup_progress() -> void:
+	_progress_existed = Progress.file_exists()
+	_progress_backup = PackedByteArray()
+	if _progress_existed:
+		_progress_backup = FileAccess.get_file_as_bytes(GameProgress.PATH)
+	print("[probe] progress backed up (existed: %s)" % _progress_existed)
+
+
+## Puts the checkpoint back exactly as it was found, and reports whether the file really is
+## gone again. Reporting it matters: a silent failure here leaves a test-made save behind.
+func _restore_progress() -> void:
+	if _progress_existed:
+		var file := FileAccess.open(GameProgress.PATH, FileAccess.WRITE)
+		if file != null:
+			file.store_buffer(_progress_backup)
+			file.close()
+		Progress.load_progress()
+	else:
+		Progress.clear()
+	print("[probe] progress file after restore: exists=%s (existed before: %s)" % [
+		Progress.file_exists(), _progress_existed,
+	])
+
+
+func _report_progress() -> void:
+	print("[probe] progress: has=%s file=%s level=%s title='%s' loadout_slots=%d" % [
+		Progress.has_progress(), Progress.file_exists(), Progress.level_path,
+		Progress.level_title, Progress.loadout.size(),
+	])
+
+
+func _report_scene() -> void:
+	var scene: Node = get_tree().current_scene
+	print("[probe] current scene: %s" % (scene.scene_file_path if scene != null else "(none)"))
+
+#endregion
 
 
 func _all_nodes(root: Node) -> Array[Node]:
@@ -743,11 +949,27 @@ func _run(scenario: String) -> void:
 				title.call("open_settings")
 		if step.has("toggle_pause") and bool(step["toggle_pause"]):
 			GameDirector.toggle_pause()
-		if step.has("press_settings"):
-			# Synthetic press, so the pause overlay's `is_action_just_pressed` path runs.
-			Input.action_press(&"settings")
+		# (`press_settings` used to live here. The settings keybind is gone, so there is nothing
+		# to press: both menus open settings through `MenuList` now.)
 		if step.has("settings_roundtrip"):
 			_report_settings_roundtrip()
+		# Backed up first: the clear below would otherwise destroy a real player's checkpoint.
+		if step.has("backup_progress"):
+			_backup_progress()
+		if step.has("clear_progress"):
+			Progress.clear()
+			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())
+		if step.has("restore_progress"):
+			_restore_progress()
+		if step.has("menu_activate"):
+			_activate_menu_item(String(step["menu_activate"]))
+		if step.has("menu_click"):
+			_click_menu_item(String(step["menu_click"]))
+			# A synthesised click needs a frame to travel through the GUI before it lands.
+			await get_tree().process_frame
+			await get_tree().process_frame
+		if step.has("close_menus"):
+			_close_settings_menus()
 		if step.has("call_start_run"):
 			GameDirector.start_run()
 		if step.has("god"):
@@ -817,8 +1039,14 @@ func _run(scenario: String) -> void:
 			_report_ability_effects()
 		if step.has("presentation"):
 			_report_presentation()
-		if step.has("menu_report"):
+		if step.has("settings_menu_report"):
 			_report_settings_menu()
+		if step.has("menu_report"):
+			_report_menus()
+		if step.has("progress_report"):
+			_report_progress()
+		if step.has("scene_report"):
+			_report_scene()
 		if step.has("shot"):
 			await _screenshot(String(step["shot"]))
 		if step.has("walls"):

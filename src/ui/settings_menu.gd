@@ -47,6 +47,16 @@ func _process(_delta: float) -> void:
 	if _footer == null:
 		return
 	var size: Vector2i = Vector2i(get_viewport().get_visible_rect().size)
+	if Engine.is_embedded_in_editor():
+		# The editor's embedded game window only supports windowed mode, so a window mode or
+		# resolution change here would fail with an engine error. Say that rather than letting
+		# the player press a button that cannot work. Run the game un-embedded (or export it)
+		# to use these two rows for real.
+		_footer.text = "window %d x %d     embedded in the editor: window mode and resolution are fixed" % [
+			size.x, size.y,
+		]
+		_footer.text += "\n[ ESC ] close, changes are saved as you make them"
+		return
 	_footer.text = "window %d x %d     [ ESC ] close, changes are saved as you make them" % [
 		size.x, size.y,
 	]
@@ -162,7 +172,8 @@ func _build() -> void:
 	_panel.add_child(done)
 
 	_footer = _label(Vector2(0.0, PANEL_SIZE.y - 44.0), "", 15, Color(0.55, 0.62, 0.72))
-	_footer.size = Vector2(PANEL_SIZE.x, 26.0) * _scale
+	# Two lines' worth: the embedded case adds a line explaining the two fixed rows.
+	_footer.size = Vector2(PANEL_SIZE.x, 44.0) * _scale
 	_footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
@@ -224,9 +235,11 @@ func _sync() -> void:
 	_mode_button.select(_mode_button.get_item_index(int(Settings.window_mode)))
 	var index: int = _resolution_sizes.find(Settings.resolution)
 	_resolution_button.selected = index if index >= 0 else -1
-	# Fullscreen modes ignore the resolution, so say so rather than showing a control that
-	# looks like it does something.
-	_resolution_button.disabled = not Settings.resolution_is_relevant()
+	# Two reasons a row can be inert, and the footer explains whichever applies: a fullscreen
+	# mode ignores the resolution, and the editor's embedded game window ignores both.
+	var embedded: bool = Engine.is_embedded_in_editor()
+	_mode_button.disabled = embedded
+	_resolution_button.disabled = embedded or not Settings.resolution_is_relevant()
 	_vsync_button.button_pressed = Settings.vsync_enabled
 	_master_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.master_volume_db))
 	_sfx_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.sfx_volume_db))

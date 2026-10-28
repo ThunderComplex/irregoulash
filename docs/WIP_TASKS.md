@@ -20,7 +20,7 @@ Status: **all phases built, mechanically verified, ready for you to play.**
 | Enemy AI | Patrol → Suspicious → Alert → Search → Return, awareness meters, sight + hearing, ally alerting |
 | Art | Geometric placeholder shapes generated in-engine; no asset dependencies |
 | Levels | 2 connected levels + a documented template + an ASCII builder that lints what it builds |
-| Out of scope | ARPG abilities/talents, inventory, procgen levels, saving, shops, bosses, real audio/art assets, controller support, options menu |
+| Out of scope | Inventories, procgen levels, save games (a single checkpoint stands in, see Phase 14), shops, bosses, real audio/art assets, controller support |
 
 ---
 
@@ -184,6 +184,26 @@ maps, the editor's own error log) rather than guessed at.
   (engine-side, documented in the README).
 - The levels are still first drafts: cover and lamp placement will matter more than
   any code change from here.
+
+## Phase 14 — Menus and a checkpoint
+
+- [x] The title screen is a real menu: New Game / Continue / Settings / Quit, driven by keyboard
+      *or* mouse, with Continue greyed out when there is nothing to resume
+- [x] Pause menu: Settings / Continue / Quit to Menu, opening on Continue so Enter resumes
+- [x] `Progress`: a single checkpoint (`user://progress.cfg`) holding the level and the loadout,
+      written on level entry, refreshed on pause (the moment before quitting to the menu), and
+      cleared by New Game and by winning
+- [x] `MenuList`: one scaled, themed, focus-navigable widget behind both menus — a single column
+      or a grid, laid out in reference units like the rest of the UI
+- [x] Removed the settings keybind. Every screen that could need settings is a menu now, so the
+      keybinding was a second way to do the same thing (and it collided with `move_down`)
+- [x] Fixed the death and victory hints, which promised `Esc` would return to the title and did
+      nothing at all
+- [x] Verified: the pause menu answers the **mouse** while the scene tree is paused, and Continue
+      restores the level *and* all three weapons
+
+Open: no multiple save slots, no "delete save" in the UI, and the checkpoint deliberately does
+not store a mid-level position — Continue starts the level again.
 
 ## Phase 13 — Resolution independence and settings
 

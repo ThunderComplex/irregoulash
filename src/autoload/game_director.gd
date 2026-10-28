@@ -70,6 +70,9 @@ func _process(delta: float) -> void:
 #region flow
 
 func start_run() -> void:
+	# A new game forgets the checkpoint, so Continue cannot offer the run that was just
+	# abandoned. The first level records a fresh one as soon as it loads.
+	Progress.clear()
 	run_active = true
 	run_time = 0.0
 	kills = 0
@@ -84,6 +87,32 @@ func start_run() -> void:
 	debug_info = false
 	run_started.emit()
 	load_level(FIRST_LEVEL)
+
+
+## Resume the recorded checkpoint: the level that was being played, with the loadout that was
+## being carried. Falls back to a new run when there is nothing to continue from, so the
+## button can never leave the player staring at the title screen.
+func continue_run() -> void:
+	if not Progress.has_progress():
+		start_run()
+		return
+	var path: String = Progress.level_path
+	run_active = true
+	# Counters start over: this is a fresh attempt at that level, not a replay of the run.
+	run_time = 0.0
+	kills = 0
+	shots_fired = 0
+	enemies_alerted = 0
+	levels_cleared = 0
+	_outcome_reported = false
+	god_mode = false
+	noclip = false
+	reveal = false
+	debug_info = false
+	# Copied, so continuing twice cannot alias the same array.
+	carried_loadout = Progress.loadout.duplicate(true)
+	run_started.emit()
+	load_level(path)
 
 
 func load_level(path: String) -> void:
@@ -126,6 +155,9 @@ func retry_level() -> void:
 func on_level_ready(level: Node) -> void:
 	current_level = level
 	player = null
+	# Where the checkpoint starts from. `record()` ignores levels that were launched directly
+	# from the editor, because those are not part of a run.
+	Progress.record()
 	level_started.emit(level)
 
 
@@ -171,6 +203,8 @@ func notify_win() -> void:
 		return
 	_outcome_reported = true
 	run_active = false
+	# Finished: there is nothing left to continue, so the title screen offers a new game only.
+	Progress.clear()
 	AudioDirector.play(&"win")
 	game_won.emit()
 
@@ -232,8 +266,18 @@ static func format_time(seconds: float) -> String:
 
 #region pause
 
+func set_paused(value: bool) -> void:
+	if get_tree().paused == value:
+		return
+	get_tree().paused = value
+	if value:
+		# Pausing is the moment before someone quits to the menu, so it is the best possible
+		# time to refresh the checkpoint: the level they are on, with what they are carrying.
+		Progress.record()
+
+
 func toggle_pause() -> void:
-	get_tree().paused = not get_tree().paused
+	set_paused(not get_tree().paused)
 
 
 func is_paused() -> bool:

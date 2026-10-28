@@ -351,7 +351,9 @@ one-field edit in the editor afterwards.
    click out its patrol waypoints, then right-click to finish. Rotate one afterwards
    to set the direction it starts facing.
 7. Add a medkit and some ammo. The player has no regeneration.
-8. Set `level_title` and `objective`.
+8. Set `level_title` and `objective`. `level_title` is what the title screen's Continue button
+   shows ("CONTINUE   THE YARD"), so keep it short — a level left on the template's `TEMPLATE`
+   will say so on the main menu.
 9. Press **Bake navmesh**, and again any time you move walls (the linter says when the
    mesh is stale).
 10. Press **Lint level**.

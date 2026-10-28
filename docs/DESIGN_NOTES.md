@@ -37,6 +37,8 @@ this slice exists to make that one idea readable.
 | Weapon/level/enemy data lives in code libraries, not `.tres` files | Balance is one edit, diffs are readable, and a new weapon is one function | `weapon_library.gd`, `enemy_library.gd` |
 | The HUD is built in code | It changed constantly while the game was being built; a `.tscn` would have been re-anchored a dozen times | `hud.gd` |
 | Audio is synthesised at startup | The slice ships with no assets, and gunfire needed to exist before it could be tuned | `audio_director.gd` |
+| "Continue" resumes a level and a loadout, not a position | A real save system (position, enemy state, items already taken) is a large feature and fragile against levels being re-edited. A checkpoint storing the level path and the loadout is a few lines, reuses `WeaponHolder.serialize()` exactly as the level chain already does, and covers what a player actually minds losing -- their guns | `Progress`, `GameDirector.continue_run` |
+| The pause state is a real menu, not text with key hints | A text overlay can only advertise one binding per action, cannot be clicked, and is unreadable to anyone who has not memorised the hints. `MenuList` is one widget for both menus, and the settings menu hangs off it | `MenuList`, `HUD._show_overlay` |
 
 ## Findings from building this (measured, not guessed)
 
