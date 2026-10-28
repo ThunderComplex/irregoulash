@@ -319,6 +319,7 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.3,
 			"door_report": true,
 			"report": true,
+			"shot": "doors_00_closed",
 		},
 		{
 			# Standing beside it, working it: opens, sight opens, the swing makes a noise.
@@ -328,12 +329,28 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.5,
 			"door_report": true,
 			"noise_report": true,
+			"shot": "doors_01_open",
 		},
 		{
 			# And shut again from the same spot.
 			"interact_door": true,
 			"wait": 0.5,
 			"door_report": true,
+		},
+		{
+			# Open it, then stand *in* the doorway and try to shut it: the leaf bounces off the
+			# player, the door stays open, and nothing is announced. Gamefeel over text.
+			"interact_door": true,
+			"wait": 0.5,
+		},
+		{
+			"teleport": Vector2(520.0, 544.0),
+			"clear_announce": true,
+			"interact_door": true,
+			"wait": 0.5,
+			"door_report": true,
+			"announce_report": true,
+			"noise_report": true,
 		},
 		{
 			# A locked door, with keys in hand: nothing happens until it is tried.
@@ -376,7 +393,9 @@ const SCENARIOS: Dictionary = {
 			"dash_at_door": true,
 			"wait": 0.6,
 			"door_report": true,
+			"report": true,
 			"noise_report": true,
+			"shot": "doors_02_smashed",
 		},
 		{
 			# An enemy opens a shut door in its way, then shuts it once it is past.
@@ -877,12 +896,31 @@ func _report_doors() -> void:
 		var blocked: bool = collision != null and not collision.disabled
 		var shadow: bool = occluder != null and occluder.occluder_light_mask != 0
 		var sight: String = "clear" if _sight_clear_through(door) else "blocked"
+		# The hinge is the leaf's own origin; the free edge is the far end of the panel. If the
+		# hinge moves when the door opens, the leaf is spinning about its centre instead of
+		# swinging from its edge, which is exactly the bug this line exists to catch.
+		var leaf := door.get_node_or_null("Leaf") as Node2D
+		var hinge: Vector2 = leaf.global_position if leaf != null else door.global_position
+		var free: Vector2 = leaf.to_global(Vector2(door.size.x, 0.0)) if leaf != null else hinge
 		print("[probe]   door %s state=%s locked=%s blocks=%s shadows=%s sight=%s dist=%d" % [
 			door.name, _door_state_name(door.state), door.locked, blocked, shadow, sight,
 			int(door.global_position.distance_to(player.global_position)) if player != null else -1,
 		])
+		print("[probe]     hinge %s (%.0f px from centre)  free edge %s" % [
+			str(Vector2i(hinge)), hinge.distance_to(door.global_position), str(Vector2i(free)),
+		])
 	if found == 0:
 		print("[probe]   no doors in the level")
+	# A smashed door is removed from the level, not left lying in the doorway.
+	if _dashed_door_name != "":
+		var still_there: bool = false
+		for node: Node in _all_nodes(level):
+			if String(node.name) == _dashed_door_name:
+				still_there = true
+				break
+		print("[probe]   dashed door '%s' still in the level: %s" % [
+			_dashed_door_name, still_there,
+		])
 
 
 func _door_state_name(state: Door.State) -> String:
@@ -982,7 +1020,10 @@ func _dash_at_newest_door() -> void:
 	if towards.length() < 1.0:
 		towards = Vector2.RIGHT.rotated(door.rotation)
 	player.debug_dash(towards.normalized())
-	print("[probe] dashing at the door from %d px away" % int(towards.length()))
+	_dashed_door_name = String(door.name)
+	print("[probe] dashing at the door '%s' from %d px away" % [
+		_dashed_door_name, int(towards.length()),
+	])
 
 
 ## Records every noise broadcast, so tests can assert on how loud an action was. In order: the
@@ -991,6 +1032,12 @@ var _noise_log: Array[Dictionary] = []
 var _noise_connected: bool = false
 ## Names test doors TestDoor0, TestDoor1... so a report reads like a test, not like a dump.
 var _door_counter: int = 0
+## The last door a dash was aimed at, by name: a smash removes it, so the name is the only handle
+## that outlives it.
+var _dashed_door_name: String = ""
+## Announcements, so a test can assert that an action is *silent* rather than merely harmless.
+var _announce_log: Array[String] = []
+var _announce_connected: bool = false
 
 
 func _connect_noise_log() -> void:
@@ -1004,6 +1051,26 @@ func _on_noise_made(position: Vector2, radius: float, _source: Node) -> void:
 	_noise_log.append({"position": position, "radius": radius})
 	if _noise_log.size() > 40:
 		_noise_log.remove_at(0)
+
+
+func _connect_announce_log() -> void:
+	if _announce_connected:
+		return
+	GameDirector.announce.connect(_on_announce)
+	_announce_connected = true
+
+
+func _on_announce(text: String, _color: Color) -> void:
+	_announce_log.append(text)
+	if _announce_log.size() > 20:
+		_announce_log.remove_at(0)
+
+
+func _report_announce() -> void:
+	if _announce_log.is_empty():
+		print("[probe]   announced: nothing")
+		return
+	print("[probe]   announced: %s" % " / ".join(_announce_log))
 
 
 func _report_noise(tail: int = 8) -> void:
@@ -1232,6 +1299,7 @@ func _run(scenario: String) -> void:
 		print("[probe] no scenario named '%s'" % scenario)
 		return
 	_connect_noise_log()
+	_connect_announce_log()
 	var player = get_tree().get_first_node_in_group("player")
 
 	for step: Dictionary in steps:
@@ -1314,6 +1382,8 @@ func _run(scenario: String) -> void:
 			_loot_kill()
 		if step.has("clear_noise"):
 			_noise_log.clear()
+		if step.has("clear_announce"):
+			_announce_log.clear()
 		if step.has("spawn_door"):
 			var spec: Dictionary = step["spawn_door"]
 			_spawn_test_door(spec.get("at", Vector2.ZERO), bool(spec.get("locked", false)),
@@ -1431,6 +1501,8 @@ func _run(scenario: String) -> void:
 			_report_doors()
 		if step.has("noise_report"):
 			_report_noise()
+		if step.has("announce_report"):
+			_report_announce()
 		if step.has("scene_report"):
 			_report_scene()
 		if step.has("shot"):

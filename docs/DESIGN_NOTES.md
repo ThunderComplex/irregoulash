@@ -40,6 +40,8 @@ this slice exists to make that one idea readable.
 | "Continue" resumes a level and a loadout, not a position | A real save system (position, enemy state, items already taken) is a large feature and fragile against levels being re-edited. A checkpoint storing the level path and the loadout is a few lines, reuses `WeaponHolder.serialize()` exactly as the level chain already does, and covers what a player actually minds losing -- their guns | `Progress`, `GameDirector.continue_run` |
 | A door is an occluder *and* an obstacle, not just a state flag | In a game where sight is the mechanic, a door that only blocks movement would be decoration. One `StaticBody2D` on the WORLD layer blocks movement, bullets, enemy sight rays and lamp visibility at once, so shutting a door genuinely takes a room off the board | `Door._apply_state`, `Layers.WORLD` |
 | The navmesh is baked *without* doors in it | If doors were bake geometry, a shut door would make its doorway permanently impassable to path finding, and an open one would be a hole the mesh was cut around. Leaving them out means doorways always connect, and a shut door becomes something the AI handles at the door (`open_for_enemy`) rather than something it plans around | `Door` not being a `Wall`, `Enemy._handle_doors` |
+| A blocked door close bounces instead of showing a message | Standing in a doorway and pressing interact is a legible situation: the obstruction is right there on screen. A text message interrupts a fight to explain something the animation can show in a fifth of a second. Nothing is spent, nothing is announced, the leaf just tries and gives up |
+| A smashed door is deleted, not left as wreckage | The doorway is the point. Leaving a ghost leaf means every smashed door is a permanent visual object that also has to be explained (can I walk through it, is it still a door). Deleting the node and playing a short splinter burst leaves a clean opening -- and removes a whole class of "is this still interactive" questions | `Door.smash` |
 | Locked doors need a key, any key, and can never be smashed | One key type keeps the player from juggling colours, and consuming a key makes the door a real cost. Making locks immune to dashing is what stops the dash from trivialising every door in the game: force opens the cheap doors, keys open the real ones | `Door.interact`, `Door.smash` |
 | The pause state is a real menu, not text with key hints | A text overlay can only advertise one binding per action, cannot be clicked, and is unreadable to anyone who has not memorised the hints. `MenuList` is one widget for both menus, and the settings menu hangs off it | `MenuList`, `HUD._show_overlay` |
 
@@ -111,6 +113,18 @@ Also worth knowing:
   a player teleported, respawned or dropped onto them.
 - Swapping scenes from inside a physics callback is not allowed; the level loader
   defers `change_scene_to_file`.
+- **A rotating child pivots on its parent's origin, not on the panel's corner.** The first door leaf
+  was a panel offset by half the door's width inside a leaf node sitting at the door's centre, so
+  opening it spun the whole panel about the middle like a turnstile. Moving the *leaf node* to the
+  edge and drawing the panel from 0 to `size.x` in its space gives a hinge. The rule generalises:
+  put the pivot on the node that rotates, not on its child. The probe reports the hinge position
+  and the free edge every time it reports a door, so this cannot regress unnoticed.
+- **A physics query also lags behind a body that *moved* this frame.** The door's close guard used
+  only `intersect_shape`, so a player who entered the doorway and pressed interact in the same frame
+  was invisible to it and the door shut on them -- the probe caught it as "door closed and pushed
+  the player to exactly the resting distance". Anything that must never happen to the player is now
+  also checked against their position directly (`Door.contains_point`), which is exact and instant;
+  the shape query still covers enemies.
 - **A physics query cannot see a body created in the same frame.** The door test's first version
   spawned a door and immediately asked `intersect_point` whether an enemy was at it; the door did
   not exist to the physics server yet, so the answer was always "nothing there" and the test read

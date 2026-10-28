@@ -190,8 +190,8 @@ those things: the room becomes visible, and so do you.
 
 **Placing one:** turn on **Place door**, click where the doorway should be, and drag along the wall
 to set which way the leaf lies; release to place it. A plain click places it horizontally. Tick
-**Locked** first to place a door that needs a key. Doors go into a `Doors` container when the level
-has one.
+**Locked** first to place a door that needs a key. Doors go into a `Doors` container, which the tool
+creates if the level does not have one yet — one undo removes the door and the container together.
 
 **Leave a gap for it.** The tool places the door; it does not cut the wall. Draw the wall with a
 door-sized opening, then put the door in the opening. The linter reports a door that overlaps a
@@ -208,9 +208,14 @@ survives level changes and is saved with the checkpoint. Put a key somewhere the
 work for, and a locked door somewhere that makes them want it.
 
 **Smashing.** The player's dash destroys an unlocked door permanently, with the loudest noise in
-the level. Dashing into a *locked* door does not open it: it only rattles, louder than trying the
-handle but quieter than a smash. So a locked door can never be bypassed by force — if you want a
-door that is a real barrier, lock it.
+the level: the door bursts into splinters and is **removed from the level**, so the doorway is
+simply open from then on. Dashing into a *locked* door does not open it: it only rattles, louder
+than trying the handle but quieter than a smash. So a locked door can never be bypassed by force —
+if you want a door that is a real barrier, lock it.
+
+**Standing in the doorway** and trying to shut it does not close the door: the leaf swings most of
+the way, meets you, and comes back open. No message is shown, because the animation is the
+explanation. Nothing is consumed and the door's state does not change.
 
 ## Enemy navigation: the "Bake navmesh" button
 

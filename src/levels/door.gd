@@ -103,7 +103,9 @@ func interact(by: Node) -> bool:
 		_set_shut(false, by)
 		return true
 	if not can_close():
-		GameDirector.announce_message("Something is in the doorway", Color(0.9, 0.75, 0.5))
+		# Standing in the doorway: the leaf tries to shut, meets them, and swings back. The
+		# animation says it better than a message does, and nothing is spent or changed.
+		bounce()
 		return false
 	_set_shut(true, by)
 	return true
@@ -119,16 +121,20 @@ func smash(by: Node) -> void:
 		return
 	state = State.BROKEN
 	_closer = null
+	# Out of the way at once, so the dash that broke it carries on through the doorway.
 	_apply_state()
-	# The leaf hangs open where the dash threw it.
-	_hinge(Tween.TRANS_CUBIC, PI * 0.5)
-	_leaf.modulate.a = 0.5
 	AudioDirector.play_at(&"door_smash", global_position, -2.0)
 	FxDirector.shake(0.3)
-	FxDirector.spark_burst(global_position, Vector2.UP, 12, Color(0.9, 0.76, 0.5), 170.0, 0.4)
+	# A burst of splinters where the door was, and then nothing: the doorway is left empty, because
+	# the door is gone from the level rather than lying in it.
+	FxDirector.spark_burst(global_position, Vector2.UP, 14, Color(0.78, 0.6, 0.38), 190.0, 0.45)
+	FxDirector.flash_light(global_position, Color(0.95, 0.8, 0.5), 0.7, 130.0, 0.18)
 	GameDirector.make_noise(global_position, Tuning.noise_door_smash, by)
 	GameDirector.announce_message("DOOR SMASHED", Color(0.95, 0.85, 0.6))
 	changed.emit()
+	# Deferred, not immediate: `_apply_state` defers the collider change, and a plain `queue_free`
+	# could outrun it and leave a deferred call aimed at a freed node.
+	call_deferred("queue_free")
 
 
 ## Enemies call this when a shut door is in their way. Quiet compared to the player wrenching it
@@ -139,6 +145,22 @@ func open_for_enemy(by: Node) -> bool:
 	_closer = by
 	_set_shut(false, by, true)
 	return true
+
+
+## The leaf swings most of the way shut, meets whoever is standing in the doorway, and comes back.
+## Deliberately not a message: the obstruction is something the player can see, so the animation is
+## the feedback and no text is needed. The door's state, collider and occluder are untouched.
+func bounce() -> void:
+	AudioDirector.play_at(&"door_close", global_position, -12.0)
+	GameDirector.make_noise(global_position, Tuning.noise_door_bump, null)
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	var open_angle: float = PI * 0.5
+	_tween = create_tween()
+	_tween.tween_property(_leaf, "rotation", open_angle * 0.8, 0.04) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_tween.tween_property(_leaf, "rotation", open_angle, 0.1) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 ## Called by the enemy that opened this door once it is clear of the doorway, so doors shut behind
@@ -158,6 +180,14 @@ func close_if_enemy_clear(by: Node) -> void:
 	_set_shut(true, by, true)
 
 
+## Whether `point` is inside the door's footprint. Exact and instant, unlike a physics query, which
+## lags a frame behind anything that moved this frame.
+func contains_point(point: Vector2) -> bool:
+	var local: Vector2 = to_local(point)
+	var half: Vector2 = size * 0.5
+	return absf(local.x) <= half.x and absf(local.y) <= half.y
+
+
 ## Distance from `point` to the nearest edge of the door, in pixels (0 if inside it). Measured to
 ## the surface rather than the centre: a 96-pixel-wide door's centre is 48px from its edge, so a
 ## player standing against it would read as "far away" by a centre-to-centre measure.
@@ -171,6 +201,13 @@ func surface_distance(point: Vector2) -> float:
 ## Whether the doorway is empty enough to shut. Closing a door on top of someone would leave them
 ## stuck inside its collider.
 func can_close() -> bool:
+	# The player is checked by position first, and not only by the shape query below. A collision
+	# query reflects the physics server's last step, so a body that moved this frame can be missed
+	# -- and a door closing on the player is the one outcome that must never happen. This exact
+	# check is also what makes "stand in the doorway and try to shut it" bounce instead.
+	var player := GameDirector.valid_player()
+	if player != null and contains_point(player.global_position):
+		return false
 	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
 	if space == null:
 		return true
@@ -223,12 +260,19 @@ func _rebuild_geometry() -> void:
 	_build_leaf_art()
 
 
-## The leaf: a panel hinged at its left edge, so rotating the parent swings the free edge.
+## The leaf: a panel hinged at the door's left edge.
+##
+## The hinge is the *leaf node's own origin*, moved to the edge, with the panel drawn from 0 to
+## `size.x` in the leaf's space. Offsetting the panel inside a leaf left at the door's centre --
+## which is what the first version did -- makes it spin like a turnstile about the middle instead
+## of swinging from its edge.
 func _build_leaf_art() -> void:
 	if _leaf == null:
 		return
 	for child: Node in _leaf.get_children():
 		child.free()
+
+	_leaf.position = Vector2(-size.x * 0.5, 0.0)
 
 	var corners := PackedVector2Array([
 		Vector2(0.0, -size.y * 0.5),
@@ -236,12 +280,10 @@ func _build_leaf_art() -> void:
 		Vector2(size.x, size.y * 0.5),
 		Vector2(0.0, size.y * 0.5),
 	])
-	var pivot := Vector2(-size.x * 0.5, 0.0)
 
 	var panel := Polygon2D.new()
 	panel.name = "Panel"
 	panel.polygon = corners
-	panel.position = pivot
 	panel.color = Color(0.44, 0.30, 0.34) if locked else Color(0.52, 0.36, 0.22)
 	panel.z_index = Layers.Z_WALL
 	_leaf.add_child(panel)
@@ -249,7 +291,6 @@ func _build_leaf_art() -> void:
 	var edge := Line2D.new()
 	edge.name = "Edge"
 	edge.points = Shapes.closed_outline(corners)
-	edge.position = pivot
 	edge.width = 2.0
 	edge.default_color = Color(0.95, 0.55, 0.6) if locked else Color(0.86, 0.72, 0.5)
 	edge.z_index = Layers.Z_WALL_EDGE
@@ -259,7 +300,8 @@ func _build_leaf_art() -> void:
 		var plate := Polygon2D.new()
 		plate.name = "Lock"
 		plate.polygon = Shapes.rect(Vector2(10.0, 10.0))
-		plate.position = Vector2(0.0, 0.0)
+		# Middle of the leaf, not the hinge.
+		plate.position = Vector2(size.x * 0.5, 0.0)
 		plate.color = Color(1.0, 0.78, 0.3)
 		plate.z_index = Layers.Z_WALL_EDGE
 		_leaf.add_child(plate)

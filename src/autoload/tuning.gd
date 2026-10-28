@@ -18,7 +18,7 @@ extends Node
 @export var player_dash_time: float = 0.16
 @export var player_dash_cooldown: float = 1.1
 ## How close the player has to be to work a door, measured from the door's surface.
-@export var player_interact_range: float = 44.0
+@export var player_interact_range: float = 60.0
 ## Noise radius created by each action. Enemies inside it gain awareness.
 @export var noise_footstep: float = 130.0
 @export var noise_dash: float = 300.0
@@ -39,6 +39,8 @@ extends Node
 @export var noise_door_locked: float = 120.0
 ## Dashing into a locked door: louder than trying it, quieter than breaking one.
 @export var noise_door_smash_locked: float = 380.0
+## A door bouncing off whoever is standing in the doorway: barely more than breathing.
+@export var noise_door_bump: float = 110.0
 #endregion
 
 #region Vision

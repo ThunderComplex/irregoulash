@@ -320,14 +320,32 @@ func _place_door(at: Vector2, rotation: float) -> void:
 	door.starts_locked = _door_lock != null and _door_lock.button_pressed
 	door.position = at
 	door.rotation = rotation
-	_add_through_undo("Place door", _door_parent(root), door, root)
+	_add_door(root, door)
 	_focus_node(door)
 
 
-## Doors live in the level's "Doors" container when it has one.
-func _door_parent(root: Node) -> Node:
+## Doors live in the level's "Doors" container, and the container is created if the level does
+## not have one yet -- a new level should not need to be set up by hand before a tool works.
+##
+## Door and container go into a *single* undo step, so one Ctrl+Z takes back both the door and the
+## container it brought with it, rather than leaving an empty node behind.
+func _add_door(root: Node, door: Door) -> void:
 	var container: Node = root.find_child("Doors", true, false)
-	return container if container != null else root
+	var undo: EditorUndoRedoManager = get_undo_redo()
+	undo.create_action("Place door")
+	if container == null:
+		var fresh := Node2D.new()
+		fresh.name = "Doors"
+		undo.add_do_method(root, "add_child", fresh, true)
+		undo.add_do_method(fresh, "set_owner", root)
+		undo.add_undo_method(root, "remove_child", fresh)
+		undo.add_do_reference(fresh)
+		container = fresh
+	undo.add_do_method(container, "add_child", door, true)
+	undo.add_do_method(door, "set_owner", root)
+	undo.add_undo_method(container, "remove_child", door)
+	undo.add_do_reference(door)
+	undo.commit_action()
 
 
 #endregion
