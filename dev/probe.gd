@@ -398,6 +398,34 @@ const SCENARIOS: Dictionary = {
 			"shot": "doors_02_smashed",
 		},
 		{
+			# The no-nudge test: a shut door whose *open* leaf will land exactly on the player.
+			# Opening it must swing the leaf over them and leave them standing where they were.
+			"spawn_door": {"at": Vector2(980.0, 544.0), "locked": false, "rotation": 0.0},
+			"teleport": Vector2(932.0, 600.0),
+			"wait": 0.3,
+			"report": true,
+		},
+		{
+			"interact_door": true,
+			"wait": 0.7,
+			"report": true,
+			"door_report": true,
+		},
+		{
+			# Step clear of the leaf: the exemption is dropped, so a settled door blocks the player
+			# like any other wall again.
+			"teleport": Vector2(932.0, 760.0),
+			"wait": 0.4,
+			"door_report": true,
+		},
+		{
+			# And standing *against* a settled leaf must not exempt the player: otherwise walking
+			# into an open door would phase through it instead of being stopped.
+			"teleport": Vector2(932.0, 654.0),
+			"wait": 0.4,
+			"door_report": true,
+		},
+		{
 			# An enemy opens a shut door in its way, then shuts it once it is past.
 			"enemy_door_test": true,
 			"wait": 0.4,
@@ -891,23 +919,28 @@ func _report_doors() -> void:
 		if door == null:
 			continue
 		found += 1
-		var collision := door.get_node_or_null("Solid/Collision") as CollisionShape2D
-		var occluder := door.get_node_or_null("Occluder") as LightOccluder2D
+		var collision := door.find_child("Collision", true, false) as CollisionShape2D
+		var occluder := door.find_child("Occluder", true, false) as LightOccluder2D
+		# The leaf itself is always solid and always shadows: it is a physical object in the room,
+		# open or shut. What changes with the state is whether the *doorway* is clear.
 		var blocked: bool = collision != null and not collision.disabled
 		var shadow: bool = occluder != null and occluder.occluder_light_mask != 0
 		var sight: String = "clear" if _sight_clear_through(door) else "blocked"
+		var leaf_sight: String = "clear" if _sight_clear_across_leaf(door) else "blocked"
 		# The hinge is the leaf's own origin; the free edge is the far end of the panel. If the
 		# hinge moves when the door opens, the leaf is spinning about its centre instead of
 		# swinging from its edge, which is exactly the bug this line exists to catch.
 		var leaf := door.get_node_or_null("Leaf") as Node2D
 		var hinge: Vector2 = leaf.global_position if leaf != null else door.global_position
 		var free: Vector2 = leaf.to_global(Vector2(door.size.x, 0.0)) if leaf != null else hinge
-		print("[probe]   door %s state=%s locked=%s blocks=%s shadows=%s sight=%s dist=%d" % [
+		print("[probe]   door %s state=%s locked=%s blocks=%s shadows=%s sight=%s exempt=%s dist=%d" % [
 			door.name, _door_state_name(door.state), door.locked, blocked, shadow, sight,
+			door.get("_player_exempt"),
 			int(door.global_position.distance_to(player.global_position)) if player != null else -1,
 		])
-		print("[probe]     hinge %s (%.0f px from centre)  free edge %s" % [
+		print("[probe]     hinge %s (%.0f px from centre)  free edge %s  leaf sight=%s" % [
 			str(Vector2i(hinge)), hinge.distance_to(door.global_position), str(Vector2i(free)),
+			leaf_sight,
 		])
 	if found == 0:
 		print("[probe]   no doors in the level")
@@ -945,6 +978,25 @@ func _sight_clear_through(door: Door) -> bool:
 	var from: Vector2 = door.global_position - axis * 120.0
 	var to: Vector2 = door.global_position + axis * 120.0
 	var query := PhysicsRayQueryParameters2D.create(from, to, Layers.SOLID)
+	query.hit_from_inside = false
+	return space.intersect_ray(query).is_empty()
+
+
+## Whether the leaf itself still blocks sight where it currently is. Cast across the panel's
+## thickness, so it is the same test whether the door is shut (leaf in the doorway) or open (leaf in
+## the room). This is the "you can hide behind an open door" property.
+func _sight_clear_across_leaf(door: Door) -> bool:
+	var leaf := door.get_node_or_null("Leaf") as Node2D
+	if leaf == null:
+		return true
+	var space: PhysicsDirectSpaceState2D = door.get_world_2d().direct_space_state
+	if space == null:
+		return true
+	# Middle of the panel, and the leaf's own up axis is its thickness when shut.
+	var centre: Vector2 = leaf.to_global(Vector2(door.size.x * 0.5, 0.0))
+	var normal: Vector2 = Vector2.DOWN.rotated(leaf.global_rotation)
+	var query := PhysicsRayQueryParameters2D.create(centre - normal * 60.0, centre + normal * 60.0,
+		Layers.SOLID)
 	query.hit_from_inside = false
 	return space.intersect_ray(query).is_empty()
 

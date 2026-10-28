@@ -85,9 +85,10 @@ Walk over weapons, ammo and medkits to pick them up.
   the resource says how it aims, the effect script does the rest, so the fire wall can be
   a solid, shadow-casting barrier while the bolt is just a projectile and neither of them
   needs a branch in the holder.
-- **Doors, and keys.** A shut door blocks movement, bullets and light, so it hides a room as
-  well as blocking a path; opening one reveals the room *and* you. Doors can be opened and shut
-  by hand or smashed with a dash, locked ones need a key (any key opens any door, and you can
+- **Doors, and keys.** A shut door blocks movement, bullets and light, so it hides a room as well as
+  blocking a path; opening one reveals the room *and* you. The leaf stays solid when open, so an
+  open door is a clear doorway *and* a slab of cover you can hide behind. Doors can be opened and
+  shut by hand or smashed with a dash, locked ones need a key (any key opens any door, and you can
   carry as many as you find), and enemies open doors in their way and shut them again behind
   themselves. The navmesh deliberately ignores doors, so a doorway is never a dead end to the AI.
 - **Menus, and one checkpoint.** The title screen offers New Game, Continue, Settings and Quit;

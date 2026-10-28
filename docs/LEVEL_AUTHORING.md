@@ -185,8 +185,15 @@ that editing one patrol never surprises another enemy.
 ## Doors and keys
 
 A door is the level's way of hiding something. Shut, it blocks movement, bullets **and light**, so
-you cannot see into the room behind it and whatever is inside cannot see you. Open, it does none of
-those things: the room becomes visible, and so do you.
+you cannot see into the room behind it and whatever is inside cannot see you. Open the doorway and
+the room becomes visible — and so do you.
+
+**The leaf is a real object, open or shut.** Its collider and light occluder are children of the
+leaf, so they swing with it: open, the leaf stands in the room and still stops movement, bullets and
+light, while the *doorway* beside it is clear to walk, shoot and see through. That is what makes an
+open door cover — you can stand behind it and be hidden, and so can an enemy. The navmesh knows
+nothing about the open leaf (doors are not bake geometry), so an enemy whose path clips it will slide
+around it rather than plan for it. That is intended, and it is the same space you hide in.
 
 **Placing one:** turn on **Place door**, click where the doorway should be, and drag along the wall
 to set which way the leaf lies; release to place it. A plain click places it horizontally. Tick
@@ -216,6 +223,10 @@ if you want a door that is a real barrier, lock it.
 **Standing in the doorway** and trying to shut it does not close the door: the leaf swings most of
 the way, meets you, and comes back open. No message is shown, because the animation is the
 explanation. Nothing is consumed and the door's state does not change.
+
+**Doors never push the player.** If a leaf swings into you it passes over you and you keep your
+footing; if it comes to rest on top of you, you can walk out. A settled leaf still blocks you like a
+wall. Enemies are not so lucky — the leaf shoves them aside, which is intended.
 
 ## Enemy navigation: the "Bake navmesh" button
 

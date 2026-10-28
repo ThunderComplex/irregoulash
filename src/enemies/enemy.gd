@@ -589,7 +589,8 @@ func _door_near(point: Vector2) -> Door:
 		var body: Node = hit.get("collider") as Node
 		if body == null:
 			continue
-		var door := body.get_parent() as Door
+		# Colliders sit under the leaf (they swing with it), so walk up to the owner.
+		var door := Door.from_node(body)
 		if door != null:
 			return door
 	return null

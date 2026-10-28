@@ -48,6 +48,9 @@ var state: State = State.CLOSED
 var locked: bool = false
 
 var _leaf: Node2D = null
+## The visible panel, kept separate from the leaf's collider and occluder so rebuilding the art (on
+## unlock or resize) cannot delete the physics.
+var _art: Node2D = null
 var _solid: StaticBody2D = null
 var _collision: CollisionShape2D = null
 var _occluder: LightOccluder2D = null
@@ -55,6 +58,13 @@ var _polygon: OccluderPolygon2D = null
 var _tween: Tween = null
 ## The enemy that opened this door and still intends to shut it behind itself.
 var _closer: Node = null
+## True while the leaf is between two angles.
+var _swinging: bool = false
+## Whether the player currently has a collision exception against this leaf.
+var _player_exempt: bool = false
+## Set when a swing ended with the player still under the leaf. Distinguishes "the door swung into
+## you, so it must not hold you" from "you walked into the door", which must stay solid.
+var _player_was_swung_into: bool = false
 
 
 func _ready() -> void:
@@ -68,7 +78,6 @@ func _ready() -> void:
 	state = State.OPEN if starts_open else State.CLOSED
 	_rebuild_geometry()
 	_leaf.rotation = PI * 0.5 if state == State.OPEN else 0.0
-	_apply_state()
 
 
 #region state
@@ -121,8 +130,10 @@ func smash(by: Node) -> void:
 		return
 	state = State.BROKEN
 	_closer = null
-	# Out of the way at once, so the dash that broke it carries on through the doorway.
-	_apply_state()
+	# Drop the physics this instant, so the dash that broke the door is not stopped dead by a leaf
+	# that is already on its way out of the level.
+	_solid.process_mode = Node.PROCESS_MODE_DISABLED
+	_solid.collision_layer = 0
 	AudioDirector.play_at(&"door_smash", global_position, -2.0)
 	FxDirector.shake(0.3)
 	# A burst of splinters where the door was, and then nothing: the doorway is left empty, because
@@ -132,9 +143,7 @@ func smash(by: Node) -> void:
 	GameDirector.make_noise(global_position, Tuning.noise_door_smash, by)
 	GameDirector.announce_message("DOOR SMASHED", Color(0.95, 0.85, 0.6))
 	changed.emit()
-	# Deferred, not immediate: `_apply_state` defers the collider change, and a plain `queue_free`
-	# could outrun it and leave a deferred call aimed at a freed node.
-	call_deferred("queue_free")
+	queue_free()
 
 
 ## Enemies call this when a shut door is in their way. Quiet compared to the player wrenching it
@@ -161,6 +170,8 @@ func bounce() -> void:
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_tween.tween_property(_leaf, "rotation", open_angle, 0.1) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_tween.finished.connect(_on_swing_finished)
+	_swinging = true
 
 
 ## Called by the enemy that opened this door once it is clear of the doorway, so doors shut behind
@@ -186,6 +197,21 @@ func contains_point(point: Vector2) -> bool:
 	var local: Vector2 = to_local(point)
 	var half: Vector2 = size * 0.5
 	return absf(local.x) <= half.x and absf(local.y) <= half.y
+
+
+## The door that owns `node`, walking up the parent chain.
+##
+## The leaf's collider and occluder live *under the leaf* so they swing with it, which means they
+## are no longer direct children of the door. Everything that identifies a door from a collider
+## goes through here rather than assuming `get_parent()`.
+static func from_node(node: Node) -> Door:
+	var current: Node = node
+	while current != null:
+		var door := current as Door
+		if door != null:
+			return door
+		current = current.get_parent()
+	return null
 
 
 ## Distance from `point` to the nearest edge of the door, in pixels (0 if inside it). Measured to
@@ -225,9 +251,25 @@ func can_close() -> bool:
 
 #region geometry
 
-## (Re)builds the collider, occluder and leaf. Idempotent, so a door resized in the editor or
-## created in code ends up identical to one authored in a scene.
+## (Re)builds the leaf, its collider and its occluder. Idempotent, so a door resized in the editor
+## or created in code ends up identical to one authored in a scene.
+##
+## The collider and the occluder are children of the *leaf*, offset to the middle of the panel, so
+## they follow it through the swing. That is what makes a door an object rather than a hole with a
+## state: shut, the leaf fills the doorway; open, the same leaf stands in the room and still stops
+## movement, bullets and light -- which is what makes it cover you can hide behind.
 func _rebuild_geometry() -> void:
+	if _leaf == null:
+		_leaf = Node2D.new()
+		_leaf.name = "Leaf"
+		add_child(_leaf)
+	if _art == null:
+		_art = Node2D.new()
+		_art.name = "Art"
+		_leaf.add_child(_art)
+	# Where the middle of the panel sits in the leaf's own space.
+	var centre := Vector2(size.x * 0.5, 0.0)
+
 	if _solid == null:
 		_solid = StaticBody2D.new()
 		_solid.name = "Solid"
@@ -235,7 +277,7 @@ func _rebuild_geometry() -> void:
 		# enemy sight and lamp visibility use. One layer, three jobs, all of them wanted.
 		_solid.collision_layer = Layers.WORLD
 		_solid.collision_mask = 0
-		add_child(_solid)
+		_leaf.add_child(_solid)
 	if _collision == null:
 		_collision = CollisionShape2D.new()
 		_collision.name = "Collision"
@@ -243,20 +285,18 @@ func _rebuild_geometry() -> void:
 	var rect := RectangleShape2D.new()
 	rect.size = size
 	_collision.shape = rect
+	_solid.position = centre
 
 	if _occluder == null:
 		_occluder = LightOccluder2D.new()
 		_occluder.name = "Occluder"
 		_polygon = OccluderPolygon2D.new()
 		_occluder.occluder = _polygon
-		add_child(_occluder)
+		_leaf.add_child(_occluder)
 	_polygon.polygon = Shapes.rect(size)
 	_polygon.closed = true
+	_occluder.position = centre
 
-	if _leaf == null:
-		_leaf = Node2D.new()
-		_leaf.name = "Leaf"
-		add_child(_leaf)
 	_build_leaf_art()
 
 
@@ -267,9 +307,11 @@ func _rebuild_geometry() -> void:
 ## which is what the first version did -- makes it spin like a turnstile about the middle instead
 ## of swinging from its edge.
 func _build_leaf_art() -> void:
-	if _leaf == null:
+	if _leaf == null or _art == null:
 		return
-	for child: Node in _leaf.get_children():
+	# Only the art: the collider and occluder are siblings of this node and must survive a rebuild
+	# (which happens whenever the door is unlocked or resized).
+	for child: Node in _art.get_children():
 		child.free()
 
 	_leaf.position = Vector2(-size.x * 0.5, 0.0)
@@ -286,7 +328,7 @@ func _build_leaf_art() -> void:
 	panel.polygon = corners
 	panel.color = Color(0.44, 0.30, 0.34) if locked else Color(0.52, 0.36, 0.22)
 	panel.z_index = Layers.Z_WALL
-	_leaf.add_child(panel)
+	_art.add_child(panel)
 
 	var edge := Line2D.new()
 	edge.name = "Edge"
@@ -294,7 +336,7 @@ func _build_leaf_art() -> void:
 	edge.width = 2.0
 	edge.default_color = Color(0.95, 0.55, 0.6) if locked else Color(0.86, 0.72, 0.5)
 	edge.z_index = Layers.Z_WALL_EDGE
-	_leaf.add_child(edge)
+	_art.add_child(edge)
 
 	if locked:
 		var plate := Polygon2D.new()
@@ -307,22 +349,69 @@ func _build_leaf_art() -> void:
 		_leaf.add_child(plate)
 
 
-## Pushes `state` into the physical world: a shut door blocks and shadows, an open one does not.
-func _apply_state() -> void:
-	var shut: bool = state == State.CLOSED
-	# Deferred: these are toggled from enemy physics callbacks too, where changing a collision
-	# shape mid-step is exactly what Godot forbids.
-	_collision.set_deferred("disabled", not shut)
-	# `LightOccluder2D` has no enable flag; a zero light mask stops it occluding anything.
-	_occluder.occluder_light_mask = 1 if shut else 0
-
-
 func _hinge(trans: Tween.TransitionType, angle: float) -> void:
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
 	_tween = create_tween()
 	_tween.tween_property(_leaf, "rotation", angle, Tuning.door_open_time) \
 		.set_trans(trans).set_ease(Tween.EASE_OUT)
+	_tween.finished.connect(_on_swing_finished)
+	_swinging = true
+
+
+func _on_swing_finished() -> void:
+	_swinging = false
+
+
+## The player is never shoved by a door; enemies still are.
+##
+## A `StaticBody2D` can block or not block, but it cannot "block without pushing", so while the leaf
+## is moving -- or while it happens to be sitting on top of the player -- the player is given a
+## collision exception against it. The exception is dropped as soon as the leaf has settled and is
+## clear, so a settled door blocks the player exactly like a wall does.
+##
+## The cost is that a swinging leaf passes over the player instead of sweeping them aside. That is
+## the right trade: losing control of your own position is far worse than a door being briefly
+## intangible, and it is invisible in play. Enemies keep being shoved, which reads as weight.
+func _physics_process(_delta: float) -> void:
+	if Engine.is_editor_hint() or _solid == null or _leaf == null:
+		return
+	var player := GameDirector.valid_player()
+	if player == null:
+		return
+	var covered: bool = _leaf_covers(player.global_position)
+	# Only a swing may put the player inside the leaf. Once they are clear, the exemption is gone for
+	# good -- otherwise walking into a settled door would quietly turn it intangible and let you
+	# through it, which is far worse than a nudge.
+	if _swinging and covered:
+		_player_was_swung_into = true
+	elif not _swinging and not covered:
+		_player_was_swung_into = false
+	var exempt: bool = _swinging or _player_was_swung_into
+	if exempt == _player_exempt:
+		return
+	_player_exempt = exempt
+	if exempt:
+		player.add_collision_exception_with(_solid)
+	else:
+		player.remove_collision_exception_with(_solid)
+
+
+## Whether the player would be touching or inside the leaf where it is now. The margin beyond the
+## player's radius keeps the exemption from being dropped a pixel early and handing back a nudge.
+func _leaf_covers(point: Vector2) -> bool:
+	var panel := Rect2(Vector2(0.0, -size.y * 0.5), size)
+	return panel.grow(Tuning.player_radius + 4.0).has_point(_leaf.to_local(point))
+
+
+func _exit_tree() -> void:
+	# Never leave an exception pointing at a door that is about to stop existing.
+	if not _player_exempt:
+		return
+	_player_exempt = false
+	var player := GameDirector.valid_player()
+	if player != null and _solid != null:
+		player.remove_collision_exception_with(_solid)
 
 
 ## Opens (`shut` false) or closes (`shut` true), with the swing, the sound and the noise.
@@ -332,7 +421,6 @@ func _set_shut(shut: bool, by: Node, quiet_sound: bool = false) -> void:
 	state = State.CLOSED if shut else State.OPEN
 	if shut:
 		_closer = null
-	_apply_state()
 	_hinge(Tween.TRANS_CUBIC, 0.0 if shut else PI * 0.5)
 	var sound: StringName = &"door_close" if shut else &"door_open"
 	AudioDirector.play_at(sound, global_position, -9.0 if quiet_sound else -5.0)

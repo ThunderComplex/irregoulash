@@ -147,9 +147,9 @@ func _smash_doors_hit() -> void:
 		var body: Node = collision.get_collider() as Node
 		if body == null:
 			continue
-		# The door's collider is a child of the door, which is how a StaticBody2D identifies
-		# itself without doors needing a script on the body.
-		var door := body.get_parent() as Door
+		# The collider is nested under the leaf so it swings with it, so the owner is found by
+		# walking up rather than by `get_parent()`.
+		var door := Door.from_node(body)
 		if door == null or _dashed_doors.has(door):
 			continue
 		_dashed_doors.append(door)
