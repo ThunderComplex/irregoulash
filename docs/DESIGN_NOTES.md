@@ -119,6 +119,13 @@ Also worth knowing:
   a player teleported, respawned or dropped onto them.
 - Swapping scenes from inside a physics callback is not allowed; the level loader
   defers `change_scene_to_file`.
+- **A raycast ignores the whole shape its origin is inside.** The muzzle sits 20px ahead of a 14px-wide
+  player, so standing flush against a wall put the muzzle *inside* that wall — and a round spawned
+  there never saw it, flying out the far side and killing people behind cover. Two fixes, because one
+  was not enough: `Projectile.launch` now clamps the spawn to the first surface between the shooter's
+  centre and the muzzle, and the flight raycast uses `hit_from_inside = true` so any round that ever
+  finds itself inside geometry detonates instead of ignoring it. The clamp alone would leave the next
+  spawn path free to reintroduce it; the backstop alone would still spawn rounds past the wall.
 - **A debug drawing on the enemy's own canvas is invisible in the dark.** The search overlay lived in
   `Enemy._draw` at first, and produced nothing but two faint arcs on screen: an enemy's canvas item is
   darkened by the fog (that is how enemies stay invisible until your light reaches them), and a search

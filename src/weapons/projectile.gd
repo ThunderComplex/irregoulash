@@ -23,8 +23,36 @@ var _trail: Line2D = null
 
 
 func launch(origin: Vector2, direction: Vector2, speed: float) -> void:
-	global_position = origin
 	velocity = direction.normalized() * speed
+	global_position = _clear_origin(origin)
+
+
+## Where the round may actually start: the muzzle, pulled back to the first thing between the
+## shooter and the muzzle.
+##
+## A muzzle is offset ahead of its shooter (the player's is 20px ahead of a 14px-wide body), so
+## standing flush against a wall puts the muzzle *inside* the wall. `intersect_ray` ignores any shape
+## that contains the ray origin, so a round spawned in there never saw the wall and flew out the far
+## side -- point-blank shots went through walls and doors and killed people behind them. Clamping the
+## spawn to the surface makes a point-blank shot hit the wall in your face, which is what it looks
+## like it should do.
+func _clear_origin(muzzle: Vector2) -> Vector2:
+	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	var body := shooter as Node2D
+	if space == null or body == null or not is_instance_valid(body):
+		return muzzle
+	var centre: Vector2 = body.global_position
+	var to_muzzle: Vector2 = muzzle - centre
+	if to_muzzle.length_squared() < 1.0:
+		return muzzle
+	var query := PhysicsRayQueryParameters2D.create(centre, muzzle, hits_mask)
+	# Inside-out on purpose: if the shooter is somehow already inside geometry, the round should still
+	# come out hitting it rather than passing through.
+	query.hit_from_inside = true
+	var hit: Dictionary = space.intersect_ray(query)
+	if hit.is_empty():
+		return muzzle
+	return (hit["position"] as Vector2) - to_muzzle.normalized() * 2.0
 
 
 func _ready() -> void:
@@ -65,7 +93,9 @@ func _physics_process(delta: float) -> void:
 	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
 	if space != null:
 		var query := PhysicsRayQueryParameters2D.create(from, to, hits_mask)
-		query.hit_from_inside = false
+		# True so a round that ever ends up inside geometry detonates instead of ignoring it: this is
+		# the backstop that turns "spawned inside a wall" from a free shot into an impact.
+		query.hit_from_inside = true
 		var hit: Dictionary = space.intersect_ray(query)
 		if not hit.is_empty():
 			_impact(hit)

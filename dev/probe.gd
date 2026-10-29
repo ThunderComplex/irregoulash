@@ -432,6 +432,18 @@ const SCENARIOS: Dictionary = {
 			"door_report": true,
 		},
 	],
+	## Bullets must not go through a wall you are standing against.
+	"point_blank": [
+		{
+			"god": true,
+			"give_all": true,
+			"wait": 0.4,
+		},
+		{
+			"point_blank_test": true,
+			"wait": 0.3,
+		},
+	],
 	## The search, measured. Runs the tier-0 checks and then leaves a searcher framed for the debug
 	## view, so the picture and the numbers come from the same behaviour.
 	"search": [
@@ -903,6 +915,88 @@ func _report_settings_roundtrip() -> void:
 	print("[probe] settings file after restore: exists=%s (existed before the test: %s)" % [
 		FileAccess.file_exists(path), existed,
 	])
+
+
+#region point blank
+
+## Shooting with your back to a wall, which is where bullets used to go through it.
+##
+## A muzzle sits ahead of its shooter, so standing flush against a wall puts the muzzle *inside* the
+## wall; a raycast ignores any shape containing its origin, so the round flew out the far side. This
+## reproduces the report exactly: player against a wall, enemy on the other side, one shot.
+func _point_blank_test() -> void:
+	var level: Node = GameDirector.current_level
+	var player := GameDirector.valid_player()
+	if level == null or player == null:
+		print("[probe] point blank: no level or player")
+		return
+
+	# A fresh wall and a fresh target, so nothing in the level can be blamed for the result.
+	var wall := (load("res://src/levels/wall.tscn") as PackedScene).instantiate() as Wall
+	wall.size = Vector2(64.0, 400.0)
+	level.add_child(wall)
+	wall.global_position = Vector2(600.0, 700.0)
+	var target := _spawn_test_enemy(Vector2(700.0, 700.0))
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+	var holder := player.weapons as WeaponHolder
+	var hp_before: float = target.health.current
+
+	# Flush against the wall's left face (x = 568), aiming straight through it at the enemy beyond.
+	player.global_position = Vector2(568.0 - Tuning.player_radius, 700.0)
+	player.debug_aim = Vector2.RIGHT
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var muzzle: Vector2 = player.muzzle_position()
+	print("[probe] player at x=%.0f, wall face x=568, muzzle x=%.0f (inside the wall: %s)" % [
+		player.global_position.x, muzzle.x, wall.world_rect().has_point(muzzle),
+	])
+	if holder != null:
+		holder.debug_fire_once()
+	await _wait_seconds(0.6)
+	print("[probe] point-blank shot into a wall: enemy hp %.0f -> %.0f (expected unchanged)" % [
+		hp_before, target.health.current,
+	])
+
+	# A shut door: same layer, same story, and the case the report mentioned alongside walls.
+	var door := _spawn_test_door(Vector2(700.0, 1000.0), false, 0.0)
+	var behind_door := _spawn_test_enemy(Vector2(700.0, 1090.0))
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	player.global_position = Vector2(700.0, 984.0 - Tuning.player_radius)
+	player.debug_aim = Vector2.DOWN
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var door_hp: float = behind_door.health.current
+	if holder != null:
+		holder.debug_fire_once()
+	await _wait_seconds(0.6)
+	print("[probe] point-blank shot into a shut door: enemy hp %.0f -> %.0f (expected unchanged)" % [
+		door_hp, behind_door.health.current,
+	])
+	door.queue_free()
+	behind_door.queue_free()
+
+	# The same shot with a clear line must still land, or the fix has broken shooting. Fired past the
+	# end of the wall, so the only thing between the two is open floor.
+	player.global_position = Vector2(700.0, 960.0)
+	player.debug_aim = Vector2.UP
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var open_before: float = target.health.current
+	if holder != null:
+		holder.debug_fire_once()
+	await _wait_seconds(0.6)
+	print("[probe] same shot with a clear line: enemy hp %.0f -> %.0f (expected a hit)" % [
+		open_before, target.health.current,
+	])
+
+	wall.queue_free()
+	target.queue_free()
+
+
+#endregion
 
 
 #region search
@@ -1648,6 +1742,8 @@ func _run(scenario: String) -> void:
 			_loot_kill()
 		if step.has("search_tests"):
 			await _search_tests()
+		if step.has("point_blank_test"):
+			await _point_blank_test()
 		if step.has("clear_noise"):
 			_noise_log.clear()
 		if step.has("clear_announce"):

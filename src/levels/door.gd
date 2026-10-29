@@ -19,7 +19,7 @@ extends Node2D
 
 signal changed()
 
-enum State { CLOSED, OPEN, BROKEN }
+enum State {CLOSED, OPEN, BROKEN}
 
 ## Footprint of the closed door, in pixels. The leaf's long axis is local X, so a door filling a
 ## gap in a north-south wall is rotated 90 degrees.
