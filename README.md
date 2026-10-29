@@ -50,7 +50,7 @@ Walk over weapons, ammo and medkits to pick them up.
 |---|---|
 | `F1` | God mode |
 | `F2` | Noclip |
-| `F3` | Debug readout (enemy states, awareness, HP, distances) |
+| `F3` | Debug readout (enemy states, awareness, HP, distances) plus each searching enemy's area, target and searched ground |
 | `F4` | Lift the fog (see the whole level) |
 | `F5` | Spawn an enemy in front of you |
 | `F6` | Alert every enemy |
@@ -66,6 +66,10 @@ Walk over weapons, ammo and medkits to pick them up.
   anything outside your light is *invisible* rather than merely dark.
 - **Explored-geometry memory.** Walls you have already seen stay faintly visible,
   which is what keeps a pitch-black map navigable. Enemies are never remembered.
+- **Searches that look like searches.** Losing an enemy does not make it forget you: it goes to where
+  it last saw you, sweeps outward in rings while favouring the direction you were heading, only picks
+  places it can actually reach, widens the area the longer you have been gone, opens the doors you
+  shut behind you, and rattles the ones it cannot open. `F3` draws all of it.
 - **Enemies with layered alertness.** Patrol → Suspicious → Alert → Search →
   Return, driven by an awareness meter rather than a boolean, fed by sight (FOV,
   range, real line of sight), **hearing** (gunshots, footsteps, dashes), and the

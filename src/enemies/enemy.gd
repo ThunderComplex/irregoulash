@@ -1,4 +1,4 @@
-@tool
+﻿@tool
 class_name Enemy
 extends CharacterBody2D
 ## A line-of-sight-driven enemy with a layered alertness state machine.
@@ -29,6 +29,10 @@ const PERCEPTION_DT: float = 0.15
 const REPATH_DISTANCE: float = 24.0
 ## How often to check whether the level actually has a baked navmesh.
 const NAV_CHECK_INTERVAL: float = 0.5
+## Ring spacing of a search sweep, in pixels.
+const SEARCH_STEP: float = 130.0
+## Size of the cell used to remember what has been searched.
+const SEARCH_CELL: float = 52.0
 
 @export_enum("guard", "scout", "heavy") var archetype_id: String = "guard":
 	set(value):
@@ -49,7 +53,8 @@ const NAV_CHECK_INTERVAL: float = 0.5
 ## Used when the enemy has no PatrolPoints children.
 @export var wander_radius: float = 130.0
 @export var wander_pause: Vector2 = Vector2(1.5, 3.5)
-## How far from the last known position the search wanders.
+## Minimum radius of a search, in pixels. The real radius grows with how long the player has been
+## out of sight: someone last seen eight seconds ago is not in a 260-pixel circle.
 @export var search_radius: float = 260.0
 ## If false, the enemy stands its ground instead of returning to its post.
 @export var returns_to_post: bool = true
@@ -62,6 +67,9 @@ var state: int = State.PATROL
 var awareness: float = 0.0
 var post: Vector2 = Vector2.ZERO
 var last_known: Vector2 = Vector2.ZERO
+## Direction the player was moving when last seen. The search uses it to look the right way first,
+## which is most of the difference between a search and a random walk.
+var last_seen_heading: Vector2 = Vector2.ZERO
 
 var _facing: float = 0.0
 var _look_at_angle: float = 0.0
@@ -84,6 +92,17 @@ var _suspicion_timer: float = 0.0
 
 var _search_target: Vector2 = Vector2.ZERO
 var _search_timer: float = 0.0
+## Cells already looked at, so a sweep widens and finishes instead of revisiting corners.
+var _searched: Dictionary = {}
+## Ring index of the sweep, marching outward from where the player was last seen.
+var _search_ring: int = 0
+## Cooldown on rattling a locked door, so an enemy does not shake the handle every frame.
+var _rattle_cd: float = 0.0
+## Cached copy of `GameDirector.debug_info`, so `_physics_process` does not hit an autoload every
+## frame just to decide whether to redraw.
+var _draw_search_debug: bool = false
+## The unshaded overlay that draws this enemy's search while the debug readout is on.
+var _search_overlay: SearchDebugOverlay = null
 
 var _react_timer: float = 0.0
 var _fire_cd: float = 0.0
@@ -98,8 +117,6 @@ var _gizmo_hash: int = 0
 var agent: NavigationAgent2D = null
 ## The door this enemy opened to get through, to shut again once it is past.
 var _door_i_opened: Door = null
-## Set briefly when a locked door is in the way, so `_move_toward` stops pushing.
-var _blocked_by_door_cd: float = 0.0
 var _has_navmesh: bool = false
 var _nav_check_cd: float = 0.0
 var _path_target_valid: bool = false
@@ -173,7 +190,10 @@ func _physics_process(delta: float) -> void:
 		_has_navmesh = _navigation_available()
 	_fire_cd = maxf(0.0, _fire_cd - delta)
 	_pause_cd = maxf(0.0, _pause_cd - delta)
-	_blocked_by_door_cd = maxf(0.0, _blocked_by_door_cd - delta)
+	_rattle_cd = maxf(0.0, _rattle_cd - delta)
+	if not Engine.is_editor_hint():
+		_draw_search_debug = GameDirector.debug_info
+		_update_search_debug()
 	_react_timer = maxf(0.0, _react_timer - delta)
 	_perception_cd -= delta
 	if _perception_cd <= 0.0:
@@ -213,6 +233,7 @@ func _perception_tick(dt: float) -> void:
 	if _can_see(player.global_position):
 		_last_seen = _time
 		last_known = player.global_position
+		_remember_heading(player)
 		var closeness: float = 1.0 - clampf(
 			(distance - 60.0) / maxf(1.0, archetype.sight_range - 60.0), 0.0, 1.0)
 		var gain: float = lerpf(Tuning.awareness_gain_far, Tuning.awareness_gain_close, closeness)
@@ -302,6 +323,7 @@ func _tick_alert(delta: float) -> void:
 	if _can_see(player.global_position):
 		last_known = player.global_position
 		_last_seen = _time
+		_remember_heading(player)
 
 	if _time - _last_seen > Tuning.alert_lost_sight_grace:
 		_enter_search()
@@ -384,8 +406,21 @@ func _enter_search() -> void:
 	state = State.SEARCH
 	_search_timer = Tuning.search_duration
 	_dwell = 0.0
-	_pick_search_target()
+	# Start by walking to the place the player was last seen, rather than somewhere random near it:
+	# that is where the trail actually ends, and it is what takes the enemy to the door you shut.
+	_searched.clear()
+	_search_ring = 1
+	_search_target = last_known
 	AudioDirector.play_at(&"lose_player", global_position, -10.0)
+
+
+## Remember which way the player was moving, so the search looks the right way first. A player
+## standing still leaves the previous heading alone: it is still the best guess about where they
+## went when they started moving again.
+func _remember_heading(player: Player) -> void:
+	var motion: Vector2 = player.velocity
+	if motion.length() > 20.0:
+		last_seen_heading = motion.normalized()
 
 
 func _enter_return() -> void:
@@ -510,11 +545,6 @@ func take_hit(amount: float, source = null, hit_position: Vector2 = Vector2.ZERO
 #region movement
 
 func _move_toward(target: Vector2, speed: float, delta: float) -> void:
-	# A locked door the navmesh thinks is passable: stand still rather than shove it. The state
-	# machine keeps running, so the enemy still looks around and gives up on its own.
-	if _blocked_by_door_cd > 0.0:
-		_brake(delta)
-		return
 	var desired: Vector2 = target - global_position
 	if desired.length_squared() < 1.0:
 		_brake(delta)
@@ -559,13 +589,15 @@ func _handle_doors() -> void:
 	if door.is_openable():
 		if door.open_for_enemy(self):
 			_door_i_opened = door
-	else:
-		# Locked: do not push against it forever. Brake, and let the state machine pick another
-		# approach. The navmesh has no idea this doorway is impassable, so there is nothing
-		# cleverer to do here without a real path-search cost.
-		_brake(1.0 / 60.0)
-		velocity = Vector2.ZERO
-		_blocked_by_door_cd = 1.0
+	elif _rattle_cd <= 0.0:
+		# Locked, and no key: rattle the handle once so the player hears someone trying, then stop
+		# shoving it. A locked door does not end the search -- the enemy keeps sweeping, on this
+		# side of it, which is the honest picture of someone who cannot get through.
+		_rattle_cd = 2.0
+		door.rattle(self)
+		_searched[_search_cell(door.global_position)] = true
+		if state == State.SEARCH:
+			_pick_search_target()
 
 
 func _close_door_behind() -> void:
@@ -688,8 +720,111 @@ func _scan_idle(delta: float) -> void:
 	_look_at_angle = _scan_center + sin(_scan * 0.9) * 0.6
 
 
+## How far from the last known position this search is willing to look.
+##
+## Derived from time rather than being a constant: the player has been moving since they were last
+## seen, so the uncertainty grows with every second. A fixed 260px circle while the player may be a
+## thousand pixels away is why the search used to come back empty-handed even when the player had
+## only just left -- the enemy was searching the right place at the wrong time.
+func search_budget() -> float:
+	var since: float = maxf(0.0, _time - _last_seen)
+	var reach: float = Tuning.player_speed * since * Tuning.search_budget_factor
+	return clampf(maxf(reach, search_radius), search_radius, Tuning.search_budget_max)
+
+
+## Next place to look.
+##
+## Rings march outward from where the player was last seen, and each ring is ordered so the
+## direction they were moving is tried first. Candidates the enemy cannot walk to are skipped --
+## a target behind a wall or off the mesh is exactly what made a search look like wandering off.
+## Every chosen point is remembered so the sweep converges rather than circling the same corners.
 func _pick_search_target() -> void:
-	_search_target = last_known + Vector2.from_angle(randf() * TAU) * randf_range(30.0, search_radius)
+	var budget: float = search_budget()
+	var heading: float = last_seen_heading.angle() if last_seen_heading != Vector2.ZERO else _facing
+	var rings: int = maxi(1, int(ceil(budget / SEARCH_STEP)))
+	for ring: int in range(maxi(_search_ring, 1), rings + 1):
+		var radius: float = SEARCH_STEP * float(ring)
+		var samples: int = 8 + ring * 4
+		var best: Vector2 = Vector2.ZERO
+		var best_score: float = -INF
+		for i: int in samples:
+			var offset: float = TAU * float(i) / float(samples)
+			var point: Vector2 = last_known + Vector2.from_angle(heading + offset) * radius
+			if _searched.has(_search_cell(point)):
+				continue
+			# Straight ahead of the player's last heading scores highest; the inner ring breaks ties.
+			var score: float = cos(offset) * 2.0 - point.distance_to(global_position) / budget
+			if score <= best_score:
+				continue
+			if not _can_walk_to(point):
+				continue
+			best = point
+			best_score = score
+		if best != Vector2.ZERO:
+			_search_ring = ring
+			_searched[_search_cell(best)] = true
+			_search_target = best
+			return
+	# Every reachable cell within the budget has been looked at. Stand and scan, then start over from
+	# the middle rather than freezing in place.
+	_search_ring = 1
+	_searched.clear()
+	_search_target = global_position + Vector2.from_angle(heading) * SEARCH_STEP
+
+
+## Draws what this enemy believes, in world space, while it searches. Off unless the debug readout
+## is on: searching well or badly is invisible otherwise, and this is the difference between tuning
+## it by feel and tuning it by looking at it.
+##
+## Deliberately drawn in world space rather than as HUD text: the question "is it looking in the
+## right place" is about geography, so the picture has to be geographic.
+## Feeds the unshaded overlay child with what this enemy currently believes. Off unless the debug
+## readout is on: how well a search works is otherwise invisible, which makes it tunable only by
+## feel.
+func _update_search_debug() -> void:
+	var overlay := _search_overlay
+	var showing: bool = _draw_search_debug and state == State.SEARCH and not _dead
+	if not showing:
+		if overlay != null and overlay.active:
+			overlay.clear()
+		return
+	if overlay == null:
+		overlay = SearchDebugOverlay.new()
+		overlay.name = "SearchDebug"
+		add_child(overlay)
+		_search_overlay = overlay
+	var cells: Array[Vector2] = []
+	for cell: Variant in _searched.keys():
+		var key := cell as Vector2i
+		cells.append(Vector2((float(key.x) + 0.5) * SEARCH_CELL, (float(key.y) + 0.5) * SEARCH_CELL))
+	overlay.show_search(last_known, _search_target, search_budget(), search_radius, cells)
+
+
+func _search_cell(point: Vector2) -> Vector2i:
+	return Vector2i(int(floor(point.x / SEARCH_CELL)), int(floor(point.y / SEARCH_CELL)))
+
+
+## Whether the enemy could actually walk to `point`.
+##
+## Navmesh distance, not a straight line: a ray to a point beyond a shut door is blocked, but a shut
+## door is precisely somewhere a guard *should* go and open. Using the mesh means doors are passable
+## in the check, and the door code opens them on the way -- so closing a door behind you makes the
+## search come to the door rather than give up at it.
+func _can_walk_to(point: Vector2) -> bool:
+	if agent == null or not _has_navmesh:
+		# No mesh to ask: "not straight through a wall" is all that can be known.
+		var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+		if space == null:
+			return true
+		var query := PhysicsRayQueryParameters2D.create(global_position, point, Layers.SOLID)
+		return space.intersect_ray(query).is_empty()
+	var map: RID = agent.get_navigation_map()
+	if not map.is_valid():
+		return true
+	var path: PackedVector2Array = NavigationServer2D.map_get_path(map, global_position, point, true)
+	if path.is_empty():
+		return false
+	return path[path.size() - 1].distance_to(point) < 40.0
 
 
 func _update_footsteps(delta: float) -> void:
@@ -843,6 +978,8 @@ func debug_state() -> String:
 ## `PatrolRoute`'s own drawing this makes enemy placement and patrol wiring a
 ## visual job instead of a guessing game.
 func _draw() -> void:
+	# At runtime the search is drawn by an unshaded child (`SearchDebugOverlay`), because this canvas
+	# item is darkened by the fog -- see that script for why.
 	if not Engine.is_editor_hint():
 		return
 	var a: EnemyArchetype = EnemyLibrary.by_id(archetype_id)

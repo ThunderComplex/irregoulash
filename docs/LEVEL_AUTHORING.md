@@ -224,9 +224,30 @@ if you want a door that is a real barrier, lock it.
 the way, meets you, and comes back open. No message is shown, because the animation is the
 explanation. Nothing is consumed and the door's state does not change.
 
-**Doors never push the player.** If a leaf swings into you it passes over you and you keep your
-footing; if it comes to rest on top of you, you can walk out. A settled leaf still blocks you like a
-wall. Enemies are not so lucky — the leaf shoves them aside, which is intended.
+**A moving door never pushes anyone.** If a leaf swings into you (or into an enemy) it passes over
+you and you keep your footing; if it comes to rest on top of you, you can walk out. A settled leaf
+still blocks like a wall. This matters for enemies too: a guard shoved into a corner by a door it
+opened itself cannot get out of it.
+
+## How enemies search
+
+Losing line of sight starts a **search**, and the shape of that search is worth knowing when you
+place walls, doors and routes:
+
+- The enemy first walks to the place it last saw you, so it arrives at the door you just shut.
+- It then sweeps outward in rings from that point, looking first in the direction you were moving
+  when it lost you. It only picks places it can actually walk to.
+- **How wide the sweep gets depends on how long you have been gone**: an enemy that lost you eight
+  seconds ago searches much further than one that lost you two seconds ago (`search_budget_factor`
+  and `search_budget_max` in `Tuning`).
+- **Closed doors are opened.** A searcher that reaches a shut door opens it and comes through, so
+  shutting a door behind you delays a search rather than ending it.
+- **Locked doors are not.** The enemy rattles the handle once, marks that doorway as a dead end for
+  this search, and keeps sweeping on its own side. That is the only reliable way to fence a search
+  out of somewhere — and it is why a locked door is worth a key.
+
+Press `F3` while playing to see it: each searching enemy draws the area it believes you could be in,
+the point it is heading for, and a cross on every place it has already looked.
 
 ## Enemy navigation: the "Bake navmesh" button
 

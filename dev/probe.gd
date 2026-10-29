@@ -432,6 +432,25 @@ const SCENARIOS: Dictionary = {
 			"door_report": true,
 		},
 	],
+	## The search, measured. Runs the tier-0 checks and then leaves a searcher framed for the debug
+	## view, so the picture and the numbers come from the same behaviour.
+	"search": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"search_tests": true,
+			"wait": 0.3,
+			"search_report": true,
+		},
+		{
+			"debug_info": true,
+			"wait": 1.0,
+			"search_report": true,
+			"shot": "search_debug",
+		},
+	],
 	## Loot. Kill a shotgun-carrying enemy while standing on its corpse: the drop has to have a
 	## collision shape on the right layers, and walking over it has to actually collect it.
 	"loot": [
@@ -886,6 +905,195 @@ func _report_settings_roundtrip() -> void:
 	])
 
 
+#region search
+
+## A spare enemy, held in a state that stands still, so a test can drive it deliberately.
+func _spawn_test_enemy(at: Vector2) -> Enemy:
+	var level: Node = GameDirector.current_level
+	var enemy := (load("res://src/enemies/enemy.tscn") as PackedScene).instantiate() as Enemy
+	level.add_child(enemy)
+	enemy.global_position = at
+	# Registered with the level the same way `debug_spawn_enemy` does, so it shows up in the debug
+	# readout and counts as alive.
+	var list: Variant = level.get("enemies")
+	if list is Array:
+		(list as Array).append(enemy)
+	enemy.state = Enemy.State.RETURN
+	enemy.returns_to_post = false
+	# A post it can never reach, so it does not wander off while a test measures it.
+	enemy.post = Vector2(99999.0, 99999.0)
+	return enemy
+
+
+func _report_search() -> void:
+	var level: Node = GameDirector.current_level
+	if level == null:
+		return
+	var found: int = 0
+	for node: Node in _all_nodes(level):
+		var enemy := node as Enemy
+		if enemy == null or enemy.is_dead():
+			continue
+		found += 1
+		var heading: Vector2 = enemy.last_seen_heading
+		# The budget only means anything while searching: a patrolling enemy has no last-seen time.
+		var budget: String = "%.0f" % enemy.search_budget() if enemy.state == Enemy.State.SEARCH else "-"
+		print("[probe]   %s %s  last_known %s  target %s  budget %s  visited %d  heading %s" % [
+			enemy.archetype_id, Enemy.STATE_NAMES[enemy.state], str(Vector2i(enemy.last_known)),
+			str(Vector2i(enemy.get("_search_target"))), budget,
+			(enemy.get("_searched") as Dictionary).size(),
+			str(Vector2i(heading)) if heading != Vector2.ZERO else "-",
+		])
+	if found == 0:
+		print("[probe]   no enemies")
+
+
+## The tier-0 search, measured rather than eyeballed: how wide it is, which way it looks, whether its
+## targets are actually walkable, whether it follows the player through a shut door, and what it does
+## at a locked one. Leaves the last subject searching near the player, so the debug view can be
+## photographed.
+func _search_tests() -> void:
+	var level: Node = GameDirector.current_level
+	var player := GameDirector.valid_player()
+	if level == null or player == null:
+		print("[probe] search: no level or player")
+		return
+	# Clear the field first. This scenario is about what one searcher does, and a firefight next door
+	# fills the air with noise that keeps re-alerting the subject through `_on_noise`.
+	var existing: Variant = level.get("enemies")
+	if existing is Array:
+		for entry: Variant in (existing as Array):
+			var other := entry as Enemy
+			if other != null and is_instance_valid(other):
+				other.queue_free()
+	await get_tree().physics_frame
+	# Park the player away and point their light away, so nothing here is interrupted by being seen.
+	var home: Vector2 = player.global_position
+	player.global_position = Vector2(288.0, 1560.0)
+	player.debug_aim = Vector2.DOWN
+	await get_tree().physics_frame
+
+	var subject := _spawn_test_enemy(Vector2(520.0, 760.0))
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+	# --- how far it is willing to look, as the trail goes cold
+	var now: float = float(subject.get("_time"))
+	for age: float in [1.0, 8.0, 20.0]:
+		subject.set("_last_seen", now - age)
+		print("[probe] search budget after %.0fs: %.0f px" % [age, subject.search_budget()])
+
+	# --- which way it looks first
+	subject.last_known = subject.global_position
+	subject.last_seen_heading = Vector2.UP
+	subject.set("_searched", {})
+	subject.set("_search_ring", 1)
+	subject.call("_pick_search_target")
+	var target: Vector2 = subject.get("_search_target")
+	var to_target: Vector2 = target - subject.last_known
+	var off_heading: float = absf(rad_to_deg(wrapf(Vector2.UP.angle_to(to_target), -PI, PI)))
+	print("[probe] first target %.0f px away, %.0f deg off the player's last heading" % [
+		to_target.length(), off_heading,
+	])
+
+	# --- targets it cannot walk to are skipped
+	print("[probe] walkable: open floor=%s  inside a wall=%s" % [
+		subject.call("_can_walk_to", subject.global_position + Vector2(80.0, 0.0)),
+		subject.call("_can_walk_to", Vector2(32.0, 500.0)),
+	])
+
+	# --- a shut door between it and the trail must be opened and walked through
+	var shut_door := _spawn_test_door(Vector2(520.0, 700.0), false, 0.0)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	subject.last_known = Vector2(520.0, 620.0)
+	subject.last_seen_heading = Vector2.UP
+	subject.call("_enter_search")
+	# Sampling matters: a lone door stands in open floor, so "it got past the door" could mean it
+	# walked around it. Passing *through the door's own footprint* while it is open is the claim.
+	var followed: Dictionary = await _watch_search(subject, shut_door, 1.8)
+	print("[probe] shut door: opened=%s  passed through the doorway=%s  state=%s" % [
+		followed["opened"], followed["through"], Enemy.STATE_NAMES[subject.state],
+	])
+
+	# --- a locked door: rattled, kept closed, and the search carries on elsewhere
+	var locked_door := _spawn_test_door(Vector2(760.0, 700.0), true, 0.0)
+	var blocked := _spawn_test_enemy(Vector2(760.0, 760.0))
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	blocked.last_known = Vector2(760.0, 620.0)
+	blocked.last_seen_heading = Vector2.UP
+	blocked.call("_enter_search")
+	var start: Vector2 = blocked.global_position
+	await _wait_seconds(1.8)
+	print("[probe] locked door: door=%s  state=%s  moved %.0f px  visited %d" % [
+		_door_state_name(locked_door.state), Enemy.STATE_NAMES[blocked.state],
+		blocked.global_position.distance_to(start),
+		(blocked.get("_searched") as Dictionary).size(),
+	])
+
+	# --- a swinging door must not shove an enemy standing where the leaf lands
+	var push_door := _spawn_test_door(Vector2(1040.0, 700.0), false, 0.0)
+	var pushed := _spawn_test_enemy(Vector2(992.0, 756.0))
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var before: Vector2 = pushed.global_position
+	push_door.open_for_enemy(pushed)
+	await _wait_seconds(0.8)
+	print("[probe] door swung onto an enemy: moved %.1f px (expected 0)" % [
+		pushed.global_position.distance_to(before),
+	])
+
+	# Clean up everything except the last subject, then frame it for the screenshot.
+	shut_door.queue_free()
+	locked_door.queue_free()
+	push_door.queue_free()
+	pushed.queue_free()
+	blocked.queue_free()
+	# Frame the debug view: the player stands *behind* the searcher so it keeps searching instead of
+	# spotting them, and the camera therefore has the search in shot.
+	# South of the camera, not north of it: the player sits above centre on screen, so a search
+	# placed "ahead" of them lands outside the frame.
+	player.global_position = Vector2(760.0, 900.0)
+	player.debug_aim = Vector2.UP
+	subject.global_position = Vector2(760.0, 1000.0)
+	subject.last_known = Vector2(760.0, 1180.0)
+	subject.last_seen_heading = Vector2.DOWN
+	subject.call("_enter_search")
+	# Awareness is a separate meter: left at 1.0 from the tests above, the next perception tick would
+	# put the subject straight back into ALERT and there would be nothing to photograph.
+	subject.awareness = 0.0
+	await get_tree().physics_frame
+
+
+## Watch an enemy for `seconds` and report whether the door it was heading for ever opened, and
+## whether the enemy ever occupied the doorway itself. The second is the one that proves it followed
+## the player through rather than walking around a door standing on open floor.
+func _watch_search(enemy: Enemy, door: Door, seconds: float) -> Dictionary:
+	var opened: bool = false
+	var through: bool = false
+	var elapsed: float = 0.0
+	while elapsed < seconds:
+		await get_tree().physics_frame
+		elapsed += 1.0 / 60.0
+		if not is_instance_valid(door) or not is_instance_valid(enemy):
+			break
+		if door.state == Door.State.OPEN:
+			opened = true
+		if door.contains_point(enemy.global_position):
+			through = true
+	return {"opened": opened, "through": through}
+
+
+func _wait_seconds(seconds: float) -> void:
+	var elapsed: float = 0.0
+	while elapsed < seconds:
+		await get_tree().physics_frame
+		elapsed += 1.0 / 60.0
+
+#endregion
+
+
 #region doors
 
 ## Puts a door in the level at `player + offset`, rotated `rotation` radians. Runtime-only, so
@@ -933,9 +1141,15 @@ func _report_doors() -> void:
 		var leaf := door.get_node_or_null("Leaf") as Node2D
 		var hinge: Vector2 = leaf.global_position if leaf != null else door.global_position
 		var free: Vector2 = leaf.to_global(Vector2(door.size.x, 0.0)) if leaf != null else hinge
-		print("[probe]   door %s state=%s locked=%s blocks=%s shadows=%s sight=%s exempt=%s dist=%d" % [
+		# Exempt actors are the ones this leaf may swing over instead of shoving. Naming the player
+		# separately keeps the "no nudge" assertion readable.
+		var exempt_list: Variant = door.get("_exempt")
+		var exempt_count: int = (exempt_list as Array).size() if exempt_list is Array else 0
+		var player_exempt: bool = exempt_list is Array and player != null \
+			and (exempt_list as Array).has(player)
+		print("[probe]   door %s state=%s locked=%s blocks=%s shadows=%s sight=%s exempt=%d player_exempt=%s dist=%d" % [
 			door.name, _door_state_name(door.state), door.locked, blocked, shadow, sight,
-			door.get("_player_exempt"),
+			exempt_count, player_exempt,
 			int(door.global_position.distance_to(player.global_position)) if player != null else -1,
 		])
 		print("[probe]     hinge %s (%.0f px from centre)  free edge %s  leaf sight=%s" % [
@@ -1432,6 +1646,8 @@ func _run(scenario: String) -> void:
 			_backup_progress()
 		if step.has("loot_kill"):
 			_loot_kill()
+		if step.has("search_tests"):
+			await _search_tests()
 		if step.has("clear_noise"):
 			_noise_log.clear()
 		if step.has("clear_announce"):
@@ -1551,6 +1767,8 @@ func _run(scenario: String) -> void:
 			_report_pickups()
 		if step.has("door_report"):
 			_report_doors()
+		if step.has("search_report"):
+			_report_search()
 		if step.has("noise_report"):
 			_report_noise()
 		if step.has("announce_report"):

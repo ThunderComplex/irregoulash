@@ -74,8 +74,14 @@ extends Node
 @export var awareness_suspicious: float = 0.35
 @export var awareness_alert: float = 1.0
 ## How long an enemy keeps chasing after losing sight before searching.
-@export var alert_lost_sight_grace: float = 2.5
-@export var search_duration: float = 7.0
+@export var alert_lost_sight_grace: float = 5.0
+@export var search_duration: float = 20.0
+## How far a search reaches, as a fraction of how far the player could have run since they were last
+## seen. Under 1.0 because the player has to stop, turn and shoot too; raise it to make searches
+## wider and meaner.
+@export var search_budget_factor: float = 0.6
+## Ceiling on a search radius, so a long chase does not turn into a level-wide sweep.
+@export var search_budget_max: float = 900.0
 @export var suspicious_look_time: float = 1.2
 ## Radius in which a shouting enemy alerts its friends.
 @export var shout_radius: float = 520.0

@@ -60,11 +60,11 @@ var _tween: Tween = null
 var _closer: Node = null
 ## True while the leaf is between two angles.
 var _swinging: bool = false
-## Whether the player currently has a collision exception against this leaf.
-var _player_exempt: bool = false
-## Set when a swing ended with the player still under the leaf. Distinguishes "the door swung into
-## you, so it must not hold you" from "you walked into the door", which must stay solid.
-var _player_was_swung_into: bool = false
+## Actors currently given a collision exception against this leaf.
+var _exempt: Array[Node] = []
+## Actors a swing ended on top of. Distinguishes "the door swung into you, so it must not hold you"
+## from "you walked into the door", which must stay solid.
+var _swung_into: Array[Node] = []
 
 
 func _ready() -> void:
@@ -376,42 +376,84 @@ func _on_swing_finished() -> void:
 func _physics_process(_delta: float) -> void:
 	if Engine.is_editor_hint() or _solid == null or _leaf == null:
 		return
+	_prune_swung_into()
+	var wanted: Array[Node] = []
+	for actor: Node in _nearby_actors():
+		var body := actor as Node2D
+		if body == null:
+			continue
+		var covered: bool = _leaf_covers(body.global_position)
+		# Only a swing may put someone inside the leaf. Once they are clear, the exemption is gone
+		# for good -- otherwise walking into a settled door would quietly turn it intangible and let
+		# you through it, which is far worse than a nudge.
+		if _swinging and covered:
+			if not _swung_into.has(actor):
+				_swung_into.append(actor)
+		elif not _swinging and not covered:
+			_swung_into.erase(actor)
+		if _swinging or _swung_into.has(actor):
+			wanted.append(actor)
+
+	for actor: Node in _exempt.duplicate():
+		if wanted.has(actor):
+			continue
+		_exempt.erase(actor)
+		if is_instance_valid(actor):
+			actor.remove_collision_exception_with(_solid)
+	for actor: Node in wanted:
+		if _exempt.has(actor):
+			continue
+		_exempt.append(actor)
+		actor.add_collision_exception_with(_solid)
+
+
+## Everyone the leaf could shove: the player, and enemies close enough to matter. Enemies are
+## included because a door they opened themselves used to shunt them into a corner they could not
+## climb out of -- worse than a door being briefly intangible.
+func _nearby_actors() -> Array[Node]:
+	var out: Array[Node] = []
 	var player := GameDirector.valid_player()
-	if player == null:
-		return
-	var covered: bool = _leaf_covers(player.global_position)
-	# Only a swing may put the player inside the leaf. Once they are clear, the exemption is gone for
-	# good -- otherwise walking into a settled door would quietly turn it intangible and let you
-	# through it, which is far worse than a nudge.
-	if _swinging and covered:
-		_player_was_swung_into = true
-	elif not _swinging and not covered:
-		_player_was_swung_into = false
-	var exempt: bool = _swinging or _player_was_swung_into
-	if exempt == _player_exempt:
-		return
-	_player_exempt = exempt
-	if exempt:
-		player.add_collision_exception_with(_solid)
-	else:
-		player.remove_collision_exception_with(_solid)
+	if player != null:
+		out.append(player)
+	var range_sq: float = 240.0 * 240.0
+	for node: Node in get_tree().get_nodes_in_group(&"enemy"):
+		var enemy := node as Node2D
+		if enemy == null or not is_instance_valid(enemy):
+			continue
+		if enemy.global_position.distance_squared_to(global_position) > range_sq:
+			continue
+		out.append(enemy)
+	return out
 
 
-## Whether the player would be touching or inside the leaf where it is now. The margin beyond the
+func _prune_swung_into() -> void:
+	for i: int in range(_swung_into.size() - 1, -1, -1):
+		var actor: Node = _swung_into[i]
+		if not is_instance_valid(actor):
+			_swung_into.remove_at(i)
+			_exempt.erase(actor)
+
+
+## Whether a body would be touching or inside the leaf where it is now. The margin beyond the
 ## player's radius keeps the exemption from being dropped a pixel early and handing back a nudge.
 func _leaf_covers(point: Vector2) -> bool:
 	var panel := Rect2(Vector2(0.0, -size.y * 0.5), size)
 	return panel.grow(Tuning.player_radius + 4.0).has_point(_leaf.to_local(point))
 
 
+## Someone tried a locked door. Quiet, but not silent: a rattling handle is a sound.
+func rattle(by: Node) -> void:
+	AudioDirector.play_at(&"door_locked", global_position, -7.0)
+	GameDirector.make_noise(global_position, Tuning.noise_door_locked, by)
+
+
 func _exit_tree() -> void:
 	# Never leave an exception pointing at a door that is about to stop existing.
-	if not _player_exempt:
-		return
-	_player_exempt = false
-	var player := GameDirector.valid_player()
-	if player != null and _solid != null:
-		player.remove_collision_exception_with(_solid)
+	for actor: Node in _exempt:
+		if is_instance_valid(actor) and _solid != null:
+			actor.remove_collision_exception_with(_solid)
+	_exempt.clear()
+	_swung_into.clear()
 
 
 ## Opens (`shut` false) or closes (`shut` true), with the swing, the sound and the noise.
