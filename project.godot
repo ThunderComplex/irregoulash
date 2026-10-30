@@ -43,6 +43,7 @@ enabled=PackedStringArray("res://addons/level_tools/plugin.cfg")
 2d_physics/layer_4="player_shot"
 2d_physics/layer_5="enemy_shot"
 2d_physics/layer_6="pickup"
+2d_physics/layer_7="door"
 
 [physics]
 

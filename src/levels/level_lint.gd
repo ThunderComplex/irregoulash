@@ -156,9 +156,19 @@ static func run(root: Node) -> Dictionary:
 	if navigation == null:
 		notes.append("no navmesh: enemies steer directly and can wedge on geometry "
 			+ "(bake one with 'Bake navmesh')")
+	elif navigation.navigation_polygon == null or navigation.navigation_polygon.get_polygon_count() == 0:
+		notes.append("the navmesh has not been baked: enemies steer directly and can wedge on "
+			+ "geometry (bake one with 'Bake navmesh')")
 	elif NavmeshBaker.is_stale(navigation, walls):
 		notes.append("the navmesh does not match the current walls: re-bake it "
 			+ "('Bake navmesh'), or enemies will path through geometry that has moved")
+
+	# --- every doorway has to be connected in the mesh
+	# A door the player can open but the navmesh cannot route through is invisible: the player walks
+	# through, and enemies never come. That is exactly the shape of "enemies will not path through
+	# this door", so it is a problem rather than a note.
+	if navigation != null:
+		problems.append_array(disconnected_doorways(navigation, doors))
 
 	return {
 		"problems": problems,
@@ -172,6 +182,50 @@ static func run(root: Node) -> Dictionary:
 		# report.
 		"map": describe_grid(walls, blocked, reachable) if not problems.is_empty() else [],
 	}
+
+
+## Dooring the navmesh: which of these doorways the baked mesh has no route through.
+##
+## Checked against the mesh's own polygons rather than with a path query, so it works in the editor
+## as well as at runtime. Doors are deliberately not bake geometry, so a doorway should always be
+## covered; if it is not, the mesh is stale, the region was never baked, or the gap is too narrow for
+## the bake's agent radius.
+static func disconnected_doorways(region: NavigationRegion2D, doors: Array[Door]) -> Array[String]:
+	var out: Array[String] = []
+	var polygon: NavigationPolygon = region.navigation_polygon
+	if polygon == null or polygon.get_polygon_count() == 0:
+		return out
+	var vertices: PackedVector2Array = polygon.vertices
+	for door: Door in doors:
+		var normal: Vector2 = Vector2.DOWN.rotated(door.global_rotation)
+		var reachable: bool = false
+		# The centre and a little either side, so a door sitting exactly on a polygon edge is not
+		# reported as sealed.
+		for offset: float in [0.0, 6.0, -6.0]:
+			var point: Vector2 = door.global_position + normal * offset
+			if _mesh_covers(region, polygon, vertices, point):
+				reachable = true
+				break
+		if not reachable:
+			out.append("the navmesh has no route through door '%s': re-bake it ('Bake navmesh'), "
+				% door.name + "or the doorway is too narrow for enemies to use")
+	return out
+
+
+static func _mesh_covers(region: NavigationRegion2D, polygon: NavigationPolygon,
+		vertices: PackedVector2Array, world_point: Vector2) -> bool:
+	var local: Vector2 = region.to_local(world_point)
+	for i: int in polygon.get_polygon_count():
+		var indices: PackedInt32Array = polygon.get_polygon(i)
+		if indices.is_empty():
+			continue
+		var points := PackedVector2Array()
+		for index: int in indices:
+			if index >= 0 and index < vertices.size():
+				points.append(vertices[index])
+		if points.size() >= 3 and Geometry2D.is_point_in_polygon(local, points):
+			return true
+	return false
 
 
 static func cell_of(point: Vector2) -> Vector2i:

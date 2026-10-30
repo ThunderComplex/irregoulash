@@ -1,4 +1,4 @@
-﻿@tool
+@tool
 class_name Enemy
 extends CharacterBody2D
 ## A line-of-sight-driven enemy with a layered alertness state machine.
@@ -33,6 +33,10 @@ const NAV_CHECK_INTERVAL: float = 0.5
 const SEARCH_STEP: float = 130.0
 ## Size of the cell used to remember what has been searched.
 const SEARCH_CELL: float = 52.0
+## How far a search point may sit off the navmesh and still count as somewhere the enemy could stand.
+## Tight on purpose: a point inside a wall is only a few pixels from the mesh edge, so anything
+## generous here turns into an enemy walking into a wall and grinding against it.
+const MESH_TOLERANCE: float = 4.0
 
 @export_enum("guard", "scout", "heavy") var archetype_id: String = "guard":
 	set(value):
@@ -96,6 +100,8 @@ var _search_timer: float = 0.0
 var _searched: Dictionary = {}
 ## Ring index of the sweep, marching outward from where the player was last seen.
 var _search_ring: int = 0
+## Whether the current pick has already restarted an exhausted sweep, so it cannot recurse forever.
+var _search_restarted: bool = false
 ## Cooldown on rattling a locked door, so an enemy does not shake the handle every frame.
 var _rattle_cd: float = 0.0
 ## Cached copy of `GameDirector.debug_info`, so `_physics_process` does not hit an autoload every
@@ -262,7 +268,9 @@ func _can_see(point: Vector2) -> bool:
 	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
 	if space == null:
 		return true
-	var query := PhysicsRayQueryParameters2D.create(global_position, point, Layers.SOLID)
+	# Sight blockers, not movement blockers: an open door leaf does not stop an enemy walking past it, but
+	# it very much stops it seeing through it. That asymmetry is the point of `Layers.DOOR`.
+	var query := PhysicsRayQueryParameters2D.create(global_position, point, Layers.SIGHT_BLOCKERS)
 	query.hit_from_inside = false
 	var hit: Dictionary = space.intersect_ray(query)
 	return hit.is_empty()
@@ -410,8 +418,21 @@ func _enter_search() -> void:
 	# that is where the trail actually ends, and it is what takes the enemy to the door you shut.
 	_searched.clear()
 	_search_ring = 1
-	_search_target = last_known
+	_search_restarted = false
+	# Snapped onto the mesh: a player can stand where the agent radius erodes it away (flush against a
+	# wall), and that exact spot is somewhere the enemy cannot stand.
+	_search_target = _snap_to_mesh(last_known)
 	AudioDirector.play_at(&"lose_player", global_position, -10.0)
+
+
+## `point`, pulled onto the navmesh if it is off it.
+func _snap_to_mesh(point: Vector2) -> Vector2:
+	if agent == null or not _has_navmesh:
+		return point
+	var map: RID = agent.get_navigation_map()
+	if not map.is_valid():
+		return point
+	return NavigationServer2D.map_get_closest_point(map, point)
 
 
 ## Remember which way the player was moving, so the search looks the right way first. A player
@@ -567,6 +588,13 @@ func _brake(delta: float) -> void:
 	velocity = velocity.move_toward(Vector2.ZERO, 1100.0 * delta)
 
 
+## Keeps track of whether the enemy is trying to walk but going nowhere, and when it is, sends it
+## around the free end of whatever open door is in the way.
+##
+## Why this exists at all: an open door's leaf is solid and the navmesh has never heard of it, so a
+## path can lead straight into the leaf. Sliding along it usually works, but a leaf that has swung into
+## a corner leaves no room to slide and the enemy grinds in place -- which is the difference between "a
+## search that gives up" and "an enemy that has forgotten how to walk".
 ## Doors, from the AI's side.
 ##
 ## The navmesh is baked without doors in it, on purpose: doors have to be passable in the mesh or
@@ -762,14 +790,22 @@ func _pick_search_target() -> void:
 			best_score = score
 		if best != Vector2.ZERO:
 			_search_ring = ring
+			_search_restarted = false
 			_searched[_search_cell(best)] = true
 			_search_target = best
 			return
-	# Every reachable cell within the budget has been looked at. Stand and scan, then start over from
-	# the middle rather than freezing in place.
-	_search_ring = 1
-	_searched.clear()
-	_search_target = global_position + Vector2.from_angle(heading) * SEARCH_STEP
+	# Every reachable cell within the budget has been looked at. Start the sweep over from the inside
+	# -- but only once per call: if even a cleared sweep finds nowhere to go, stand and scan here
+	# rather than picking a blind point. That blind point used to be picked without any check, which
+	# is one of the ways an enemy ended up walking into a wall.
+	if not _search_restarted:
+		_search_restarted = true
+		_search_ring = 1
+		_searched.clear()
+		_pick_search_target()
+		return
+	_search_restarted = false
+	_search_target = global_position
 
 
 ## Draws what this enemy believes, in world space, while it searches. Off unless the debug readout
@@ -821,10 +857,17 @@ func _can_walk_to(point: Vector2) -> bool:
 	var map: RID = agent.get_navigation_map()
 	if not map.is_valid():
 		return true
+	# Is the point on the mesh at all? This is the check that keeps search targets out of walls: a
+	# point inside a wall is only a few pixels from the nearest polygon, and the previous version --
+	# "a path exists that ends within 40px" -- happily accepted it, so the enemy walked into the wall.
+	var closest: Vector2 = NavigationServer2D.map_get_closest_point(map, point)
+	if closest.distance_to(point) > MESH_TOLERANCE:
+		return false
+	# On the mesh, and actually reachable from here (not a disconnected island).
 	var path: PackedVector2Array = NavigationServer2D.map_get_path(map, global_position, point, true)
 	if path.is_empty():
 		return false
-	return path[path.size() - 1].distance_to(point) < 40.0
+	return path[path.size() - 1].distance_to(point) <= 12.0
 
 
 func _update_footsteps(delta: float) -> void:

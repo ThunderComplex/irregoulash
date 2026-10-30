@@ -90,8 +90,9 @@ Walk over weapons, ammo and medkits to pick them up.
   a solid, shadow-casting barrier while the bolt is just a projectile and neither of them
   needs a branch in the holder.
 - **Doors, and keys.** A shut door blocks movement, bullets and light, so it hides a room as well as
-  blocking a path; opening one reveals the room *and* you. The leaf stays solid when open, so an
-  open door is a clear doorway *and* a slab of cover you can hide behind. Doors can be opened and
+  blocking a path; opening one reveals the room *and* you. An open leaf still stops sight, bullets and you, so an
+  open door is a clear doorway *and* a slab of cover to hide behind — enemies can walk past it,
+  but they cannot see through it. Doors can be opened and
   shut by hand or smashed with a dash, locked ones need a key (any key opens any door, and you can
   carry as many as you find), and enemies open doors in their way and shut them again behind
   themselves. The navmesh deliberately ignores doors, so a doorway is never a dead end to the AI.
@@ -100,6 +101,11 @@ Walk over weapons, ammo and medkits to pick them up.
   on with the weapons you were carrying, from a single `user://progress.cfg` written on level
   entry and refreshed whenever you pause. It is a level checkpoint, not a save system: no
   position, no enemy state, no items already taken.
+- **Surfaces.** Walls and floors take a tiled texture chosen per level from two dropdowns on the `Level`
+  node (`plain`, `wood`), with the rim, inner shadow and bottom band computed from each rectangle's own
+  size. Tiling is in world space, so grain stays the same size on a 96px wall and a 900px one. Floors are
+  lit by lamps and your cone; wall tops are unshaded, because a wall cannot be lit by the light it casts
+  shadows for (see `docs/DESIGN_NOTES.md`). `dev/surface_lab.tscn` is the scratch scene for judging a look.
 - **Any resolution and aspect ratio**, with a settings menu (window mode, resolution,
   vsync, master and effects volume) persisted to `user://settings.cfg`. The game renders
   natively rather than stretching a fixed canvas, so text stays crisp at 4K, and the camera

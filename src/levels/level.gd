@@ -1,4 +1,4 @@
-@tool
+﻿@tool
 class_name Level
 extends Node2D
 ## Base behaviour for every level.
@@ -57,6 +57,23 @@ const EDITOR_PREVIEW_NODE: StringName = &"EditorLightingPreview"
 			queue_redraw()
 @export var min_bound_size: Vector2 = Vector2(1700.0, 1000.0)
 
+@export_group("Surfaces")
+## Look of every wall in this level. Styles are defined in `SurfaceLibrary`; "plain" is the flat colour
+## walls had before textures existed, so nothing changes until you pick a style.
+##
+## One per level rather than per wall: it keeps authoring to one dropdown, and it means a level reads as
+## one place instead of a patchwork.
+@export_enum("plain", "wood") var wall_surface_id: String = "plain":
+	set(value):
+		wall_surface_id = value
+		_refresh_surfaces()
+## Look of the floor. "plain" draws no floor at all, which is how levels looked before surfaces: the
+## ground is simply black outside the light.
+@export_enum("plain", "wood_floor") var floor_surface_id: String = "plain":
+	set(value):
+		floor_surface_id = value
+		_refresh_surfaces()
+
 @export_group("Fog")
 @export var fog_color: Color = Color(0.0, 0.0, 0.0, 1.0)
 ## Ambient used by the F4 debug reveal.
@@ -105,6 +122,7 @@ func _ready() -> void:
 	set_process(false)
 	GameDirector.on_level_ready(self)
 	_collect_groups()
+	_ensure_floor()
 	_ensure_fog()
 	_ensure_memory()
 	_ensure_fx_layer()
@@ -142,6 +160,87 @@ func _collect_walls() -> void:
 		var wall := node as Wall
 		if wall != null:
 			walls.append(wall)
+
+
+#region surfaces
+
+## What every wall in this level looks like. `Wall` asks for this while it builds itself, so one
+## dropdown styles the whole level and no wall has to be selected.
+func wall_surface() -> SurfaceStyle:
+	return SurfaceLibrary.by_id(wall_surface_id)
+
+
+func floor_surface() -> SurfaceStyle:
+	return SurfaceLibrary.by_id(floor_surface_id)
+
+
+## Re-applies the look to walls and floor. Used by the inspector setters, so picking a style updates the
+## level in place instead of needing a reload.
+func _refresh_surfaces() -> void:
+	# Export setters run while the scene is still being instantiated, before this node has a tree. The
+	# walls each resolve their own style in `_ready`, so there is nothing to do yet.
+	if not is_inside_tree():
+		return
+	for node: Node in get_tree().get_nodes_in_group("wall"):
+		var wall := node as Wall
+		if wall != null and is_ancestor_of(wall):
+			wall._rebuild()
+	_rebuild_floor()
+
+
+## The ground.
+##
+## An *unowned* child, like the editor preview fog: Godot only serialises nodes owned by the scene, so
+## this exists in the editor and at runtime and is never written into a level file. It is plain
+## `Polygon2D` geometry, so it takes light from lamps and the player's cone exactly like a wall top does
+## -- which is the whole point: before this, the ground was simply black, and light pools had nothing to
+## fall on.
+func _ensure_floor() -> void:
+	_rebuild_floor()
+
+
+func _rebuild_floor() -> void:
+	var style: SurfaceStyle = floor_surface()
+	var floor_node: Polygon2D = null
+	for child: Node in get_children():
+		if child.name == "Floor" and child is Polygon2D:
+			floor_node = child as Polygon2D
+			break
+	if style == null or not style.is_textured():
+		if floor_node != null:
+			floor_node.visible = false
+		return
+
+	if floor_node == null:
+		floor_node = Polygon2D.new()
+		floor_node.name = "Floor"
+		add_child(floor_node, false, Node.INTERNAL_MODE_DISABLED)
+	floor_node.visible = true
+	floor_node.z_index = Layers.Z_FLOOR
+	# Grown past the camera limits, so the floor's own edge is never on screen.
+	var rect: Rect2 = level_bounds().grow(64.0)
+	floor_node.position = rect.get_center()
+	var half: Vector2 = rect.size * 0.5
+	floor_node.polygon = PackedVector2Array([
+		Vector2(-half.x, -half.y), Vector2(half.x, -half.y),
+		Vector2(half.x, half.y), Vector2(-half.x, half.y),
+	])
+	var material := ShaderMaterial.new()
+	material.shader = Wall.SURFACE_SHADER
+	material.set_shader_parameter("albedo", style.albedo)
+	material.set_shader_parameter("tile_world", style.tile_world)
+	material.set_shader_parameter("tint", style.tint)
+	material.set_shader_parameter("size_world", rect.size)
+	material.set_shader_parameter("rim_ao_width", style.rim_ao_width)
+	material.set_shader_parameter("rim_ao_strength", style.rim_ao_strength)
+	material.set_shader_parameter("base_band", style.base_band)
+	material.set_shader_parameter("base_strength", style.base_strength)
+	material.set_shader_parameter("breakup_amount", style.breakup_amount)
+	material.set_shader_parameter("breakup_scale", style.breakup_scale)
+	floor_node.material = material
+	floor_node.color = style.tint
+
+#endregion
 
 
 func _ensure_fog() -> void:
@@ -261,6 +360,8 @@ func level_bounds() -> Rect2:
 ## code) and never generates nodes that could be written into the level file.
 func _editor_ready() -> void:
 	_collect_editor_objects()
+	# So the floor is visible while authoring, not only when the level runs.
+	_ensure_floor()
 	_find_spawn_point()
 	_read_tuning_defaults()
 	_apply_editor_preview()

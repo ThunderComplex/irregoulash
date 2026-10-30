@@ -74,7 +74,7 @@ extends Node
 @export var awareness_suspicious: float = 0.35
 @export var awareness_alert: float = 1.0
 ## How long an enemy keeps chasing after losing sight before searching.
-@export var alert_lost_sight_grace: float = 5.0
+@export var alert_lost_sight_grace: float = 1.0
 @export var search_duration: float = 20.0
 ## How far a search reaches, as a fraction of how far the player could have run since they were last
 ## seen. Under 1.0 because the player has to stop, turn and shoot too; raise it to make searches

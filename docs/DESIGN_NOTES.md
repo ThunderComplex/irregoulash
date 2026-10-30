@@ -44,7 +44,7 @@ this slice exists to make that one idea readable.
 | Search targets must be walkable, and are ordered by the player's last heading | A random point behind a wall cannot be reached, and watching an enemy grind toward one is what "wandering off" actually looked like. Asking the navmesh for a path skips those, and rooting the sweep in the direction the player was last moving makes the first place it looks usually the right one | `Enemy._pick_search_target`, `Enemy._can_walk_to` |
 | A search goes *to* the trail end first, and doors are checked on the mesh | The place the player was last seen is where the trail ends, and it is what takes a searcher to the door you shut. Reachability is a navmesh path, not a ray, because a ray to a point beyond a shut door is blocked — but a shut door is exactly where a guard should go and open it | `Enemy._enter_search`, `Enemy._can_walk_to` |
 | A locked door does not end a search | Being unable to get through a door is not the same as giving up: the enemy rattles it once so you can hear someone trying, marks it as a dead end, and keeps sweeping on its own side. Removing the old freeze also removed the "standing still against a door" look | `Enemy._handle_doors`, `Door.rattle` |
-| The *open* leaf is still solid and opaque | The leaf is an object in the room, not a hole that has changed state, so its collider and occluder are children of the leaf and swing with it. Opening a door therefore leaves a passable doorway *and* a slab of cover beside it: hiding behind an open door works for the player and for enemies, and bullets stop in the leaf. A door that merely toggled solidity would make the leaf a pure decoration and throw that away | `Door._rebuild_geometry`, `Door.from_node` |
+| The *open* leaf is on its own physics layer: it stops sight, bullets and the player, but not enemy movement | The leaf is an object in the room, not a hole that changed state, so its collider and occluder are children of the leaf and swing with it. But doorways are deliberately not navmesh geometry, so an enemy's path runs straight through the leaf -- and a velocity aimed dead into a collider gives `move_and_slide` nothing to slide along, so enemies ground to a halt on open doors. `Layers.DOOR` keeps everything the leaf is for (cover from sight, stopping bullets, stopping the player) and lets the AI's feet through, which is the one property that has to differ per actor | `Layers.DOOR`, `Door._update_solid_layer`, `Door._rebuild_geometry` |
 | The navmesh is baked *without* doors in it | If doors were bake geometry, a shut door would make its doorway permanently impassable to path finding, and an open one would be a hole the mesh was cut around. Leaving them out means doorways always connect, and a shut door becomes something the AI handles at the door (`open_for_enemy`) rather than something it plans around | `Door` not being a `Wall`, `Enemy._handle_doors` |
 | A blocked door close bounces instead of showing a message | Standing in a doorway and pressing interact is a legible situation: the obstruction is right there on screen. A text message interrupts a fight to explain something the animation can show in a fifth of a second. Nothing is spent, nothing is announced, the leaf just tries and gives up |
 | A smashed door is deleted, not left as wreckage | The doorway is the point. Leaving a ghost leaf means every smashed door is a permanent visual object that also has to be explained (can I walk through it, is it still a door). Deleting the node and playing a short splinter burst leaves a clean opening -- and removes a whole class of "is this still interactive" questions | `Door.smash` |
@@ -119,6 +119,46 @@ Also worth knowing:
   a player teleported, respawned or dropped onto them.
 - Swapping scenes from inside a physics callback is not allowed; the level loader
   defers `change_scene_to_file`.
+- **A physics layer can express "blocks you but not them", and steering cannot.** Two attempts at making
+  enemies *steer* around an open door leaf failed for the same reason: the navmesh does not contain
+  doors, so the path keeps pointing through the leaf, and any local detour fights it. Worse, a
+  `NavigationAgent2D` that is wedged reports itself *arrived*, handing back no direction at all, which
+  brakes the enemy to a standstill exactly where it is stuck. The fix was not better steering but a
+  property: enemies mask only `WORLD`, so moving an open leaf to `Layers.DOOR` (still in
+  `SIGHT_BLOCKERS` and both bullet masks, still in the player's mask) gives the AI a clear route while
+  every other property of the leaf is unchanged. When two actors need different answers to "is this
+  solid", the answer belongs in the layer table, not in the movement code.
+- **A fragment-stage `VERTEX` is not a safe source of local position on a very large quad.** The surface
+  shader read `VERTEX` in the fragment stage to work out distance-to-edge, and the floor -- one quad the
+  size of the level -- showed a hard-edged rectangular patch of wrong shading in a corner of the screen,
+  while walls (small quads near their own origin) looked fine. Both positions are now computed in the
+  *vertex* stage and passed as varyings, which is correct by construction for any polygon size. The same
+  change dropped an unassigned `breakup` sampler whose default mask turned out not to be trustworthy, and
+  stopped applying a rim to floors.
+- **A wall cannot be lit by the light it casts shadows for.** Wall tops were textured and rendered almost
+  black, and the cause was not the shader: a `LightOccluder2D` puts the rectangle's own interior in
+  shadow, because a convex shape is always behind one of its own edges from a light outside it. What the
+  game has *always* shown for a wall is its unshaded "memory" silhouette at 30% alpha -- the lit body
+  underneath contributed nothing. Measured on the lab: floor (57,39,17) beside wall (18,15,11), and the
+  wall's value did not move at all when its tint was raised by 1.77x, which proved the body was invisible.
+  Wall surfaces are therefore unshaded (`surface_unshaded.gdshader`), taking the place the silhouette
+  had: the wall shows its material once explored, and does not brighten near a lamp. Floors keep the lit
+  shader, because light reaches them.
+- **"Close enough to the path" is not "standing on the mesh".** Search targets were validated by
+  asking whether a path *ended within 40px* of the candidate. A point 30px inside a wall satisfies
+  that, so the enemy walked into the wall and ground against it. The check is now
+  `map_get_closest_point` against a 4px tolerance, with the path test only for reachability; the
+  sweep's exhaustion fallback also used to pick a blind point with no check at all. The probe fuzzes
+  400 picks (0 inside walls, 0 off the mesh) and counts how many wall points the *old* rule would
+  have accepted (9 in the same geometry), so the pass is a fix rather than a test that cannot fail.
+- **"Enemies will not path through this door" was a stale navmesh, not a door bug.** Doors are not
+  bake geometry, so the door's lock state cannot affect pathing at all; what had gone stale was the
+  mesh itself, baked before the doorway existed. The symptom pointed at the newest feature, which is
+  why the fix is a lint *problem* rather than a door change: the linter now checks that every
+  doorway's centre is covered by the baked polygons (`LevelLint.disconnected_doorways`), verified
+  against the mesh geometry rather than a path query so it works in the editor too. On the level that
+  prompted it, the old mesh reported Door2 unconnected and a fresh bake of the same walls connected
+  every doorway.
 - **A raycast ignores the whole shape its origin is inside.** The muzzle sits 20px ahead of a 14px-wide
   player, so standing flush against a wall put the muzzle *inside* that wall — and a round spawned
   there never saw it, flying out the far side and killing people behind cover. Two fixes, because one

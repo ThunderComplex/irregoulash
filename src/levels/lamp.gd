@@ -111,8 +111,9 @@ func _is_visible_to_player() -> bool:
 	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
 	if space == null:
 		return true
+	# Sight blockers, so an open door leaf hides a lamp's glow just as it hides everything else.
 	var query := PhysicsRayQueryParameters2D.create(player.global_position, global_position,
-		Layers.SOLID)
+		Layers.SIGHT_BLOCKERS)
 	query.hit_from_inside = false
 	return space.intersect_ray(query).is_empty()
 

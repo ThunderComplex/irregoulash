@@ -9,9 +9,9 @@
 [ext_resource type="Script" uid="uid://tdmd7rqbsvoa" path="res://src/levels/patrol_route.gd" id="7_route"]
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="8_clcew"]
 
-[sub_resource type="NavigationPolygon" id="NavigationPolygon_b2oh7"]
-vertices = PackedVector2Array(594, 530, 594, 50, 974, 50, 974, 754, 1230, 754, 1230, 878, 50, 878, 142, 530, 50, 242, 142, 462, 402, 242, 494, 462, 494, 50, 402, 174, 50, 50, 50, 174, 1358, -78, 1358, 1006, 1298, 946, 1298, 686, -78, 1006, -18, 946, -78, -78, -18, -18, 1042, -18, 1042, 686)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(3, 4, 5, 6), PackedInt32Array(0, 3, 6, 7), PackedInt32Array(7, 6, 8, 9), PackedInt32Array(9, 8, 10, 11), PackedInt32Array(12, 11, 10, 13), PackedInt32Array(14, 12, 13, 15), PackedInt32Array(16, 17, 18, 19), PackedInt32Array(18, 17, 20, 21), PackedInt32Array(21, 20, 22, 23), PackedInt32Array(23, 22, 16, 24), PackedInt32Array(24, 16, 19, 25)])
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_2bp2o"]
+vertices = PackedVector2Array(1358, -78, 1358, 1006, 1298, 946, 1298, 686, -78, 1006, -18, 946, -78, -78, -18, -18, 1042, -18, 1042, 686, 408, 240, 408, 172, 494, 50, 494, 462, 50, 50, 116, 172, 50, 878, 116, 240, 142, 462, 142, 530, 1230, 878, 974, 754, 594, 530, 594, 50, 974, 50, 1230, 754)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(2, 1, 4, 5), PackedInt32Array(5, 4, 6, 7), PackedInt32Array(7, 6, 0, 8), PackedInt32Array(8, 0, 3, 9), PackedInt32Array(10, 11, 12, 13), PackedInt32Array(14, 12, 11, 15), PackedInt32Array(16, 14, 15, 17), PackedInt32Array(10, 13, 18, 17), PackedInt32Array(16, 17, 18, 19), PackedInt32Array(20, 16, 19, 21), PackedInt32Array(22, 23, 24, 21), PackedInt32Array(21, 25, 20), PackedInt32Array(21, 19, 22)])
 outlines = Array[PackedVector2Array]([PackedVector2Array(-96, -96, 1376, -96, 1376, 1024, -96, 1024)])
 parsed_geometry_type = 1
 source_geometry_mode = 1
@@ -100,7 +100,7 @@ position = Vector2(151, 101)
 [node name="Lamps" type="Node2D" parent="." unique_id=1513915081]
 
 [node name="Lamp1" parent="Lamps" unique_id=280772374 instance=ExtResource("3_lamp")]
-position = Vector2(274, 358)
+position = Vector2(269, 358)
 radius = 210.0
 flicker = false
 
@@ -212,25 +212,13 @@ is_final = true
 
 [node name="Nav" type="NavigationRegion2D" parent="." unique_id=1214858660]
 visible = false
-navigation_polygon = SubResource("NavigationPolygon_b2oh7")
-metadata/navmesh_hash = 1031051343
-
-[node name="DrawnWall10" parent="." unique_id=1794305106 instance=ExtResource("2_wall")]
-position = Vector2(592, 624)
-size = Vector2(224, 32)
-
-[node name="DrawnWall11" parent="." unique_id=1785928261 instance=ExtResource("2_wall")]
-position = Vector2(496, 768)
-size = Vector2(32, 256)
-
-[node name="DrawnWall12" parent="." unique_id=2028553518 instance=ExtResource("2_wall")]
-position = Vector2(832, 736)
-size = Vector2(128, 64)
+navigation_polygon = SubResource("NavigationPolygon_2bp2o")
+metadata/navmesh_hash = 37126825
 
 [node name="Doors" type="Node2D" parent="." unique_id=1069835065]
 
 [node name="Door1" parent="Doors" unique_id=1033977669 instance=ExtResource("8_clcew")]
-position = Vector2(442, 207)
+position = Vector2(426, 206)
 
 [node name="Door2" parent="Doors" unique_id=901644495 instance=ExtResource("8_clcew")]
 position = Vector2(85, 206)

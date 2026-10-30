@@ -189,11 +189,14 @@ you cannot see into the room behind it and whatever is inside cannot see you. Op
 the room becomes visible — and so do you.
 
 **The leaf is a real object, open or shut.** Its collider and light occluder are children of the
-leaf, so they swing with it: open, the leaf stands in the room and still stops movement, bullets and
-light, while the *doorway* beside it is clear to walk, shoot and see through. That is what makes an
-open door cover — you can stand behind it and be hidden, and so can an enemy. The navmesh knows
-nothing about the open leaf (doors are not bake geometry), so an enemy whose path clips it will slide
-around it rather than plan for it. That is intended, and it is the same space you hide in.
+leaf, so they swing with it: open, the leaf stands in the room and still stops **sight, bullets and
+you**, while the *doorway* beside it is clear to walk, shoot and see through. That is what makes an
+open door cover — you can stand behind it and be hidden, and so can an enemy.
+
+**Enemies pass an open leaf but cannot see through it.** They walk through the space it occupies,
+because the navmesh does not include doors and steering around a leaf the path runs straight through
+was making them grind to a halt. If you want a real barrier, shut the door or lock it — an open door
+is cover, not a wall.
 
 **Placing one:** turn on **Place door**, click where the doorway should be, and drag along the wall
 to set which way the leaf lies; release to place it. A plain click places it horizontally. Tick
@@ -203,6 +206,12 @@ creates if the level does not have one yet — one undo removes the door and the
 **Leave a gap for it.** The tool places the door; it does not cut the wall. Draw the wall with a
 door-sized opening, then put the door in the opening. The linter reports a door that overlaps a
 wall, because that door is sealed and can never be used.
+
+**Re-bake the navmesh after adding or moving a doorway.** Doors are deliberately excluded from the
+navmesh, so a doorway should always be connected in the mesh — but a mesh baked *before* the doorway
+existed still has solid wall there, and then you can open the door and walk through while enemies
+never do. The linter reports this as a problem ("the navmesh has no route through door ..."), so it
+cannot be shipped by accident. It is the same fix as any other mesh change: press **Bake navmesh**.
 
 **Doors are not walls.** They are excluded from the navmesh bake on purpose: a doorway has to be
 passable in the baked mesh, or enemies could never path through one. So the AI walks up to a shut
@@ -228,6 +237,37 @@ explanation. Nothing is consumed and the door's state does not change.
 you and you keep your footing; if it comes to rest on top of you, you can walk out. A settled leaf
 still blocks like a wall. This matters for enemies too: a guard shoved into a corner by a door it
 opened itself cannot get out of it.
+
+## Surfaces: what walls and floors look like
+
+Two dropdowns on the **Level** node, and nothing per wall:
+
+| Property | Meaning |
+|---|---|
+| `wall_surface_id` | the look of every wall in the level |
+| `floor_surface_id` | the look of the floor; `plain` draws no floor at all, which is how levels looked before surfaces |
+
+Styles are defined in `src/levels/surface_library.gd` — one function each — so adding a look is a
+builder plus its id in the inspector list. `dev/surface_lab.tscn` (run it, and use `--probe=surface_lab`
+for screenshots) shows one of each shape: a long wall, a medium one, a thin stub, a thick block, a
+corner, and a lamp pool on the floor.
+
+**What to expect from the look, because it follows from the lighting model:**
+
+- **Floors are lit.** They take light from lamps and your cone, so a light pool on the ground is the
+  main thing that sells the room.
+- **Wall tops are *remembered*, not lit.** A wall casts the shadows the vision system depends on, and a
+  rectangle's interior is always behind one of its own edges, so a wall can never be lit by the light it
+  occludes. Wall tops are therefore drawn unshaded: a wall appears once you have seen it, in its own
+  material, and does not get brighter when a lamp is next to it.
+- **Tiling is in world space**: one tile is always `tile_world` pixels of the world (64 by default), so a
+  96px wall and a 900px wall show the same size grain. Never scale a style per wall to "fit" it.
+- The rim, inner shadow and bottom band are computed from each rectangle's own size, so they look right
+  on a stub and on a long wall alike.
+
+Authoring advice for the art: keep tiles low-contrast and free of landmarks, and keep them seamless —
+repetition is only visible when there is something to recognise. Slight repetition is handled by
+blending a much larger sample of the same texture through the `breakup` mask.
 
 ## How enemies search
 

@@ -1,4 +1,4 @@
-@tool
+﻿@tool
 class_name Wall
 extends StaticBody2D
 ## Rectangular level geometry.
@@ -20,6 +20,11 @@ extends StaticBody2D
 ## them is `_ready()`'s job.
 
 const MEMORY_BRIGHTNESS_EDITOR: float = 0.13
+## Lit, for floors: they are the one surface light reaches.
+const SURFACE_SHADER: Shader = preload("res://src/levels/surface.gdshader")
+## Unlit, for wall tops: a wall cannot be lit by the light it casts shadows for, so its surface takes
+## the place of the unshaded memory silhouette it used to be drawn by.
+const WALL_SURFACE_SHADER: Shader = preload("res://src/levels/surface_unshaded.gdshader")
 
 @export var size: Vector2 = Vector2(160.0, 32.0):
 	set(value):
@@ -56,20 +61,28 @@ func _rebuild() -> void:
 	var occluder: LightOccluder2D = get_node_or_null("Occluder") as LightOccluder2D
 
 	var points: PackedVector2Array = Shapes.rect(size)
+	var style: SurfaceStyle = surface_style()
+	var textured: bool = style != null and style.is_textured()
 
 	if body != null:
 		body.polygon = points
-		body.color = color
 		body.z_index = Layers.Z_WALL
+		_apply_surface(body, style)
+
 
 	if outline != null:
 		outline.points = Shapes.closed_outline(points)
 		outline.width = 2.0
-		outline.default_color = color.lightened(0.25)
+		# The shader draws the rim for textured walls: a Line2D at fractional world coordinates renders as
+		# a broken dashed line, and it cannot follow a surface shaded per pixel anyway.
+		outline.visible = not textured
+		outline.default_color = style.rim_color if textured else color.lightened(0.25)
 		outline.z_index = Layers.Z_WALL_EDGE
 
 	if ghost != null:
 		ghost.polygon = points
+		# A textured wall draws itself (see above), so the ghost is only used by the flat fallback --
+		# which is where it started.
 		ghost.color = color
 		# The memory copy is composited ON TOP of the wall body at a low alpha:
 		#   lit    -> body * light  * 0.7  +  colour * 0.3  == colour
@@ -78,11 +91,11 @@ func _rebuild() -> void:
 		# completely, and unshaded so that the black CanvasModulate fog cannot
 		# darken the memory into nothing.
 		ghost.z_index = Layers.Z_WALL_EDGE + 1
-		ghost.modulate.a = memory_brightness() if _explored else 0.0
 		if ghost.material == null:
 			var m := CanvasItemMaterial.new()
 			m.light_mode = CanvasItemMaterial.LIGHT_MODE_UNSHADED
 			ghost.material = m
+	_update_memory_visibility()
 
 	if collision != null:
 		var rect := RectangleShape2D.new()
@@ -97,6 +110,52 @@ func _rebuild() -> void:
 		# Light mask 1 is the default mask of both the vision rig and the lamps.
 		occluder.occluder_light_mask = 1 if occludes_light else 0
 		occluder.visible = occludes_light
+
+
+## The look of this wall, taken from the level so that one dropdown styles every wall in it.
+##
+## Looked up by walking up the parent chain rather than by being pushed in from the level: children are
+## ready before their parent, so this works in the editor and at runtime with no ordering rules, and a
+## per-wall override later is one property that short-circuits this lookup.
+func surface_style() -> SurfaceStyle:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("wall_surface"):
+			var style: SurfaceStyle = node.call("wall_surface")
+			if style != null:
+				return style
+			break
+		node = node.get_parent()
+	return SurfaceLibrary.by_id("plain")
+
+
+## Gives the Body its textured material, or takes it away for a flat colour.
+##
+## One material per wall rather than one shared material: it carries this wall's `size_world`, which the
+## edge shading needs. Walls number in the dozens, so the cost is nothing.
+func _apply_surface(body: Polygon2D, style: SurfaceStyle) -> void:
+	if style == null or not style.is_textured():
+		body.material = null
+		body.color = color
+		return
+	var material := ShaderMaterial.new()
+	material.shader = WALL_SURFACE_SHADER
+	material.set_shader_parameter("albedo", style.albedo)
+	material.set_shader_parameter("tile_world", style.tile_world)
+	material.set_shader_parameter("tint", style.tint)
+	material.set_shader_parameter("rim_width", style.rim_width)
+	material.set_shader_parameter("rim_boost", style.rim_boost)
+	material.set_shader_parameter("size_world", size)
+	material.set_shader_parameter("rim_ao_width", style.rim_ao_width)
+	material.set_shader_parameter("rim_ao_strength", style.rim_ao_strength)
+	material.set_shader_parameter("base_band", style.base_band)
+	material.set_shader_parameter("base_strength", style.base_strength)
+	material.set_shader_parameter("breakup_amount", style.breakup_amount)
+	material.set_shader_parameter("breakup_scale", style.breakup_scale)
+	body.material = material
+	# White: the tint is a shader uniform now, so the polygon must not tint on top of it. `color` remains
+	# the flat fallback used when a wall has no texture.
+	body.color = Color.WHITE
 
 
 ## Safety net: if a wall ever ends up without its generated children (hand-built
@@ -139,9 +198,7 @@ func mark_explored() -> void:
 	if _explored:
 		return
 	_explored = true
-	var ghost: Polygon2D = get_node_or_null("Ghost") as Polygon2D
-	if ghost != null:
-		ghost.modulate.a = memory_brightness()
+	_update_memory_visibility()
 
 
 func is_explored() -> bool:
@@ -150,9 +207,21 @@ func is_explored() -> bool:
 
 func reset_memory() -> void:
 	_explored = false
+	_update_memory_visibility()
+
+
+## Shows what this wall has revealed of itself.
+##
+## A textured wall draws its own surface, so it appears whole once seen; the flat fallback appears as a
+## dim silhouette instead, which is what every wall used to be.
+func _update_memory_visibility() -> void:
+	var body: Polygon2D = get_node_or_null("Body") as Polygon2D
 	var ghost: Polygon2D = get_node_or_null("Ghost") as Polygon2D
-	if ghost != null:
-		ghost.modulate.a = 0.0
+	var textured: bool = body != null and body.material is ShaderMaterial
+	if body != null and textured:
+		body.modulate.a = 1.0 if _explored else 0.0
+	if ghost != null and not textured:
+		ghost.modulate.a = memory_brightness() if _explored else 0.0
 
 
 ## World-space rectangle covered by this wall.

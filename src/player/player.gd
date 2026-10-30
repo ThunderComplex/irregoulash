@@ -313,6 +313,10 @@ func _build_collision() -> void:
 	var shape := CircleShape2D.new()
 	shape.radius = Tuning.player_radius
 	collision.shape = shape
+	# Guaranteed here rather than trusted to the scene: the player walks into walls and into door
+	# leaves, open or shut. Enemies deliberately do *not* collide with an open leaf (see Layers.DOOR).
+	collision_layer = Layers.PLAYER
+	collision_mask = Layers.SOLID | Layers.DOOR
 
 
 ## Geometric placeholder art, built in code so the scene file stays tiny and the

@@ -10,13 +10,23 @@ const ENEMY: int = 1 << 2
 const PLAYER_SHOT: int = 1 << 3
 const ENEMY_SHOT: int = 1 << 4
 const PICKUP: int = 1 << 5
+## An *open* door leaf. Solid to the player, sight and bullets, but not to enemy movement.
+##
+## A shut door is on WORLD like a wall, because it must stop everything until someone opens it. An open
+## leaf is different: it is a physical panel standing in the room, and enemies have no way to steer
+## around one -- the navmesh does not include doors, so their paths ran straight through it and they
+## ground to a halt. Putting the open leaf on its own layer keeps every property that matters (cover,
+## bullets, sight, the player's feet) and gives enemies a clear route past it.
+const DOOR: int = 1 << 6
 
-## Everything solid that blocks movement.
+## Everything solid that blocks *movement*. Walls, and shut doors.
 const SOLID: int = WORLD
+## What blocks sight: walls, and a door leaf whether it is open or shut.
+const SIGHT_BLOCKERS: int = WORLD | DOOR
 ## What a bullet fired by the player can hit.
-const PLAYER_SHOT_HITS: int = WORLD | ENEMY
+const PLAYER_SHOT_HITS: int = WORLD | DOOR | ENEMY
 ## What a bullet fired by an enemy can hit.
-const ENEMY_SHOT_HITS: int = WORLD | PLAYER
+const ENEMY_SHOT_HITS: int = WORLD | DOOR | PLAYER
 
 # Draw order. Walls sit above actors (top-down readability), memory of explored
 # geometry sits below everything that is actually there.

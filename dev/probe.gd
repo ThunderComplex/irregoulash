@@ -1,4 +1,4 @@
-extends Node
+﻿extends Node
 ## Dev-only harness. Runs a scripted scenario, takes screenshots and prints
 ## numeric diagnostics, then quits. Inert during a normal run.
 ##
@@ -430,6 +430,106 @@ const SCENARIOS: Dictionary = {
 			"enemy_door_test": true,
 			"wait": 0.4,
 			"door_report": true,
+		},
+	],
+	## The same question asked of a level as it stands: does its own baked navmesh route through its
+	## doors? Run this against the level being authored.
+	"doorway_level": [
+		{
+			"wait": 0.6,
+			"doorway_report": true,
+		},
+		{
+			# Then bake it here and ask again: proves that re-baking is the fix, rather than leaving
+			# the author to find out.
+			"bake_navmesh": true,
+			"wait": 0.6,
+			"doorway_report": true,
+		},
+	],
+	## The surface lab: the look of walls and floor, photographed from a few fixed viewpoints so two runs
+	## can be compared. Run this against `dev/surface_lab.tscn`.
+	"surface_lab": [
+		{
+			"god": true,
+			"wait": 0.8,
+			"surface_report": true,
+			"shot": "surfaces_01_overview",
+		},
+		{
+			# Close to the long wall, lit by the lamp between it and its neighbour: tiling and rim.
+			"teleport": Vector2(700, 320),
+			"aim": Vector2(0, -1),
+			"wait": 0.6,
+			"shot": "surfaces_02_long_wall",
+		},
+		{
+			# A corner and a thick block: the rim and inner shadow on four sides, and at a join.
+			"teleport": Vector2(400, 250),
+			"aim": Vector2(-1, 0.2),
+			"wait": 0.6,
+			"shot": "surfaces_03_block_and_corner",
+		},
+		{
+			# The stub, alone in a light pool: one and a half tiles, so the tiling is obvious if it is
+			# going to be.
+			"teleport": Vector2(1120, 700),
+			"aim": Vector2(0, -1),
+			"wait": 0.6,
+			"shot": "surfaces_04_stub",
+		},
+		{
+			# Floor only, under a lamp.
+			"teleport": Vector2(820, 760),
+			"aim": Vector2(0, -1),
+			"wait": 0.6,
+			"shot": "surfaces_05_floor_pool",
+		},
+		{
+			# The same view in flat colour: if the walls are equally dark here, the darkness is lighting,
+			# not the shader.
+			"teleport": Vector2(700, 320),
+			"aim": Vector2(0, -1),
+			"set_wall_surface": "plain",
+			"wait": 0.6,
+			"shot": "surfaces_06_plain_compare",
+		},
+		{
+			"set_wall_surface": "wood",
+			"wait": 0.2,
+		},
+	],
+	## An open door's leaf is solid and unknown to the navmesh: can an enemy walk around it?
+	"door_avoid": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"door_avoid_test": true,
+			"wait": 0.2,
+		},
+	],
+	## Fuzz the search: over hundreds of picks, none may be inside a wall or off the mesh.
+	"search_targets": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"search_target_test": true,
+			"wait": 0.2,
+		},
+	],
+	## A door in a walled doorway, locked then unlocked: can the mesh and an actual enemy get through?
+	"doorway": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"doorway_test": true,
+			"wait": 0.3,
 		},
 	],
 	## Bullets must not go through a wall you are standing against.
@@ -917,6 +1017,157 @@ func _report_settings_roundtrip() -> void:
 	])
 
 
+#region doorway
+
+## Reproduces a walled doorway with a door in it, unlocks it the way a player does, and then asks
+## two questions: does the navmesh still offer a route through the gap, and does an actual enemy walk
+## it. Kept separate from `point_blank` because this is about pathing, not shooting.
+func _doorway_test() -> void:
+	var level: Node = GameDirector.current_level
+	var player := GameDirector.valid_player()
+	if level == null or player == null:
+		print("[probe] doorway: no level or player")
+		return
+
+	# A horizontal wall with a 96px gap, filled by a locked door: the shape a level author builds.
+	var gap_centre := Vector2(648.0, 1200.0)
+	var left := _spawn_test_wall(Vector2(500.0, 1200.0), Vector2(200.0, 32.0))
+	var right := _spawn_test_wall(Vector2(796.0, 1200.0), Vector2(200.0, 32.0))
+	var door := _spawn_test_door(gap_centre, true, 0.0)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_bake_navmesh_runtime()
+	await _wait_seconds(0.4)
+
+	var above := gap_centre + Vector2(0.0, -120.0)
+	var below := gap_centre + Vector2(0.0, 120.0)
+	var probe_map: RID = _probe_region.get_navigation_map() if _probe_region != null else RID()
+	# The same predicate the linter uses, so a green here and a green lint mean the same thing.
+	print("[probe] doorway: lint agrees the doorway is connected: %s" % LevelLint.disconnected_doorways(
+		_probe_region, [door] as Array[Door]).is_empty())
+	print("[probe] doorway: navmesh route across a locked door: %s" % _route_through(above, below,
+		gap_centre, probe_map))
+
+	# The player unlocks it with a key, which is the moment the report says pathing dies.
+	player.keys = 1
+	player.global_position = gap_centre + Vector2(0.0, -70.0)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	player.interact_nearby()
+	await _wait_seconds(0.4)
+	print("[probe] doorway after unlocking: door=%s locked=%s keys=%d" % [
+		_door_state_name(door.state), door.locked, player.keys,
+	])
+	print("[probe] doorway: navmesh route across the unlocked door: %s" % _route_through(above, below,
+		gap_centre, probe_map))
+
+	# And an enemy actually walking it, which is the version that matters.
+	player.global_position = Vector2(288.0, 1560.0)
+	var walker := _spawn_test_enemy(above)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	walker.call("_enter_search")
+	walker.last_known = below
+	walker.set("_search_target", below)
+	var crossed: bool = false
+	var elapsed: float = 0.0
+	while elapsed < 4.0:
+		await get_tree().physics_frame
+		elapsed += 1.0 / 60.0
+		if walker.global_position.y > gap_centre.y + 24.0:
+			crossed = true
+			break
+	print("[probe] doorway: enemy walked through the unlocked door: %s (at %s, %.1fs)" % [
+		crossed, str(Vector2i(walker.global_position)), elapsed,
+	])
+
+	walker.queue_free()
+	door.queue_free()
+	left.queue_free()
+	right.queue_free()
+	if _probe_region != null and is_instance_valid(_probe_region):
+		_probe_region.queue_free()
+		_probe_region = null
+
+
+## For every door in the level: does the level's *own baked* navmesh offer a route through it?
+##
+## Doors are deliberately not bake geometry, so a doorway should always be connected in the mesh. If
+## it is not, the mesh is stale or the doorway is too narrow for the agent, and the symptom is
+## "enemies will not come through this door" -- which is invisible, because the mesh is.
+func _report_doorway_routes() -> void:
+	var level: Node = GameDirector.current_level
+	if level == null:
+		print("[probe]   no level")
+		return
+	var region: NavigationRegion2D = null
+	for node: Node in _all_nodes(level):
+		var candidate := node as NavigationRegion2D
+		if candidate != null:
+			region = candidate
+			break
+
+	var doors: Array[Door] = []
+	for node: Node in _all_nodes(level):
+		var door := node as Door
+		if door != null:
+			doors.append(door)
+	if doors.is_empty():
+		print("[probe]   this level has no doors")
+		return
+	for door: Door in doors:
+		print("[probe]   door %s (parent %s, locked=%s) size %s" % [
+			door.name, door.get_parent().name if door.get_parent() != null else "-",
+			door.starts_locked, str(door.size),
+		])
+
+	# The same predicate the linter uses, so a green probe and a green lint mean the same thing.
+	if region != null:
+		print("[probe]   level mesh '%s': %s" % [
+			region.name, _describe_gaps(LevelLint.disconnected_doorways(region, doors)),
+		])
+	if _probe_region != null and is_instance_valid(_probe_region):
+		print("[probe]   after a fresh bake: %s" % _describe_gaps(
+			LevelLint.disconnected_doorways(_probe_region, doors)))
+
+
+func _describe_gaps(blocked: Array[String]) -> String:
+	return "every doorway is connected" if blocked.is_empty() else "%d not connected: %s" % [
+		blocked.size(), " | ".join(blocked),
+	]
+
+
+func _spawn_test_wall(at: Vector2, size: Vector2) -> Wall:
+	var level: Node = GameDirector.current_level
+	var wall := (load("res://src/levels/wall.tscn") as PackedScene).instantiate() as Wall
+	wall.size = size
+	level.add_child(wall)
+	wall.global_position = at
+	return wall
+
+
+## "through", "around", or "none": does the navmesh route from `from` to `to` pass through the
+## doorway at `gap`, or does it go the long way?
+func _route_through(from: Vector2, to: Vector2, gap: Vector2, map: RID) -> String:
+	if not map.is_valid():
+		return "no map"
+	var path: PackedVector2Array = NavigationServer2D.map_get_path(map, from, to, true)
+	if path.is_empty():
+		return "none"
+	var crosses: bool = false
+	for point: Vector2 in path:
+		if absf(point.x - gap.x) < 60.0 and absf(point.y - gap.y) < 40.0:
+			crosses = true
+			break
+	var length: float = 0.0
+	for i: int in range(1, path.size()):
+		length += path[i - 1].distance_to(path[i])
+	return "through (%.0f px)" % length if crosses else "around (%.0f px)" % length
+
+
+#endregion
+
+
 #region point blank
 
 ## Shooting with your back to a wall, which is where bullets used to go through it.
@@ -1040,6 +1291,138 @@ func _report_search() -> void:
 		])
 	if found == 0:
 		print("[probe]   no enemies")
+
+
+## Can an enemy get past an *open* door? Its leaf is solid and stands in the room, and the navmesh has
+## never heard of it, so the straight path runs through the leaf. This is the reported bug: the enemy
+## walked into the open door and stopped.
+func _door_avoid_test() -> void:
+	var level: Node = GameDirector.current_level
+	var player := GameDirector.valid_player()
+	if level == null or player == null:
+		print("[probe] door avoid: no level or player")
+		return
+
+	# A door in a walled doorway, which is where "can't get around it" actually bites: there is a wall on
+	# one side, so the enemy cannot simply slide past the leaf's free end.
+	var left := _spawn_test_wall(Vector2(500.0, 1200.0), Vector2(200.0, 32.0))
+	var right := _spawn_test_wall(Vector2(796.0, 1200.0), Vector2(200.0, 32.0))
+	var door := _spawn_test_door(Vector2(648.0, 1200.0), false, 0.0)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_bake_navmesh_runtime()
+	await _wait_seconds(0.8)
+
+	# Flush against the door: the leaf's top edge is y=1184, so this is within interact range.
+	player.global_position = Vector2(648.0, 1184.0 - Tuning.player_radius)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var opened: bool = player.interact_nearby()
+	player.global_position = Vector2(288.0, 1560.0)
+	await _wait_seconds(0.5)
+	print("[probe] door avoid: opened=%s, door=%s; its leaf juts into the gap on one side" % [
+		opened, _door_state_name(door.state),
+	])
+
+	# Walk from above the wall to below it on the *hinge* side, so the straight line through the doorway
+	# runs into the leaf rather than through the clear half of the gap. That is the case where the enemy
+	# has to realise it must go around.
+	var subject := _spawn_test_enemy(Vector2(604.0, 1080.0))
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	subject.call("_enter_search")
+	subject.last_known = Vector2(604.0, 1340.0)
+	subject.set("_search_target", Vector2(604.0, 1340.0))
+
+	var passed: bool = false
+	var elapsed: float = 0.0
+	while elapsed < 8.0:
+		await get_tree().physics_frame
+		elapsed += 1.0 / 60.0
+		if subject.global_position.y > 1300.0:
+			passed = true
+			break
+	print("[probe] door avoid: enemy got through the doorway past the open leaf: %s  (at %s, %.1fs)" % [
+		passed, str(Vector2i(subject.global_position)), elapsed,
+	])
+
+	if _probe_region != null and is_instance_valid(_probe_region):
+		_probe_region.queue_free()
+		_probe_region = null
+	left.queue_free()
+	right.queue_free()
+
+	subject.queue_free()
+	door.queue_free()
+
+
+## Does the walk ever ask for somewhere an enemy cannot stand? Fuzzed over many picks, because the
+## failure is intermittent: it depends on where the rings happen to fall relative to the walls.
+func _search_target_test() -> void:
+	var level: Node = GameDirector.current_level
+	if level == null:
+		print("[probe] search targets: no level")
+		return
+	# This level has no baked mesh of its own, and the whole point is what the *mesh* says, so bake one
+	# for the test. The agent picks it up within its nav-check interval.
+	_bake_navmesh_runtime()
+	await _wait_seconds(0.8)
+
+	var subject := _spawn_test_enemy(Vector2(520.0, 700.0))
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	subject.last_seen_heading = Vector2.RIGHT
+	# A wide budget, so the rings reach plenty of wall.
+	subject.set("_last_seen", float(subject.get("_time")) - 8.0)
+	subject.call("_enter_search")
+
+	var walls: Array[Wall] = []
+	for node: Node in _all_nodes(level):
+		var wall := node as Wall
+		if wall != null:
+			walls.append(wall)
+	var map: RID = subject.agent.get_navigation_map() if subject.agent != null else RID()
+
+	var picks: int = 0
+	var in_wall: int = 0
+	var off_mesh: int = 0
+	for i: int in 400:
+		subject.call("_pick_search_target")
+		var target: Vector2 = subject.get("_search_target")
+		picks += 1
+		for wall: Wall in walls:
+			if wall.world_rect().has_point(target):
+				in_wall += 1
+				break
+		if map.is_valid():
+			var closest: Vector2 = NavigationServer2D.map_get_closest_point(map, target)
+			if closest.distance_to(target) > 8.0:
+				off_mesh += 1
+	print("[probe] search targets over %d picks: inside a wall=%d  off the mesh=%d  (both must be 0)" % [
+		picks, in_wall, off_mesh,
+	])
+
+	# Control: how many ring candidates sit inside a wall *and* within 40px of the mesh, which is
+	# exactly what the old "a path ends within 40px" rule accepted. Non-zero means this geometry does
+	# reproduce the reported bug, so the zero above is a fix rather than a test that cannot fail.
+	var would_accept: int = 0
+	for ring: int in range(1, 8):
+		var radius: float = Enemy.SEARCH_STEP * float(ring)
+		for i: int in 24:
+			var point: Vector2 = subject.last_known + Vector2.from_angle(
+				TAU * float(i) / 24.0) * radius
+			var inside: bool = false
+			for wall: Wall in walls:
+				if wall.world_rect().has_point(point):
+					inside = true
+					break
+			if not inside or not map.is_valid():
+				continue
+			var closest: Vector2 = NavigationServer2D.map_get_closest_point(map, point)
+			if closest.distance_to(point) <= 40.0:
+				would_accept += 1
+	print("[probe]   control: wall points the old 40px rule would have accepted: %d" % would_accept)
+	subject.queue_free()
 
 
 ## The tier-0 search, measured rather than eyeballed: how wide it is, which way it looks, whether its
@@ -1188,6 +1571,56 @@ func _wait_seconds(seconds: float) -> void:
 #endregion
 
 
+#region surfaces
+
+## What the level's surface dropdowns actually resolved to, and whether each wall got a real material.
+## A style that fails to apply leaves flat colour behind, which is easy to mistake for "the look I
+## picked" in a dark screenshot.
+func _report_surfaces() -> void:
+	var level: Node = GameDirector.current_level
+	if level == null:
+		print("[probe]   no level")
+		return
+	var wall_id: String = String(level.get("wall_surface_id"))
+	var floor_id: String = String(level.get("floor_surface_id"))
+	print("[probe]   level surfaces: walls='%s' floor='%s'" % [wall_id, floor_id])
+	var floor_node := level.get_node_or_null("Floor") as Polygon2D
+	print("[probe]   floor node: %s" % ("none" if floor_node == null else
+		"visible=%s tiled=%s" % [floor_node.visible, floor_node.material is ShaderMaterial]))
+	var textured: int = 0
+	var flat: int = 0
+	for node: Node in _all_nodes(level):
+		var wall := node as Wall
+		if wall == null:
+			continue
+		var body := wall.get_node_or_null("Body") as Polygon2D
+		if body != null and body.material is ShaderMaterial:
+			textured += 1
+		else:
+			flat += 1
+	print("[probe]   walls: %d textured, %d flat" % [textured, flat])
+	# One wall's material in detail: a style that silently fails to reach the shader looks exactly like
+	# a style nobody picked.
+	for node: Node in _all_nodes(level):
+		var wall := node as Wall
+		if wall == null:
+			continue
+		var body := wall.get_node_or_null("Body") as Polygon2D
+		if body == null or not (body.material is ShaderMaterial):
+			continue
+		var material := body.material as ShaderMaterial
+		print("[probe]   sample wall '%s': shader=%s tint=%s tile=%s size=%s body_color=%s" % [
+			wall.name, material.shader.resource_path.get_file(),
+			str(material.get_shader_parameter("tint")),
+			str(material.get_shader_parameter("tile_world")),
+			str(material.get_shader_parameter("size_world")),
+			str(body.color),
+		])
+		break
+
+#endregion
+
+
 #region doors
 
 ## Puts a door in the level at `player + offset`, rotated `rotation` radians. Runtime-only, so
@@ -1224,8 +1657,13 @@ func _report_doors() -> void:
 		var collision := door.find_child("Collision", true, false) as CollisionShape2D
 		var occluder := door.find_child("Occluder", true, false) as LightOccluder2D
 		# The leaf itself is always solid and always shadows: it is a physical object in the room,
-		# open or shut. What changes with the state is whether the *doorway* is clear.
-		var blocked: bool = collision != null and not collision.disabled
+		# open or shut. What changes with the state is whether the *doorway* is clear, and which layer
+		# the leaf is on: WORLD stops everything, DOOR stops everything except enemy movement.
+		var solid := door.find_child("Solid", true, false) as StaticBody2D
+		var layer_text: String = "0"
+		if solid != null:
+			layer_text = "WORLD" if solid.collision_layer == Layers.WORLD else "DOOR"
+		var blocked: bool = door.is_shut()
 		var shadow: bool = occluder != null and occluder.occluder_light_mask != 0
 		var sight: String = "clear" if _sight_clear_through(door) else "blocked"
 		var leaf_sight: String = "clear" if _sight_clear_across_leaf(door) else "blocked"
@@ -1241,8 +1679,9 @@ func _report_doors() -> void:
 		var exempt_count: int = (exempt_list as Array).size() if exempt_list is Array else 0
 		var player_exempt: bool = exempt_list is Array and player != null \
 			and (exempt_list as Array).has(player)
-		print("[probe]   door %s state=%s locked=%s blocks=%s shadows=%s sight=%s exempt=%d player_exempt=%s dist=%d" % [
-			door.name, _door_state_name(door.state), door.locked, blocked, shadow, sight,
+		print("[probe]   door %s state=%s locked=%s layer=%s doorway=%s shadows=%s sight=%s exempt=%d player_exempt=%s dist=%d" % [
+			door.name, _door_state_name(door.state), door.locked, layer_text,
+			"blocked" if blocked else "clear", shadow, sight,
 			exempt_count, player_exempt,
 			int(door.global_position.distance_to(player.global_position)) if player != null else -1,
 		])
@@ -1252,6 +1691,11 @@ func _report_doors() -> void:
 		])
 	if found == 0:
 		print("[probe]   no doors in the level")
+	# The player must still collide with an open leaf, even though enemies do not.
+	if player != null:
+		print("[probe]   player collides with door leaves: %s  (mask %d, DOOR bit %d)" % [
+			(player.collision_mask & Layers.DOOR) != 0, player.collision_mask, Layers.DOOR,
+		])
 	# A smashed door is removed from the level, not left lying in the doorway.
 	if _dashed_door_name != "":
 		var still_there: bool = false
@@ -1303,8 +1747,10 @@ func _sight_clear_across_leaf(door: Door) -> bool:
 	# Middle of the panel, and the leaf's own up axis is its thickness when shut.
 	var centre: Vector2 = leaf.to_global(Vector2(door.size.x * 0.5, 0.0))
 	var normal: Vector2 = Vector2.DOWN.rotated(leaf.global_rotation)
+	# Sight blockers, not movement blockers: an open leaf is see-through-proof but not walk-proof, which
+	# is exactly the asymmetry `Layers.DOOR` exists for.
 	var query := PhysicsRayQueryParameters2D.create(centre - normal * 60.0, centre + normal * 60.0,
-		Layers.SOLID)
+		Layers.SIGHT_BLOCKERS)
 	query.hit_from_inside = false
 	return space.intersect_ray(query).is_empty()
 
@@ -1744,6 +2190,12 @@ func _run(scenario: String) -> void:
 			await _search_tests()
 		if step.has("point_blank_test"):
 			await _point_blank_test()
+		if step.has("doorway_test"):
+			await _doorway_test()
+		if step.has("door_avoid_test"):
+			await _door_avoid_test()
+		if step.has("search_target_test"):
+			await _search_target_test()
 		if step.has("clear_noise"):
 			_noise_log.clear()
 		if step.has("clear_announce"):
@@ -1865,6 +2317,15 @@ func _run(scenario: String) -> void:
 			_report_doors()
 		if step.has("search_report"):
 			_report_search()
+		if step.has("surface_report"):
+			_report_surfaces()
+		if step.has("set_wall_surface"):
+			var lit_level := GameDirector.current_level
+			if lit_level != null:
+				lit_level.set("wall_surface_id", String(step["set_wall_surface"]))
+				print("[probe] wall surface -> '%s'" % step["set_wall_surface"])
+		if step.has("doorway_report"):
+			_report_doorway_routes()
 		if step.has("noise_report"):
 			_report_noise()
 		if step.has("announce_report"):

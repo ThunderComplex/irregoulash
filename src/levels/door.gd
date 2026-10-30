@@ -1,4 +1,4 @@
-@tool
+﻿@tool
 class_name Door
 extends Node2D
 ## A door in a wall: it blocks movement, bullets and light while shut, and stops blocking all
@@ -78,6 +78,7 @@ func _ready() -> void:
 	state = State.OPEN if starts_open else State.CLOSED
 	_rebuild_geometry()
 	_leaf.rotation = PI * 0.5 if state == State.OPEN else 0.0
+	_update_solid_layer()
 
 
 #region state
@@ -434,6 +435,20 @@ func _prune_swung_into() -> void:
 			_exempt.erase(actor)
 
 
+## Moves the leaf between the layer that stops everything and the layer that stops everything except
+## enemies.
+##
+## A shut door is a wall: it has to stop the player, bullets and sight until someone opens it. An open
+## leaf is a panel standing in the room, and enemies have no way around one -- doorways are
+## deliberately not in the navmesh, so their paths ran straight through the leaf and they ground to a
+## halt on it. On the DOOR layer it still blocks sight, bullets and the player's feet, which is all
+## the cover it was ever meant to be, while leaving a route enemies can actually use.
+func _update_solid_layer() -> void:
+	if _solid == null:
+		return
+	_solid.collision_layer = Layers.WORLD if state == State.CLOSED else Layers.DOOR
+
+
 ## Whether a body would be touching or inside the leaf where it is now. The margin beyond the
 ## player's radius keeps the exemption from being dropped a pixel early and handing back a nudge.
 func _leaf_covers(point: Vector2) -> bool:
@@ -463,6 +478,7 @@ func _set_shut(shut: bool, by: Node, quiet_sound: bool = false) -> void:
 	state = State.CLOSED if shut else State.OPEN
 	if shut:
 		_closer = null
+	_update_solid_layer()
 	_hinge(Tween.TRANS_CUBIC, 0.0 if shut else PI * 0.5)
 	var sound: StringName = &"door_close" if shut else &"door_open"
 	AudioDirector.play_at(sound, global_position, -9.0 if quiet_sound else -5.0)
