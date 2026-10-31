@@ -76,7 +76,7 @@ func _rebuild() -> void:
 		# The shader draws the rim for textured walls: a Line2D at fractional world coordinates renders as
 		# a broken dashed line, and it cannot follow a surface shaded per pixel anyway.
 		outline.visible = not textured
-		outline.default_color = style.rim_color if textured else color.lightened(0.25)
+		outline.default_color = color.lightened(0.25)
 		outline.z_index = Layers.Z_WALL_EDGE
 
 	if ghost != null:

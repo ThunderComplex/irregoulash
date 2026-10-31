@@ -1,4 +1,4 @@
-﻿shader_type canvas_item;
+shader_type canvas_item;
 render_mode blend_mix, unshaded;
 
 // A surface that ignores the lighting system. Used by wall tops.

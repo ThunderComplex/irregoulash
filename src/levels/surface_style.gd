@@ -34,11 +34,5 @@ extends Resource
 @export var breakup_amount: float = 0.35
 @export var breakup_scale: float = 0.23
 
-## Flat colour for the explored-geometry ghost, and for the crisp rim line on walls. Memory must stay a
-## silhouette: drawing texture there would be wrong and slower.
-@export var memory_color: Color = Color(0.40, 0.44, 0.54)
-@export var rim_color: Color = Color(0.62, 0.67, 0.78)
-
-
 func is_textured() -> bool:
 	return albedo != null

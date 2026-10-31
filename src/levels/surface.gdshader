@@ -1,4 +1,4 @@
-﻿shader_type canvas_item;
+shader_type canvas_item;
 render_mode blend_mix;
 
 // A surface that receives light from the game's lamps and the player's cone. Used by floors, which are

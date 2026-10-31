@@ -1,4 +1,4 @@
-﻿class_name SurfaceLibrary
+class_name SurfaceLibrary
 extends RefCounted
 ## Every surface look in the game, defined in code, in the same shape as `WeaponLibrary` and
 ## `EnemyLibrary`: one builder per style, all numbers in one place, referenced elsewhere by id.
@@ -57,13 +57,11 @@ static func _wood() -> SurfaceStyle:
 	# all, which would break the whole "your light reveals the room" idea.
 	s.tint = Color(0.38, 0.30, 0.20)
 	s.rim_ao_width = 14.0
-	s.rim_ao_strength = 0.34
-	s.base_band = 0.34
-	s.base_strength = 0.46
-	s.breakup_amount = 0.25
-	s.breakup_scale = 0.21
-	s.memory_color = Color(0.24, 0.20, 0.15)
-	s.rim_color = Color(0.76, 0.66, 0.50)
+	s.rim_ao_strength = 0.3
+	s.base_band = .5
+	s.base_strength = .5
+	s.breakup_amount = 0.5
+	s.breakup_scale = 0.1
 	return s
 
 
@@ -85,6 +83,4 @@ static func _wood_floor() -> SurfaceStyle:
 	s.base_strength = 0.0
 	s.breakup_amount = 0.5
 	s.breakup_scale = 0.17
-	s.memory_color = Color(0.12, 0.10, 0.08)
-	s.rim_color = Color(0.30, 0.26, 0.22)
 	return s
