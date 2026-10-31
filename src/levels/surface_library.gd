@@ -8,9 +8,10 @@ extends RefCounted
 ## because the look is chosen per level, not per wall.
 
 const WALL_IDS: Array[String] = ["plain", "wood"]
-const FLOOR_IDS: Array[String] = ["plain", "wood_floor"]
+const FLOOR_IDS: Array[String] = ["plain", "stone_tile_floor"]
 
-const WOOD_TEXTURE: String = "res://assets/textures/wall_1.png"
+const WALL_1_TEXTURE: String = "res://assets/textures/wall_1.png"
+const FLOOR_1_TEXTURE: String = "res://assets/textures/floor_1.png"
 
 static var _cache: Dictionary = {}
 
@@ -22,8 +23,8 @@ static func by_id(id: String) -> SurfaceStyle:
 	match id:
 		"wood":
 			style = _wood()
-		"wood_floor":
-			style = _wood_floor()
+		"stone_tile_floor":
+			style = _stone_tile_floor()
 		_:
 			# Unknown ids get the flat default rather than null: a typo should look plain, not crash.
 			style = _plain()
@@ -47,7 +48,7 @@ static func _wood() -> SurfaceStyle:
 	var s := SurfaceStyle.new()
 	s.id = &"wood"
 	s.display_name = "Wood"
-	s.albedo = load(WOOD_TEXTURE) as Texture2D
+	s.albedo = load(WALL_1_TEXTURE) as Texture2D
 	s.tile_world = Vector2(64.0, 64.0)
 	# Bright *over* white on purpose. A wall top is shadowed by its own light occluder -- a rectangle's
 	# interior is always behind one of its own edges from any light outside it -- so a lit wall receives
@@ -67,13 +68,13 @@ static func _wood() -> SurfaceStyle:
 
 ## The same grain used as a floor: much larger tiles, much darker, and none of the edge shading (a floor
 ## has no rim and does not drop away at its edges).
-static func _wood_floor() -> SurfaceStyle:
+static func _stone_tile_floor() -> SurfaceStyle:
 	var s := SurfaceStyle.new()
-	s.id = &"wood_floor"
-	s.display_name = "Wood Floor"
-	s.albedo = load(WOOD_TEXTURE) as Texture2D
-	s.tile_world = Vector2(160.0, 160.0)
-	s.tint = Color(0.30, 0.26, 0.22)
+	s.id = &"stone_tile_floor"
+	s.display_name = "Stone Tile Floor"
+	s.albedo = load(FLOOR_1_TEXTURE) as Texture2D
+	s.tile_world = Vector2(128.0, 128.0)
+	s.tint = Color(0.5, 0.5, 0.5, 1.0)
 	# A floor has no edge to be thick at, so none of the edge treatment applies.
 	s.rim_width = 0.0
 	s.rim_boost = 0.0
@@ -81,6 +82,6 @@ static func _wood_floor() -> SurfaceStyle:
 	s.rim_ao_strength = 0.0
 	s.base_band = 0.0
 	s.base_strength = 0.0
-	s.breakup_amount = 0.5
-	s.breakup_scale = 0.17
+	s.breakup_amount = 0.0
+	s.breakup_scale = 0.0
 	return s

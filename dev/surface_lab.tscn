@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cm18cddlcskw1" path="res://src/levels/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
-[ext_resource type="PackedScene" path="res://src/levels/lamp.tscn" id="3_lamp"]
+[ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="3_lamp"]
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_6qfs5"]
 vertices = PackedVector2Array(552, 882, 1246, 942, 48, 942, 108, 882, 1246, 110, 1186, 594, 1186, 526, 1098, 270, 1054, 526, 878, 450, 878, 350, 1098, 170, 48, 110, 302, 170, 108, 522, 374, 270, 522, 350, 374, 454, 522, 450, 1054, 594, 552, 798, 192, 798, 192, 522, 302, 226, 146, 226, 146, 454)
@@ -18,7 +18,7 @@ script = ExtResource("1_level")
 level_title = "SURFACE LAB"
 objective = "Judge the tiling, the rim and the floor."
 wall_surface_id = "wood"
-floor_surface_id = "wood_floor"
+floor_surface_id = "stone_tile_floor"
 
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=1948085861]
 position = Vector2(700, 620)
@@ -48,29 +48,26 @@ position = Vector2(700, 312)
 color = Color(1, 0.86, 0.62, 1)
 radius = 460.0
 energy = 1.1
-flicker = false
 
 [node name="FloorPool" parent="Lamps" unique_id=1253493457 instance=ExtResource("3_lamp")]
-position = Vector2(820, 620)
+position = Vector2(773, 564)
 color = Color(0.95, 0.9, 0.78, 1)
 radius = 320.0
 energy = 1.0
-flicker = false
 
 [node name="CoolBlock" parent="Lamps" unique_id=165350966 instance=ExtResource("3_lamp")]
 position = Vector2(260, 170)
 color = Color(0.72, 0.82, 1, 1)
 radius = 300.0
 energy = 0.95
-flicker = false
 
 [node name="StubLight" parent="Lamps" unique_id=557404963 instance=ExtResource("3_lamp")]
 position = Vector2(1120, 480)
 color = Color(1, 0.9, 0.75, 1)
 radius = 220.0
 energy = 0.8
-flicker = false
 
 [node name="Nav" type="NavigationRegion2D" parent="." unique_id=1960334191]
+visible = false
 navigation_polygon = SubResource("NavigationPolygon_6qfs5")
 metadata/navmesh_hash = 3636651560

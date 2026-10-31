@@ -1,4 +1,4 @@
-﻿@tool
+@tool
 class_name Level
 extends Node2D
 ## Base behaviour for every level.
@@ -69,7 +69,7 @@ const EDITOR_PREVIEW_NODE: StringName = &"EditorLightingPreview"
 		_refresh_surfaces()
 ## Look of the floor. "plain" draws no floor at all, which is how levels looked before surfaces: the
 ## ground is simply black outside the light.
-@export_enum("plain", "wood_floor") var floor_surface_id: String = "plain":
+@export_enum("plain", "stone_tile_floor") var floor_surface_id: String = "plain":
 	set(value):
 		floor_surface_id = value
 		_refresh_surfaces()

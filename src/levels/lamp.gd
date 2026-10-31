@@ -76,6 +76,8 @@ func _process(delta: float) -> void:
 		if _los_timer <= 0.0:
 			_los_timer = LOS_INTERVAL
 			_visible = _is_visible_to_player()
+			
+	_fixture.visible = _visible
 	_lit = move_toward(_lit, 1.0 if _visible else 0.0, visibility_fade * delta)
 
 	if _lit <= 0.0:
@@ -106,8 +108,8 @@ func _is_visible_to_player() -> bool:
 	if player == null:
 		# No player at all (a test scene, or the title screen): leave lamps on.
 		return true
-	if global_position.distance_squared_to(player.global_position) <= radius * radius:
-		return true
+	#if global_position.distance_squared_to(player.global_position) <= radius * radius:
+		#return true
 	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
 	if space == null:
 		return true
