@@ -64,7 +64,7 @@ func _ready() -> void:
 	GameDirector.set_player(self)
 
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if _dead:
 		return
 	var mouse: Vector2 = get_global_mouse_position()
@@ -120,7 +120,7 @@ func _physics_process(delta: float) -> void:
 	_update_footsteps(delta)
 
 
-func _unhandled_input(event: InputEvent) -> void:
+func _unhandled_input(_event: InputEvent) -> void:
 	# Weapon input (fire, reload, switching) is handled by the WeaponHolder.
 	pass
 

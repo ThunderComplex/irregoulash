@@ -1,4 +1,4 @@
-class_name WeaponLibrary
+﻿class_name WeaponLibrary
 extends RefCounted
 ## Every weapon in the game, defined in code.
 ##
@@ -44,7 +44,7 @@ static func _build_pistol() -> WeaponResource:
 	w.pellets = 1
 	w.spread_deg = 1.4
 	w.recoil_kick = 0.7
-	w.range = 780.0
+	w.max_range = 780.0
 	w.projectile_speed = 1600.0
 	w.mag_size = 12
 	w.reload_time = 1.0
@@ -72,7 +72,7 @@ static func _build_smg() -> WeaponResource:
 	w.pellets = 1
 	w.spread_deg = 4.6
 	w.recoil_kick = 0.55
-	w.range = 640.0
+	w.max_range = 640.0
 	w.projectile_speed = 1500.0
 	w.mag_size = 32
 	w.reload_time = 1.5
@@ -100,7 +100,7 @@ static func _build_shotgun() -> WeaponResource:
 	w.pellets = 7
 	w.spread_deg = 14.0
 	w.recoil_kick = 9.0
-	w.range = 430.0
+	w.max_range = 430.0
 	w.projectile_speed = 1250.0
 	w.mag_size = 5
 	w.reload_time = 1.7

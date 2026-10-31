@@ -1,4 +1,4 @@
-﻿@tool
+@tool
 class_name Wall
 extends StaticBody2D
 ## Rectangular level geometry.
@@ -138,21 +138,21 @@ func _apply_surface(body: Polygon2D, style: SurfaceStyle) -> void:
 		body.material = null
 		body.color = color
 		return
-	var material := ShaderMaterial.new()
-	material.shader = WALL_SURFACE_SHADER
-	material.set_shader_parameter("albedo", style.albedo)
-	material.set_shader_parameter("tile_world", style.tile_world)
-	material.set_shader_parameter("tint", style.tint)
-	material.set_shader_parameter("rim_width", style.rim_width)
-	material.set_shader_parameter("rim_boost", style.rim_boost)
-	material.set_shader_parameter("size_world", size)
-	material.set_shader_parameter("rim_ao_width", style.rim_ao_width)
-	material.set_shader_parameter("rim_ao_strength", style.rim_ao_strength)
-	material.set_shader_parameter("base_band", style.base_band)
-	material.set_shader_parameter("base_strength", style.base_strength)
-	material.set_shader_parameter("breakup_amount", style.breakup_amount)
-	material.set_shader_parameter("breakup_scale", style.breakup_scale)
-	body.material = material
+	var shader_material := ShaderMaterial.new()
+	shader_material.shader = WALL_SURFACE_SHADER
+	shader_material.set_shader_parameter("albedo", style.albedo)
+	shader_material.set_shader_parameter("tile_world", style.tile_world)
+	shader_material.set_shader_parameter("tint", style.tint)
+	shader_material.set_shader_parameter("rim_width", style.rim_width)
+	shader_material.set_shader_parameter("rim_boost", style.rim_boost)
+	shader_material.set_shader_parameter("size_world", size)
+	shader_material.set_shader_parameter("rim_ao_width", style.rim_ao_width)
+	shader_material.set_shader_parameter("rim_ao_strength", style.rim_ao_strength)
+	shader_material.set_shader_parameter("base_band", style.base_band)
+	shader_material.set_shader_parameter("base_strength", style.base_strength)
+	shader_material.set_shader_parameter("breakup_amount", style.breakup_amount)
+	shader_material.set_shader_parameter("breakup_scale", style.breakup_scale)
+	body.material = shader_material
 	# White: the tint is a shader uniform now, so the polygon must not tint on top of it. `color` remains
 	# the flat fallback used when a wall has no texture.
 	body.color = Color.WHITE

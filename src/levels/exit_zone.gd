@@ -113,9 +113,9 @@ func _process(delta: float) -> void:
 	if _light != null:
 		_light.energy = 0.55 + pulse * 0.5
 	if (_marker != null) and (_ring != null):
-		var scale: float = 1.0 + pulse * 0.05
-		_marker.scale = Vector2.ONE * scale
-		_ring.scale = Vector2.ONE * scale
+		var marker_scale: float = 1.0 + pulse * 0.05
+		_marker.scale = Vector2.ONE * marker_scale
+		_ring.scale = Vector2.ONE * marker_scale
 		_ring.modulate.a = 0.5 + pulse * 0.4
 
 	if _used:

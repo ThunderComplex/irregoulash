@@ -890,7 +890,7 @@ func _on_damaged(_amount: float, _source: Node, _hit_position: Vector2, _directi
 	FxDirector.shake(0.12)
 
 
-func _on_died(source: Node) -> void:
+func _on_died(_source: Node) -> void:
 	if _dead:
 		return
 	_dead = true

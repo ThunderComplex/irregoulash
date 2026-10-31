@@ -46,19 +46,19 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if _footer == null:
 		return
-	var size: Vector2i = Vector2i(get_viewport().get_visible_rect().size)
+	var settings_size: Vector2i = Vector2i(get_viewport().get_visible_rect().size)
 	if Engine.is_embedded_in_editor():
 		# The editor's embedded game window only supports windowed mode, so a window mode or
 		# resolution change here would fail with an engine error. Say that rather than letting
 		# the player press a button that cannot work. Run the game un-embedded (or export it)
 		# to use these two rows for real.
 		_footer.text = "window %d x %d     embedded in the editor: window mode and resolution are fixed" % [
-			size.x, size.y,
+			settings_size.x, settings_size.y,
 		]
 		_footer.text += "\n[ ESC ] close, changes are saved as you make them"
 		return
 	_footer.text = "window %d x %d     [ ESC ] close, changes are saved as you make them" % [
-		size.x, size.y,
+		settings_size.x, settings_size.y,
 	]
 
 
@@ -132,9 +132,9 @@ func _build() -> void:
 	_resolution_sizes = Settings.resolution_options()
 	var desktop: Vector2i = DisplayServer.screen_get_size()
 	for i: int in _resolution_sizes.size():
-		var size: Vector2i = _resolution_sizes[i]
-		var text: String = "%d x %d" % [size.x, size.y]
-		if size == desktop:
+		var res_size: Vector2i = _resolution_sizes[i]
+		var text: String = "%d x %d" % [res_size.x, res_size.y]
+		if res_size == desktop:
 			text += "   (desktop)"
 		_resolution_button.add_item(text, i)
 	_resolution_button.item_selected.connect(_on_resolution_selected)
@@ -198,10 +198,10 @@ func _slider() -> HSlider:
 	return slider
 
 
-func _rect(parent: Control, position_: Vector2, size: Vector2, color: Color) -> ColorRect:
+func _rect(parent: Control, position_: Vector2, rect_size: Vector2, color: Color) -> ColorRect:
 	var rect := ColorRect.new()
 	rect.position = position_ * _scale
-	rect.size = size * _scale
+	rect.size = rect_size * _scale
 	rect.color = color
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(rect)
@@ -252,7 +252,7 @@ func _update_volume_labels() -> void:
 
 
 func _on_mode_selected(index: int) -> void:
-	Settings.set_window_mode(_mode_button.get_item_id(index))
+	Settings.set_window_mode(_mode_button.get_item_id(index) as GameSettings.WindowMode)
 
 
 func _on_resolution_selected(index: int) -> void:

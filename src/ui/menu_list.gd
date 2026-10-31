@@ -24,8 +24,8 @@ var _ids: Array[StringName] = []
 ## `rect` is in reference units; the list occupies that rectangle on screen. `columns` above 1
 ## lays the items out as a grid, which is how four buttons fit in a title screen whose text
 ## already fills the frame. Size the rectangle as rows * ROW_HEIGHT: the items divide it evenly.
-func configure(rect: Rect2, scale: float, columns: int = 1) -> void:
-	_scale = maxf(0.1, scale)
+func configure(rect: Rect2, rect_scale: float, columns: int = 1) -> void:
+	_scale = maxf(0.1, rect_scale)
 	_columns = maxi(1, columns)
 	position = rect.position * _scale
 	size = rect.size * _scale
@@ -59,9 +59,13 @@ func layout() -> void:
 	var rows: int = int(ceil(float(count) / float(columns)))
 	var cell: Vector2 = Vector2(size.x / float(columns), size.y / float(rows))
 	for i: int in count:
+		var column_index: int = i % columns
+		
+		@warning_ignore("integer_division")
+		var row_index: int = i / columns
 		_buttons[i].position = Vector2(
-			cell.x * float(i % columns) + ROW_GAP * 0.5 * _scale,
-			cell.y * float(i / columns) + ROW_GAP * 0.5 * _scale)
+			cell.x * float(column_index) + ROW_GAP * 0.5 * _scale,
+			cell.y * float(row_index) + ROW_GAP * 0.5 * _scale)
 		_buttons[i].size = Vector2(cell.x - ROW_GAP * _scale, cell.y - ROW_GAP * _scale)
 
 

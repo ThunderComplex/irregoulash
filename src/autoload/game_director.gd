@@ -270,8 +270,9 @@ func stats_line() -> String:
 	]
 
 
-static func format_time(seconds: float) -> String:
+func format_time(seconds: float) -> String:
 	var total: int = int(seconds)
+	@warning_ignore("integer_division")
 	return "%d:%02d" % [total / 60, total % 60]
 
 #endregion

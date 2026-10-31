@@ -112,6 +112,8 @@ func _center_window() -> void:
 	if target != resolution:
 		DisplayServer.window_set_size(target)
 	var origin: Vector2i = DisplayServer.screen_get_position(screen)
+
+	@warning_ignore("integer_division")
 	DisplayServer.window_set_position(origin + (usable - target) / 2)
 
 
@@ -215,7 +217,7 @@ func load_settings() -> void:
 		return
 	_has_saved = true
 	window_mode = clampi(int(config.get_value("display", "window_mode", int(window_mode))),
-		WindowMode.WINDOWED, WindowMode.EXCLUSIVE)
+		WindowMode.WINDOWED, WindowMode.EXCLUSIVE) as WindowMode
 	resolution = config.get_value("display", "resolution", resolution)
 	vsync_enabled = bool(config.get_value("display", "vsync", vsync_enabled))
 	master_volume_db = float(config.get_value("audio", "master_db", master_volume_db))

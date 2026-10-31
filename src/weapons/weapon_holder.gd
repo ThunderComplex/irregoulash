@@ -1,4 +1,4 @@
-class_name WeaponHolder
+﻿class_name WeaponHolder
 extends Node2D
 ## The player's gun hand: firing, magazines, reloading, spread bloom, switching.
 ##
@@ -150,7 +150,7 @@ func try_fire() -> void:
 		bullet.damage = s.damage()
 		bullet.hits_mask = Layers.PLAYER_SHOT_HITS
 		bullet.shooter = _player
-		bullet.max_distance = w.range * randf_range(0.85, 1.15)
+		bullet.max_distance = w.max_range * randf_range(0.85, 1.15)
 		bullet.color = w.color
 		bullet.knockback = w.knockback
 		bullet.show_orb = false

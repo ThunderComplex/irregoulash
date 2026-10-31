@@ -560,7 +560,7 @@ func _label(parent: Control, preset: int, l: float, t: float, r: float, b: float
 	label.offset_top = t * _scale
 	label.offset_right = r * _scale
 	label.offset_bottom = b * _scale
-	label.horizontal_alignment = halign
+	label.horizontal_alignment = halign as HorizontalAlignment
 	label.add_theme_font_size_override("font_size", int(round(float(font_size) * _scale)))
 	label.modulate = color
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE

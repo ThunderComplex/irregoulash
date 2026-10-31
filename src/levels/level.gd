@@ -225,19 +225,19 @@ func _rebuild_floor() -> void:
 		Vector2(-half.x, -half.y), Vector2(half.x, -half.y),
 		Vector2(half.x, half.y), Vector2(-half.x, half.y),
 	])
-	var material := ShaderMaterial.new()
-	material.shader = Wall.SURFACE_SHADER
-	material.set_shader_parameter("albedo", style.albedo)
-	material.set_shader_parameter("tile_world", style.tile_world)
-	material.set_shader_parameter("tint", style.tint)
-	material.set_shader_parameter("size_world", rect.size)
-	material.set_shader_parameter("rim_ao_width", style.rim_ao_width)
-	material.set_shader_parameter("rim_ao_strength", style.rim_ao_strength)
-	material.set_shader_parameter("base_band", style.base_band)
-	material.set_shader_parameter("base_strength", style.base_strength)
-	material.set_shader_parameter("breakup_amount", style.breakup_amount)
-	material.set_shader_parameter("breakup_scale", style.breakup_scale)
-	floor_node.material = material
+	var shader_material := ShaderMaterial.new()
+	shader_material.shader = Wall.SURFACE_SHADER
+	shader_material.set_shader_parameter("albedo", style.albedo)
+	shader_material.set_shader_parameter("tile_world", style.tile_world)
+	shader_material.set_shader_parameter("tint", style.tint)
+	shader_material.set_shader_parameter("size_world", rect.size)
+	shader_material.set_shader_parameter("rim_ao_width", style.rim_ao_width)
+	shader_material.set_shader_parameter("rim_ao_strength", style.rim_ao_strength)
+	shader_material.set_shader_parameter("base_band", style.base_band)
+	shader_material.set_shader_parameter("base_strength", style.base_strength)
+	shader_material.set_shader_parameter("breakup_amount", style.breakup_amount)
+	shader_material.set_shader_parameter("breakup_scale", style.breakup_scale)
+	floor_node.material = shader_material
 	floor_node.color = style.tint
 
 #endregion
