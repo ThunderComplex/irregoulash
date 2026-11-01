@@ -73,7 +73,7 @@ static func _stone_tile_floor() -> SurfaceStyle:
 	s.id = &"stone_tile_floor"
 	s.display_name = "Stone Tile Floor"
 	s.albedo = load(FLOOR_1_TEXTURE) as Texture2D
-	s.tile_world = Vector2(128.0, 128.0)
+	s.tile_world = Vector2(96.0, 96.0)
 	s.tint = Color(0.5, 0.5, 0.5, 1.0)
 	# A floor has no edge to be thick at, so none of the edge treatment applies.
 	s.rim_width = 0.0

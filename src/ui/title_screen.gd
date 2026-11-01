@@ -172,14 +172,14 @@ func _to_screen(point: Vector2) -> Vector2:
 	return _origin + point * _scale
 
 
-func _label(position_: Vector2, size: Vector2, text: String, font_size: int, color: Color,
+func _label(position_: Vector2, label_size: Vector2, text: String, font_size: int, color: Color,
 		halign: int = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.position = _to_screen(position_)
-	label.size = size * _scale
+	label.size = label_size * _scale
 	label.add_theme_font_size_override("font_size", maxi(1, int(round(float(font_size) * _scale))))
-	label.horizontal_alignment = halign
+	label.horizontal_alignment = halign as HorizontalAlignment
 	label.modulate = color
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(label)

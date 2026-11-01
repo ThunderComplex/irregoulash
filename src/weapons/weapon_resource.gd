@@ -18,7 +18,6 @@ extends Resource
 ## How much the crosshair blooms per shot.
 @export var recoil_kick: float = 0.5
 ## Bullet travel distance in pixels.
-@export var max_range: float = 720.0
 @export var projectile_speed: float = 1500.0
 @export var mag_size: int = 12
 @export var reload_time: float = 1.1

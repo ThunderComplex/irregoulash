@@ -218,7 +218,7 @@ func _rebuild_floor() -> void:
 	floor_node.visible = true
 	floor_node.z_index = Layers.Z_FLOOR
 	# Grown past the camera limits, so the floor's own edge is never on screen.
-	var rect: Rect2 = level_bounds().grow(64.0)
+	var rect: Rect2 = level_bounds().grow(level_bounds().size.length())
 	floor_node.position = rect.get_center()
 	var half: Vector2 = rect.size * 0.5
 	floor_node.polygon = PackedVector2Array([

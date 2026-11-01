@@ -11,7 +11,7 @@ var velocity: Vector2 = Vector2.RIGHT
 var damage: float = 10.0
 var hits_mask: int = Layers.PLAYER_SHOT_HITS
 var shooter: Node = null
-var max_distance: float = 700.0
+var max_distance: float = 3200.0
 var color: Color = Color.WHITE
 var knockback: float = 0.0
 ## Draw a visible orb (used for slow enemy rounds so they can be dodged).
