@@ -157,6 +157,23 @@ func _apply_surface(body: Polygon2D, style: SurfaceStyle) -> void:
 	# White: the tint is a shader uniform now, so the polygon must not tint on top of it. `color` remains
 	# the flat fallback used when a wall has no texture.
 	body.color = Color.WHITE
+	# The lighting mask is owned by the level; ask it rather than caching, so a level rebuilt in the
+	# editor or a run started from the title screen both work.
+	var reveal := _reveal_mask()
+	if reveal != null:
+		shader_material.set_shader_parameter("reveal", reveal.texture)
+		shader_material.set_shader_parameter("reveal_origin", reveal.world_rect.position)
+		shader_material.set_shader_parameter("reveal_size", reveal.world_rect.size)
+
+
+## The level's reveal mask, found by walking up: the same pattern as `surface_style()`.
+func _reveal_mask() -> RevealMask:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("reveal_mask"):
+			return node.call("reveal_mask") as RevealMask
+		node = node.get_parent()
+	return null
 
 
 ## Safety net: if a wall ever ends up without its generated children (hand-built
@@ -226,16 +243,18 @@ func _refresh_wall_decor() -> void:
 
 ## Shows what this wall has revealed of itself.
 ##
-## A textured wall draws its own surface, so it appears whole once seen; the flat fallback appears as a
-## dim silhouette instead, which is what every wall used to be.
+## A textured wall no longer tracks whether it has been looked at: its shader multiplies it by
+## `RevealMask`, so it appears exactly where it is lit by the player's cone or a visible lamp, and a long
+## wall shows only the lit stretch. The flat fallback has no shader to do that with, so it keeps the old
+## explored-once silhouette.
 func _update_memory_visibility() -> void:
 	var body: Polygon2D = get_node_or_null("Body") as Polygon2D
 	var ghost: Polygon2D = get_node_or_null("Ghost") as Polygon2D
 	var textured: bool = body != null and body.material is ShaderMaterial
-	if body != null and textured:
-		body.modulate.a = 1.0 if _explored else 0.0
-	if ghost != null and not textured:
-		ghost.modulate.a = memory_brightness() if _explored else 0.0
+	if body != null:
+		body.modulate.a = 1.0
+	if ghost != null:
+		ghost.modulate.a = (memory_brightness() if _explored else 0.0) if not textured else 0.0
 
 
 ## This wall's footprint as a world-space polygon, so rotated walls work and so the merged outline can

@@ -1,4 +1,4 @@
-@tool
+﻿@tool
 class_name Level
 extends Node2D
 ## Base behaviour for every level.
@@ -107,6 +107,7 @@ var _fx_layer: Node2D = null
 var _memory: VisionMemory = null
 var _hud: HUD = null
 var _wall_decor: WallDecor = null
+var _reveal: RevealMask = null
 
 #region editor-only state
 var _gizmo_hash: int = 0
@@ -209,6 +210,41 @@ func _setup_wall_decor() -> void:
 		return
 	_ensure_wall_decor()
 	_wall_decor.setup(walls, style)
+	var reveal := _ensure_reveal_mask()
+	if reveal != null:
+		_wall_decor.use_reveal(reveal)
+
+
+## The lighting mask walls are multiplied by. Created lazily and told the level's bounds, so it always
+## covers the whole level however the walls were authored.
+func _ensure_reveal_mask() -> RevealMask:
+	if _reveal == null or not is_instance_valid(_reveal):
+		_reveal = RevealMask.new()
+		_reveal.name = "Reveal"
+		add_child(_reveal, false, Node.INTERNAL_MODE_DISABLED)
+	var rect: Rect2 = level_bounds().grow(64.0)
+	_reveal.setup(rect, get_world_2d())
+	# Wall materials cannot point at a mask that has not been rendered yet, so re-apply everything once
+	# the first frame is read back.
+	if not _reveal.first_sample.is_connected(_on_reveal_first_sample):
+		_reveal.first_sample.connect(_on_reveal_first_sample)
+	if not _reveal.sampled.is_connected(_on_reveal_sampled):
+		_reveal.sampled.connect(_on_reveal_sampled)
+	return _reveal
+
+
+func _on_reveal_first_sample() -> void:
+	_refresh_surfaces()
+
+
+## The mask moves ten times a second; the decoration is drawn on the CPU from it, so it follows here.
+func _on_reveal_sampled() -> void:
+	if _wall_decor != null and is_instance_valid(_wall_decor):
+		_wall_decor.sync_reveal()
+
+
+func reveal_mask() -> RevealMask:
+	return _reveal
 
 
 ## Called by a wall when it becomes (or stops being) explored.
@@ -282,13 +318,11 @@ func _ensure_fog() -> void:
 	_fog.color = fog_color
 
 
+## Wall memory is retired: a textured wall is drawn from the lighting mask instead, which is both what
+## the design wants and cheaper than sampling the screen for ghost polygons. The flat fallback still uses
+## `Wall.mark_explored` for its silhouette, and needs no memory node for that.
 func _ensure_memory() -> void:
-	_memory = get_node_or_null("Memory") as VisionMemory
-	if _memory == null:
-		_memory = VisionMemory.new()
-		_memory.name = "Memory"
-		add_child(_memory)
-	_memory.sample_interval = Tuning.memory_sample_interval
+	_memory = null
 
 
 func _ensure_fx_layer() -> void:

@@ -1584,6 +1584,27 @@ func _report_surfaces() -> void:
 	var wall_id: String = String(level.get("wall_surface_id"))
 	var floor_id: String = String(level.get("floor_surface_id"))
 	print("[probe]   level surfaces: walls='%s' floor='%s'" % [wall_id, floor_id])
+	# The lighting mask walls are multiplied by: if it is black, every wall is invisible, so its numbers
+	# are the first thing worth knowing.
+	var mask := level.call("reveal_mask") as RevealMask
+	if mask != null:
+		var image: Image = mask.texture.get_image() if mask.texture != null else null
+		if image == null:
+			print("[probe]   reveal mask: no texture yet (rect %s)" % str(mask.world_rect))
+		else:
+			var total: float = 0.0
+			var peak: float = 0.0
+			var samples: int = 0
+			for y: int in range(0, image.get_height(), 2):
+				for x: int in range(0, image.get_width(), 2):
+					var value: float = image.get_pixel(x, y).r
+					total += value
+					peak = maxf(peak, value)
+					samples += 1
+			print("[probe]   reveal mask %dx%d rect %s avg=%.3f peak=%.3f" % [
+				image.get_width(), image.get_height(), str(mask.world_rect),
+				total / maxf(1.0, float(samples)), peak,
+			])
 	var floor_node := level.get_node_or_null("Floor") as Polygon2D
 	print("[probe]   floor node: %s" % ("none" if floor_node == null else
 		"visible=%s tiled=%s" % [floor_node.visible, floor_node.material is ShaderMaterial]))

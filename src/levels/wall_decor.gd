@@ -1,4 +1,4 @@
-class_name WallDecor
+﻿class_name WallDecor
 extends MeshInstance2D
 ## Rim and ambient occlusion for a level's walls, drawn from the *merged* outline of the wall mass.
 ##
@@ -27,19 +27,47 @@ const AO_RINGS: int = 4
 const MITER_LIMIT: float = 3.0
 ## How far south a segment has to face before it gets the extra "the face falls away" darkening.
 const SOUTH_FACING: float = 0.35
+## How far outside the outline the lighting mask is read, in world pixels. On the outline itself a wall
+## reads its own shadow.
+const REVEAL_PROBE: float = 10.0
+
+## Multiplies the decoration by the same lighting mask the wall fill uses, so rim and occlusion appear
+## exactly where the wall they belong to is lit.
+const DECOR_SHADER: Shader = preload("res://src/levels/wall_decor.gdshader")
 
 var _walls: Array[Wall] = []
 var _outlines: Array[Dictionary] = []
 var _style: SurfaceStyle = null
+var _material: ShaderMaterial = null
+## The lighting mask, sampled on the CPU so decoration appears where the wall around it is lit.
+var _reveal: RevealMask = null
+var _reveal_image: Image = null
 
 
 func _ready() -> void:
 	# Built here rather than through `FxDirector`: this node exists in the editor too, and autoloads are
-	# placeholders there.
-	var canvas_material := CanvasItemMaterial.new()
-	canvas_material.light_mode = CanvasItemMaterial.LIGHT_MODE_UNSHADED
-	material = canvas_material
+	# placeholders there. The shader is unshaded in its own `render_mode`, so no CanvasItemMaterial is
+	# needed on top of it.
+	_material = ShaderMaterial.new()
+	_material.shader = DECOR_SHADER
+	material = _material
 	z_index = Layers.Z_WALL_EDGE
+
+
+## Gives the decoration the level's lighting mask. Called by `Level` once the mask exists.
+##
+## The mask is sampled on the CPU, once per segment, rather than in the shader: a decoration fragment sits
+## *on* the outline, so it suffers the wall's own shadow, and the per-segment `inward` direction is the one
+## thing the shader does not have. Sampling just outside the outline, where the lighting is real, is easy
+## here and impossible there.
+func use_reveal(mask: RevealMask) -> void:
+	_reveal = mask
+	refresh()
+
+
+## Re-reads the mask and rebuilds, so decoration follows the lighting at the mask's own update rate.
+func sync_reveal() -> void:
+	refresh()
 
 
 ## Merges the walls and caches, per outline segment, everything the drawing pass needs: its ends, the
@@ -96,16 +124,36 @@ func setup(walls: Array[Wall], style: SurfaceStyle) -> void:
 	refresh()
 
 
-## Rebuilds only the vertex data, so this can run whenever a wall becomes explored.
+## Rebuilds the vertex data from the cached outlines and the current lighting mask. Cheap enough to run at
+## the mask's update rate.
 func refresh() -> void:
 	if _style == null or not _style.is_textured():
 		mesh = null
 		return
+	_reveal_image = _reveal.texture.get_image() if _reveal != null and _reveal.texture != null else null
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for entry: Dictionary in _outlines:
 		_emit(surface, entry)
 	mesh = surface.commit()
+
+
+## How lit the mask says the space just outside this piece of outline is. Sampled a step *out* of the wall,
+## because the mask on top of the wall is the wall's own shadow.
+func _lit_outside(mid: Vector2, inward: Vector2) -> float:
+	if _reveal == null or _reveal_image == null:
+		return 1.0
+	var rect: Rect2 = _reveal.world_rect
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return 1.0
+	var point: Vector2 = mid - inward * REVEAL_PROBE
+	var uv: Vector2 = (point - rect.position) / rect.size
+	if uv.x < 0.0 or uv.y < 0.0 or uv.x > 1.0 or uv.y > 1.0:
+		return 0.0
+	var x: int = clampi(int(uv.x * float(_reveal_image.get_width())), 0, _reveal_image.get_width() - 1)
+	var y: int = clampi(int(uv.y * float(_reveal_image.get_height())), 0,
+		_reveal_image.get_height() - 1)
+	return _reveal_image.get_pixel(x, y).r
 
 
 func _emit(surface: SurfaceTool, entry: Dictionary) -> void:
@@ -120,10 +168,11 @@ func _emit(surface: SurfaceTool, entry: Dictionary) -> void:
 	var occlusion_strength: float = _style.rim_ao_strength
 	if occlusion_width > 0.0 and occlusion_strength > 0.0:
 		for i: int in count:
-			var owner := owners[i] as Wall
-			if owner != null and not owner.is_explored():
+			var mid: Vector2 = (points[i] + points[(i + 1) % count]) * 0.5
+			var lit: float = _lit_outside(mid, normals[i])
+			if lit <= 0.01:
 				continue
-			var strength: float = occlusion_strength
+			var strength: float = occlusion_strength * lit
 			if bool(south[i]):
 				# A south-facing edge is where the wall's face falls away from the camera: extra darkening
 				# here is what reads as thickness rather than as a flat cut-out.
@@ -148,14 +197,18 @@ func _emit(surface: SurfaceTool, entry: Dictionary) -> void:
 		var rim := _style.tint.lightened(0.5)
 		rim.a = clampf(0.3 + _style.rim_boost, 0.0, 1.0)
 		for i: int in count:
-			var owner := owners[i] as Wall
-			if owner != null and not owner.is_explored():
+			var mid: Vector2 = (points[i] + points[(i + 1) % count]) * 0.5
+			var lit: float = _lit_outside(mid, normals[i])
+			if lit <= 0.01:
 				continue
 			var a: Vector2 = points[i]
 			var b: Vector2 = points[(i + 1) % count]
 			var na: Vector2 = normals[i] * _style.rim_width * scales[i]
 			var nb: Vector2 = normals[(i + 1) % count] * _style.rim_width * scales[(i + 1) % count]
-			_quad(surface, a, b, b + nb, a + na, rim, rim, rim, rim)
+			# Rim brightness follows the lighting too, so it does not outline stretches of wall that are
+			# in the dark.
+			var rim_lit := Color(rim.r, rim.g, rim.b, rim.a * lit)
+			_quad(surface, a, b, b + nb, a + na, rim_lit, rim_lit, rim_lit, rim_lit)
 
 
 ## `outer_a`-`outer_b` is the edge on the outline; `inner_b`-`inner_a` is the matching edge one step in.
