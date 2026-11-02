@@ -160,7 +160,7 @@ func _emit(surface: SurfaceTool, entry: Dictionary) -> void:
 	var points: PackedVector2Array = entry["points"]
 	var normals: PackedVector2Array = entry["normals"]
 	var scales: PackedFloat32Array = entry["scales"]
-	var owners: Array = entry["owners"]
+	# var owners: Array = entry["owners"]
 	var south: Array = entry["south"]
 	var count: int = points.size()
 
