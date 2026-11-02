@@ -9,7 +9,7 @@
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_lxqdr"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mq3e7"]
 shader = ExtResource("2_awj53")
 shader_parameter/albedo = ExtResource("3_un6eu")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -17,13 +17,22 @@ shader_parameter/tint = Color(0.5, 0.5, 0.5, 1)
 shader_parameter/breakup_amount = 0.0
 shader_parameter/breakup_scale = 0.0
 shader_parameter/breakup_mask_scale = 6.0
-shader_parameter/size_world = Vector2(5644.6167, 4944.6167)
+shader_parameter/size_world = Vector2(5775.6563, 5027.6563)
 shader_parameter/rim_width = 0.0
 shader_parameter/rim_boost = 0.0
 shader_parameter/rim_ao_width = 0.0
 shader_parameter/rim_ao_strength = 0.0
 shader_parameter/base_band = 0.0
 shader_parameter/base_strength = 0.0
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_mq3e7"]
+vertices = PackedVector2Array(1650, 146, 1650, 46, 1710, -14, 1710, 942, -14, -14, 46, 46, -14, 942, 46, 594, 622, 594, 622, 882, 722, 882, 722, 494, 146, 494, 146, 146, 1006, 146, 1006, 850, 1106, 850, 1106, 146)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 2, 1, 5), PackedInt32Array(6, 4, 5, 7), PackedInt32Array(7, 8, 9, 6), PackedInt32Array(3, 6, 9, 10), PackedInt32Array(11, 12, 13, 14), PackedInt32Array(11, 14, 15, 10), PackedInt32Array(3, 10, 15, 16), PackedInt32Array(0, 3, 16, 17)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(-32, -32, 1728, -32, 1728, 960, -32, 960)])
+parsed_geometry_type = 1
+source_geometry_mode = 1
+source_geometry_group_name = &"wall"
+agent_radius = 18.0
 
 [node name="LevelCampaign1" type="Node2D" unique_id=60981112]
 script = ExtResource("1_level")
@@ -34,25 +43,43 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_lxqdr")
-position = Vector2(640, 384)
+material = SubResource("ShaderMaterial_mq3e7")
+position = Vector2(847.9999, 464)
 color = Color(0.5, 0.5, 0.5, 1)
-polygon = PackedVector2Array(-2822.3083, -2472.3083, 2822.3083, -2472.3083, 2822.3083, 2472.3083, -2822.3083, 2472.3083)
+polygon = PackedVector2Array(-2887.8281, -2513.8281, 2887.8281, -2513.8281, 2887.8281, 2513.8281, -2887.8281, 2513.8281)
 metadata/_edit_lock_ = true
 
 [node name="Walls" type="Node2D" parent="." unique_id=325946596]
 
-[node name="DrawnWall1" type="StaticBody2D" parent="Walls" unique_id=1912703660 instance=ExtResource("2_wall")]
+[node name="DrawnWall1" parent="Walls" unique_id=1912703660 instance=ExtResource("2_wall")]
 position = Vector2(96, 352)
-collision_mask = 0
-script = ExtResource("5_mq3e7")
 size = Vector2(64, 448)
 
-[node name="DrawnWall2" type="StaticBody2D" parent="Walls" unique_id=1345430339 instance=ExtResource("2_wall")]
+[node name="DrawnWall2" parent="Walls" unique_id=1345430339 instance=ExtResource("2_wall")]
 position = Vector2(384, 544)
+size = Vector2(512, 64)
+
+[node name="DrawnWall3" parent="Walls" unique_id=1173395330 instance=ExtResource("2_wall")]
+position = Vector2(352, 96)
+size = Vector2(576, 64)
+
+[node name="DrawnWall4" parent="Walls" unique_id=1105604782 instance=ExtResource("2_wall")]
+position = Vector2(672, 688)
+size = Vector2(64, 352)
+
+[node name="DrawnWall5" parent="Walls" unique_id=392051536 instance=ExtResource("2_wall")]
+position = Vector2(1136, 96)
+size = Vector2(992, 64)
+
+[node name="DrawnWall6" parent="Walls" unique_id=1626184371 instance=ExtResource("2_wall")]
+position = Vector2(1056, 480)
+size = Vector2(64, 704)
+
+[node name="DrawnWall7" type="StaticBody2D" parent="Walls" unique_id=1116338892 instance=ExtResource("2_wall")]
+position = Vector2(512, 304)
 collision_mask = 0
 script = ExtResource("5_mq3e7")
-size = Vector2(512, 64)
+size = Vector2(64, 96)
 
 [node name="Routes" type="Node2D" parent="." unique_id=1220520183]
 
@@ -62,7 +89,7 @@ position = Vector2(220, 384)
 [node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
 
 [node name="Lamp0" parent="Lamps" unique_id=1065493755 instance=ExtResource("3_lamp")]
-position = Vector2(1030, 180)
+position = Vector2(842, 408)
 radius = 210.0
 
 [node name="Enemies" type="Node2D" parent="." unique_id=1203562756]
@@ -75,3 +102,8 @@ position = Vector2(400, 620)
 [node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("6_exit")]
 position = Vector2(1160, 384)
 is_final = true
+
+[node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]
+visible = false
+navigation_polygon = SubResource("NavigationPolygon_mq3e7")
+metadata/navmesh_hash = 314445465

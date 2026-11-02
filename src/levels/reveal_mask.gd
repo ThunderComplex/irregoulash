@@ -20,9 +20,9 @@ extends Node
 ## look worth having.
 
 ## World pixels per texel of the mask. Coarser means softer, cheaper, and more visibly retro.
-const WORLD_PER_TEXEL: float = 8.0
+const WORLD_PER_TEXEL: float = 4.0
 ## How often the mask is refreshed, in seconds.
-const UPDATE_INTERVAL: float = 0.05
+const UPDATE_INTERVAL: float = 0.1
 ## Visibility layer used only by the mask's plate. The plate has to sit on the same canvas as the lights
 ## -- a `CanvasLayer` would isolate it from them -- so the *main* viewport has this bit cleared instead,
 ## which is what keeps a full-screen white rectangle out of the game.

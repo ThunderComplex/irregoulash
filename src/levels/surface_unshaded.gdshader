@@ -1,4 +1,4 @@
-﻿shader_type canvas_item;
+shader_type canvas_item;
 render_mode blend_mix, unshaded;
 
 // A surface that ignores the lighting system. Used by wall tops.
@@ -21,7 +21,7 @@ uniform sampler2D reveal : hint_default_white, filter_linear, repeat_disable;
 uniform vec2 reveal_origin = vec2(0.0);
 uniform vec2 reveal_size = vec2(1.0);
 // Extra reach beyond half the wall's thickness, so the ring clears the wall itself.
-uniform float reveal_reach : hint_range(0.0, 96.0) = 4.0;
+uniform float reveal_reach : hint_range(0.0, 96.0) = 16.0;
 // Samples around the ring. Eight is enough to read as smooth at mask resolution.
 uniform int reveal_samples : hint_range(4, 16) = 8;
 

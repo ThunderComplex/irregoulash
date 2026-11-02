@@ -68,6 +68,9 @@ func _rebuild() -> void:
 		body.polygon = points
 		body.z_index = Layers.Z_WALL
 		_apply_surface(body, style)
+		# A textured wall is drawn by the level's `WallFill` mesh instead: its lighting is baked per vertex,
+		# so it cannot be one flat quad per wall. The flat fallback still uses this body.
+		body.visible = not textured
 
 
 	if outline != null:

@@ -42,6 +42,9 @@ var _material: ShaderMaterial = null
 ## The lighting mask, sampled on the CPU so decoration appears where the wall around it is lit.
 var _reveal: RevealMask = null
 var _reveal_image: Image = null
+## Outline samples grouped by the wall that owns them: {mid, inward} per segment. `WallFill` asks this for
+## each of its vertices, so the same definition of "outside the wall" serves the fill and the decoration.
+var _wall_outline: Dictionary = {}
 
 
 func _ready() -> void:
@@ -114,8 +117,15 @@ func setup(walls: Array[Wall], style: SurfaceStyle) -> void:
 		for i: int in count:
 			var a: Vector2 = outline[i]
 			var b: Vector2 = outline[(i + 1) % count]
-			owners.append(_owner_of((a + b) * 0.5, a, b))
+			var owner: Wall = _owner_of((a + b) * 0.5, a, b)
+			owners.append(owner)
 			south.append((-edge_inward[i]).y > SOUTH_FACING)
+			# Cache the segment per owning wall: `WallFill` asks each of its vertices for the nearest one,
+			# and restricting the search to the wall's own outline keeps that cheap.
+			if owner != null:
+				var list: Array = _wall_outline.get(owner, [])
+				list.append({"mid": (a + b) * 0.5, "inward": edge_inward[i]})
+				_wall_outline[owner] = list
 
 		_outlines.append({
 			"points": outline, "normals": normals, "scales": scales,
@@ -136,6 +146,25 @@ func refresh() -> void:
 	for entry: Dictionary in _outlines:
 		_emit(surface, entry)
 	mesh = surface.commit()
+
+
+## How lit the space near `point` is, judging by the nearest piece of *this wall's* own outline.
+##
+## This is the single definition of "how lit is the wall here": the decoration samples it per segment, and
+## `WallFill` samples it per vertex. Both ask it the same way, so they cannot disagree, and neither can read
+## the wall's own shadow because the sample is taken a step outside the outline.
+func sample_lighting_near(point: Vector2, wall: Wall) -> float:
+	var entries: Array = _wall_outline.get(wall, [])
+	if entries.is_empty():
+		return 0.0
+	var nearest: Dictionary = entries[0]
+	var nearest_distance: float = INF
+	for entry: Dictionary in entries:
+		var distance: float = (entry["mid"] as Vector2).distance_squared_to(point)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest = entry
+	return _lit_outside(nearest["mid"], nearest["inward"])
 
 
 ## How lit the mask says the space just outside this piece of outline is. Sampled a step *out* of the wall,

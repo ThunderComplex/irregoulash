@@ -107,6 +107,7 @@ var _fx_layer: Node2D = null
 var _memory: VisionMemory = null
 var _hud: HUD = null
 var _wall_decor: WallDecor = null
+var _wall_fill: WallFill = null
 var _reveal: RevealMask = null
 
 #region editor-only state
@@ -202,6 +203,13 @@ func _ensure_wall_decor() -> void:
 		add_child(_wall_decor, false, Node.INTERNAL_MODE_DISABLED)
 
 
+func _ensure_wall_fill() -> void:
+	if _wall_fill == null or not is_instance_valid(_wall_fill):
+		_wall_fill = WallFill.new()
+		_wall_fill.name = "WallFill"
+		add_child(_wall_fill, false, Node.INTERNAL_MODE_DISABLED)
+
+
 func _setup_wall_decor() -> void:
 	var style: SurfaceStyle = wall_surface()
 	if style == null or not style.is_textured():
@@ -213,6 +221,10 @@ func _setup_wall_decor() -> void:
 	var reveal := _ensure_reveal_mask()
 	if reveal != null:
 		_wall_decor.use_reveal(reveal)
+	# The fill is separate geometry because its lighting is baked per vertex, and it needs the merged
+	# outline from the decoration to know where "outside the wall" is.
+	_ensure_wall_fill()
+	_wall_fill.setup(walls, style, _wall_decor)
 
 
 ## The lighting mask walls are multiplied by. Created lazily and told the level's bounds, so it always
@@ -241,6 +253,8 @@ func _on_reveal_first_sample() -> void:
 func _on_reveal_sampled() -> void:
 	if _wall_decor != null and is_instance_valid(_wall_decor):
 		_wall_decor.sync_reveal()
+	if _wall_fill != null and is_instance_valid(_wall_fill):
+		_wall_fill.refresh()
 
 
 func reveal_mask() -> RevealMask:
