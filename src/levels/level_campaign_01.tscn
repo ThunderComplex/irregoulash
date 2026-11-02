@@ -1,0 +1,77 @@
+[gd_scene format=3 uid="uid://dwagsbowhnvka"]
+
+[ext_resource type="Script" uid="uid://cm18cddlcskw1" path="res://src/levels/level.gd" id="1_level"]
+[ext_resource type="Shader" uid="uid://pygep2sn14nj" path="res://src/levels/surface.gdshader" id="2_awj53"]
+[ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
+[ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="3_lamp"]
+[ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_un6eu"]
+[ext_resource type="Script" uid="uid://42vdeppvwt1a" path="res://src/levels/wall.gd" id="5_mq3e7"]
+[ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]
+[ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lxqdr"]
+shader = ExtResource("2_awj53")
+shader_parameter/albedo = ExtResource("3_un6eu")
+shader_parameter/tile_world = Vector2(96, 96)
+shader_parameter/tint = Color(0.5, 0.5, 0.5, 1)
+shader_parameter/breakup_amount = 0.0
+shader_parameter/breakup_scale = 0.0
+shader_parameter/breakup_mask_scale = 6.0
+shader_parameter/size_world = Vector2(5644.6167, 4944.6167)
+shader_parameter/rim_width = 0.0
+shader_parameter/rim_boost = 0.0
+shader_parameter/rim_ao_width = 0.0
+shader_parameter/rim_ao_strength = 0.0
+shader_parameter/base_band = 0.0
+shader_parameter/base_strength = 0.0
+
+[node name="LevelCampaign1" type="Node2D" unique_id=60981112]
+script = ExtResource("1_level")
+level_title = "Campaign 1"
+objective = "Get to the exit"
+wall_surface_id = "wood"
+floor_surface_id = "stone_tile_floor"
+
+[node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
+z_index = -20
+material = SubResource("ShaderMaterial_lxqdr")
+position = Vector2(640, 384)
+color = Color(0.5, 0.5, 0.5, 1)
+polygon = PackedVector2Array(-2822.3083, -2472.3083, 2822.3083, -2472.3083, 2822.3083, 2472.3083, -2822.3083, 2472.3083)
+metadata/_edit_lock_ = true
+
+[node name="Walls" type="Node2D" parent="." unique_id=325946596]
+
+[node name="DrawnWall1" type="StaticBody2D" parent="Walls" unique_id=1912703660 instance=ExtResource("2_wall")]
+position = Vector2(96, 352)
+collision_mask = 0
+script = ExtResource("5_mq3e7")
+size = Vector2(64, 448)
+
+[node name="DrawnWall2" type="StaticBody2D" parent="Walls" unique_id=1345430339 instance=ExtResource("2_wall")]
+position = Vector2(384, 544)
+collision_mask = 0
+script = ExtResource("5_mq3e7")
+size = Vector2(512, 64)
+
+[node name="Routes" type="Node2D" parent="." unique_id=1220520183]
+
+[node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
+position = Vector2(220, 384)
+
+[node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
+
+[node name="Lamp0" parent="Lamps" unique_id=1065493755 instance=ExtResource("3_lamp")]
+position = Vector2(1030, 180)
+radius = 210.0
+
+[node name="Enemies" type="Node2D" parent="." unique_id=1203562756]
+
+[node name="Pickups" type="Node2D" parent="." unique_id=330227706]
+
+[node name="Pickup0" parent="Pickups" unique_id=134755550 instance=ExtResource("5_pickup")]
+position = Vector2(400, 620)
+
+[node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("6_exit")]
+position = Vector2(1160, 384)
+is_final = true

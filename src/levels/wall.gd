@@ -143,13 +143,14 @@ func _apply_surface(body: Polygon2D, style: SurfaceStyle) -> void:
 	shader_material.set_shader_parameter("albedo", style.albedo)
 	shader_material.set_shader_parameter("tile_world", style.tile_world)
 	shader_material.set_shader_parameter("tint", style.tint)
-	shader_material.set_shader_parameter("rim_width", style.rim_width)
-	shader_material.set_shader_parameter("rim_boost", style.rim_boost)
 	shader_material.set_shader_parameter("size_world", size)
-	shader_material.set_shader_parameter("rim_ao_width", style.rim_ao_width)
-	shader_material.set_shader_parameter("rim_ao_strength", style.rim_ao_strength)
-	shader_material.set_shader_parameter("base_band", style.base_band)
-	shader_material.set_shader_parameter("base_strength", style.base_strength)
+	# The rim, its occlusion and the south shadow are drawn by `WallDecor` from the merged outline of the
+	# whole wall mass, so this per-rectangle fill contributes texture only. Anything edge-shaped here
+	# would reappear as an artificial line wherever two walls meet.
+	shader_material.set_shader_parameter("rim_width", 0.0)
+	shader_material.set_shader_parameter("rim_boost", 0.0)
+	shader_material.set_shader_parameter("rim_ao_strength", 0.0)
+	shader_material.set_shader_parameter("base_strength", 0.0)
 	shader_material.set_shader_parameter("breakup_amount", style.breakup_amount)
 	shader_material.set_shader_parameter("breakup_scale", style.breakup_scale)
 	body.material = shader_material
@@ -199,6 +200,7 @@ func mark_explored() -> void:
 		return
 	_explored = true
 	_update_memory_visibility()
+	_refresh_wall_decor()
 
 
 func is_explored() -> bool:
@@ -208,6 +210,18 @@ func is_explored() -> bool:
 func reset_memory() -> void:
 	_explored = false
 	_update_memory_visibility()
+	_refresh_wall_decor()
+
+
+## Tells the level the outline's visibility changed. Cheap: the decor caches the merged geometry and only
+## rebuilds its vertex data.
+func _refresh_wall_decor() -> void:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("refresh_wall_decor"):
+			node.call("refresh_wall_decor")
+			return
+		node = node.get_parent()
 
 
 ## Shows what this wall has revealed of itself.
@@ -222,6 +236,17 @@ func _update_memory_visibility() -> void:
 		body.modulate.a = 1.0 if _explored else 0.0
 	if ghost != null and not textured:
 		ghost.modulate.a = memory_brightness() if _explored else 0.0
+
+
+## This wall's footprint as a world-space polygon, so rotated walls work and so the merged outline can
+## be built from real geometry rather than from an axis-aligned box.
+func world_polygon() -> PackedVector2Array:
+	var out := PackedVector2Array()
+	var half: Vector2 = size * 0.5
+	for corner: Vector2 in [Vector2(-half.x, -half.y), Vector2(half.x, -half.y),
+			Vector2(half.x, half.y), Vector2(-half.x, half.y)]:
+		out.append(to_global(corner))
+	return out
 
 
 ## World-space rectangle covered by this wall.

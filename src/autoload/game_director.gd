@@ -15,7 +15,7 @@ signal reveal_changed(revealed: bool)
 signal noise_made(position: Vector2, radius: float, source: Node)
 
 const TITLE_SCENE: String = "res://src/ui/title_screen.tscn"
-const FIRST_LEVEL: String = "res://src/levels/level_03.tscn"
+const FIRST_LEVEL: String = "res://src/levels/level_campaign_01.tscn"
 
 var current_level: Node = null
 var player: Node2D = null

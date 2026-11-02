@@ -59,10 +59,12 @@ static func _wood() -> SurfaceStyle:
 	s.tint = Color(0.38, 0.30, 0.20)
 	s.rim_ao_width = 14.0
 	s.rim_ao_strength = 0.3
-	s.base_band = .5
-	s.base_strength = .5
+	s.base_band = 0
+	s.base_strength = 0
 	s.breakup_amount = 0.5
 	s.breakup_scale = 0.1
+	s.rim_width = 0
+	s.rim_boost = 0
 	return s
 
 

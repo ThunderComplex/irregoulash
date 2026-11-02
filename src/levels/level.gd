@@ -106,6 +106,7 @@ var _fog: CanvasModulate = null
 var _fx_layer: Node2D = null
 var _memory: VisionMemory = null
 var _hud: HUD = null
+var _wall_decor: WallDecor = null
 
 #region editor-only state
 var _gizmo_hash: int = 0
@@ -123,6 +124,7 @@ func _ready() -> void:
 	GameDirector.on_level_ready(self)
 	_collect_groups()
 	_ensure_floor()
+	_setup_wall_decor()
 	_ensure_fog()
 	_ensure_memory()
 	_ensure_fx_layer()
@@ -186,6 +188,33 @@ func _refresh_surfaces() -> void:
 		if wall != null and is_ancestor_of(wall):
 			wall._rebuild()
 	_rebuild_floor()
+	_setup_wall_decor()
+
+
+## The rim and occlusion along the outline of the whole wall mass. A rectangle cannot know whether its
+## edge is a real edge, so this is drawn from the merged silhouette instead -- which is what makes joins,
+## corners and overlaps read as one solid shape.
+func _ensure_wall_decor() -> void:
+	if _wall_decor == null or not is_instance_valid(_wall_decor):
+		_wall_decor = WallDecor.new()
+		_wall_decor.name = "WallDecor"
+		add_child(_wall_decor, false, Node.INTERNAL_MODE_DISABLED)
+
+
+func _setup_wall_decor() -> void:
+	var style: SurfaceStyle = wall_surface()
+	if style == null or not style.is_textured():
+		if _wall_decor != null and is_instance_valid(_wall_decor):
+			_wall_decor.setup([], style)
+		return
+	_ensure_wall_decor()
+	_wall_decor.setup(walls, style)
+
+
+## Called by a wall when it becomes (or stops being) explored.
+func refresh_wall_decor() -> void:
+	if _wall_decor != null and is_instance_valid(_wall_decor):
+		_wall_decor.refresh()
 
 
 ## The ground.
@@ -360,8 +389,9 @@ func level_bounds() -> Rect2:
 ## code) and never generates nodes that could be written into the level file.
 func _editor_ready() -> void:
 	_collect_editor_objects()
-	# So the floor is visible while authoring, not only when the level runs.
+	# So the floor and the wall outline are visible while authoring, not only when the level runs.
 	_ensure_floor()
+	_setup_wall_decor()
 	_find_spawn_point()
 	_read_tuning_defaults()
 	_apply_editor_preview()
