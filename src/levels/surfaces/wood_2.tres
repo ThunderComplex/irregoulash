@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SurfaceStyle" format=3 uid="uid://bwmoy4selubew"]
+
+[ext_resource type="Texture2D" uid="uid://db7wjtwpdq55s" path="res://assets/textures/wall_2.png" id="1_38pkh"]
+[ext_resource type="Script" uid="uid://d2ex1yop57mn1" path="res://src/levels/surface_style.gd" id="1_shd7h"]
+
+[resource]
+script = ExtResource("1_shd7h")
+display_name = "Wood 2"
+albedo = ExtResource("1_38pkh")
+tint = Color(0.5019608, 0.5019608, 0.5019608, 1)
+rim_width = 0.0
+rim_boost = 0.0
+base_band = 0.0
+base_strength = 0.0
+breakup_amount = 0.45
+breakup_scale = 0.27

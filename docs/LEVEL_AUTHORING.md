@@ -247,8 +247,25 @@ Two dropdowns on the **Level** node, and nothing per wall:
 | `wall_surface_id` | the look of every wall in the level |
 | `floor_surface_id` | the look of the floor; `plain` draws no floor at all, which is how levels looked before surfaces |
 
-Styles are defined in `src/levels/surface_library.gd` — one function each — so adding a look is a
-builder plus its id in the inspector list. `dev/surface_lab.tscn` (run it, and use `--probe=surface_lab`
+Each style is a `SurfaceStyle` resource in `src/levels/surfaces/`, and its file name is its id. The
+dropdowns are filled from that folder, so a new file shows up in them with nothing to register.
+`plain` is built in and has no file.
+
+**Authoring a style** happens in the **Surfaces** dock (part of the level tools plugin):
+
+1. Open a level (or `dev/surface_lab.tscn`), and select the texture in the FileSystem dock.
+2. Type a name into the Surfaces dock and press **New wall** or **New floor**. The style is saved,
+   opened in the inspector, and put on the open level.
+3. Tune it in the inspector. The level in the 2D viewport restyles as you drag each slider, so there
+   is no more edit–run–check loop. Turn on the level's `editor_lighting_preview` to judge it in the dark.
+4. Save the scene (or press **Save** in the dock) to write the style file.
+
+Clicking a style in the dock edits it; double-clicking (or **Use in level**) applies it to the open
+level, undoably. **Duplicate** copies the selected style so you can try a variation and keep the
+original. Styles are plain `.tres` files, so renaming or deleting one in the FileSystem dock works too.
+A level asking for a style that no longer exists draws it as `plain`.
+
+`dev/surface_lab.tscn` (run it, and use `--probe=surface_lab`
 for screenshots) shows one of each shape: a long wall, a medium one, a thin stub, a thick block, a
 corner, and a lamp pool on the floor.
 

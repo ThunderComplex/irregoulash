@@ -30,6 +30,7 @@ extends EditorPlugin
 const WALL_SCENE: PackedScene = preload("res://src/levels/wall.tscn")
 const ENEMY_SCENE: PackedScene = preload("res://src/enemies/enemy.tscn")
 const DOOR_SCENE: PackedScene = preload("res://src/levels/door.tscn")
+const SURFACE_DOCK_SCRIPT: GDScript = preload("res://addons/level_tools/surface_dock.gd")
 
 ## Grid step for snapping. Hold Alt while drawing or placing to ignore it.
 const SNAP: float = 32.0
@@ -46,6 +47,9 @@ var _nav_button: Button = null
 
 var _door_button: CheckButton = null
 var _door_lock: CheckButton = null
+
+var _surface_dock: EditorDock = null
+var _surface_panel: Control = null
 
 var _brush_on: bool = false
 var _door_on: bool = false
@@ -134,10 +138,13 @@ func _enter_tree() -> void:
 	_lint_button.pressed.connect(lint_level)
 	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _lint_button)
 
+	_add_surface_dock()
+
 
 func _exit_tree() -> void:
 	_cancel_drag()
 	_forget_pending_enemy()
+	_remove_surface_dock()
 	if _brush_button != null:
 		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _brush_button)
 		_brush_button.queue_free()
@@ -204,6 +211,58 @@ func _selected_archetype() -> String:
 	if _enemy_type == null or ids.is_empty():
 		return "guard"
 	return ids[clampi(_enemy_type.selected, 0, ids.size() - 1)]
+
+#endregion
+
+
+#region surfaces dock
+
+func _add_surface_dock() -> void:
+	_surface_panel = SURFACE_DOCK_SCRIPT.new()
+	_surface_panel.set("undo", get_undo_redo())
+	_surface_dock = EditorDock.new()
+	_surface_dock.title = "Surfaces"
+	_surface_dock.layout_key = "level_tools_surfaces"
+	_surface_dock.default_slot = EditorDock.DOCK_SLOT_RIGHT_UL
+	_surface_dock.add_child(_surface_panel)
+	add_dock(_surface_dock)
+	# New, renamed or deleted style files, and switching between levels, both change what the dock
+	# should list and which entries are in use.
+	EditorInterface.get_resource_filesystem().filesystem_changed.connect(_on_surfaces_maybe_changed)
+	scene_changed.connect(_on_scene_changed_for_surfaces)
+	EditorInterface.get_inspector().property_edited.connect(_on_inspector_property_edited)
+
+
+func _remove_surface_dock() -> void:
+	var file_system: EditorFileSystem = EditorInterface.get_resource_filesystem()
+	if file_system.filesystem_changed.is_connected(_on_surfaces_maybe_changed):
+		file_system.filesystem_changed.disconnect(_on_surfaces_maybe_changed)
+	if scene_changed.is_connected(_on_scene_changed_for_surfaces):
+		scene_changed.disconnect(_on_scene_changed_for_surfaces)
+	var inspector: EditorInspector = EditorInterface.get_inspector()
+	if inspector.property_edited.is_connected(_on_inspector_property_edited):
+		inspector.property_edited.disconnect(_on_inspector_property_edited)
+	if _surface_dock != null:
+		remove_dock(_surface_dock)
+		_surface_dock.queue_free()
+		_surface_dock = null
+		_surface_panel = null
+
+
+func _on_surfaces_maybe_changed() -> void:
+	if _surface_panel != null:
+		_surface_panel.call("refresh")
+
+
+func _on_scene_changed_for_surfaces(_root: Node) -> void:
+	_on_surfaces_maybe_changed()
+
+
+## Picking a style from the Level's own dropdown should move the dock's "in use" marker too.
+func _on_inspector_property_edited(property: String) -> void:
+	if property == "wall_surface_id" or property == "floor_surface_id":
+		if _surface_panel != null:
+			_surface_panel.call("queue_refresh")
 
 #endregion
 

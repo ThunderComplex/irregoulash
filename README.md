@@ -102,10 +102,11 @@ Walk over weapons, ammo and medkits to pick them up.
   entry and refreshed whenever you pause. It is a level checkpoint, not a save system: no
   position, no enemy state, no items already taken.
 - **Surfaces.** Walls and floors take a tiled texture chosen per level from two dropdowns on the `Level`
-  node (`plain`, `wood`), with the rim, inner shadow and bottom band computed from each rectangle's own
+  node, with the rim, inner shadow and bottom band computed from each rectangle's own
   size. Tiling is in world space, so grain stays the same size on a 96px wall and a 900px one. Floors are
   lit by lamps and your cone; wall tops are unshaded, because a wall cannot be lit by the light it casts
-  shadows for (see `docs/DESIGN_NOTES.md`). `dev/surface_lab.tscn` is the scratch scene for judging a look.
+  shadows for (see `docs/DESIGN_NOTES.md`). Styles are `.tres` files in `src/levels/surfaces/`, made and tuned live
+  from the editor's Surfaces dock; `dev/surface_lab.tscn` is the scratch scene for judging a look.
 - **Any resolution and aspect ratio**, with a settings menu (window mode, resolution,
   vsync, master and effects volume) persisted to `user://settings.cfg`. The game renders
   natively rather than stretching a fixed canvas, so text stays crisp at 4K, and the camera

@@ -58,18 +58,18 @@ const EDITOR_PREVIEW_NODE: StringName = &"EditorLightingPreview"
 @export var min_bound_size: Vector2 = Vector2(1700.0, 1000.0)
 
 @export_group("Surfaces")
-## Look of every wall in this level. Styles are defined in `SurfaceLibrary`; "plain" is the flat colour
-## walls had before textures existed, so nothing changes until you pick a style.
+## Look of every wall in this level. Styles are the files in `SurfaceLibrary.DIRECTORY`; "plain" is the
+## flat colour walls had before textures existed, so nothing changes until you pick a style.
 ##
 ## One per level rather than per wall: it keeps authoring to one dropdown, and it means a level reads as
-## one place instead of a patchwork.
-@export_enum("plain", "wood") var wall_surface_id: String = "plain":
+## one place instead of a patchwork. The dropdown's entries come from `_validate_property`.
+@export var wall_surface_id: String = "plain":
 	set(value):
 		wall_surface_id = value
 		_refresh_surfaces()
 ## Look of the floor. "plain" draws no floor at all, which is how levels looked before surfaces: the
 ## ground is simply black outside the light.
-@export_enum("plain", "stone_tile_floor") var floor_surface_id: String = "plain":
+@export var floor_surface_id: String = "plain":
 	set(value):
 		floor_surface_id = value
 		_refresh_surfaces()
@@ -115,6 +115,9 @@ var _gizmo_hash: int = 0
 var _editor_cone_reach: float = 560.0
 var _editor_cone_half: float = deg_to_rad(39.0)
 var _editor_near_radius: float = 115.0
+## The styles whose `changed` this level listens to, so an inspector edit restyles it live.
+var _watched_styles: Array[SurfaceStyle] = []
+var _restyle_queued: bool = false
 #endregion
 
 
@@ -178,6 +181,25 @@ func floor_surface() -> SurfaceStyle:
 	return SurfaceLibrary.by_id(floor_surface_id)
 
 
+## Fills the two surface dropdowns from the styles folder, so a new style file shows up in them without
+## touching this script. A value that is no longer in the folder is kept in the list, so the inspector
+## still shows what the level asks for instead of silently blanking it.
+func _validate_property(property: Dictionary) -> void:
+	var prop: String = property["name"]
+	var options: Array[String] = []
+	if prop == "wall_surface_id":
+		options = SurfaceLibrary.wall_ids()
+	elif prop == "floor_surface_id":
+		options = SurfaceLibrary.floor_ids()
+	else:
+		return
+	var current: String = get(prop)
+	if not options.has(current):
+		options.append(current)
+	property["hint"] = PROPERTY_HINT_ENUM
+	property["hint_string"] = ",".join(options)
+
+
 ## Re-applies the look to walls and floor. Used by the inspector setters, so picking a style updates the
 ## level in place instead of needing a reload.
 func _refresh_surfaces() -> void:
@@ -185,12 +207,50 @@ func _refresh_surfaces() -> void:
 	# walls each resolve their own style in `_ready`, so there is nothing to do yet.
 	if not is_inside_tree():
 		return
+	if Engine.is_editor_hint():
+		_watch_styles()
 	for node: Node in get_tree().get_nodes_in_group("wall"):
 		var wall := node as Wall
 		if wall != null and is_ancestor_of(wall):
 			wall._rebuild()
 	_rebuild_floor()
 	_setup_wall_decor()
+
+
+## Editor only: listens to the two styles in use, so tweaking one in the inspector restyles the open
+## level at once. That is what makes judging a look a matter of dragging a slider rather than of
+## editing a number, running the game and editing it again.
+func _watch_styles() -> void:
+	var wanted: Array[SurfaceStyle] = [wall_surface(), floor_surface()]
+	for style: SurfaceStyle in _watched_styles:
+		if is_instance_valid(style) and not wanted.has(style) 				and style.changed.is_connected(_on_style_changed):
+			style.changed.disconnect(_on_style_changed)
+	_watched_styles.clear()
+	for style: SurfaceStyle in wanted:
+		if style != null and not _watched_styles.has(style):
+			_watched_styles.append(style)
+			if not style.changed.is_connected(_on_style_changed):
+				style.changed.connect(_on_style_changed)
+
+
+## A slider drag emits a change per frame; rebuild once per frame at most.
+func _on_style_changed() -> void:
+	if _restyle_queued:
+		return
+	_restyle_queued = true
+	_restyle_deferred.call_deferred()
+
+
+func _restyle_deferred() -> void:
+	_restyle_queued = false
+	_refresh_surfaces()
+
+
+## Called by the level tools when the styles folder changes: the dropdowns need new entries, and a
+## style the level uses may have been added, removed or renamed.
+func surfaces_changed() -> void:
+	notify_property_list_changed()
+	_refresh_surfaces()
 
 
 ## The rim and occlusion along the outline of the whole wall mass. A rectangle cannot know whether its
@@ -442,6 +502,7 @@ func _editor_ready() -> void:
 	# So the floor and the wall outline are visible while authoring, not only when the level runs.
 	_ensure_floor()
 	_setup_wall_decor()
+	_watch_styles()
 	_find_spawn_point()
 	_read_tuning_defaults()
 	_apply_editor_preview()

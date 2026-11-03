@@ -1,89 +1,98 @@
 class_name SurfaceLibrary
 extends RefCounted
-## Every surface look in the game, defined in code, in the same shape as `WeaponLibrary` and
-## `EnemyLibrary`: one builder per style, all numbers in one place, referenced elsewhere by id.
+## Every surface look in the game, looked up by id.
 ##
-## The ids here and the `@export_enum` lists on `Level` must agree. Adding a style is: a builder here,
-## add its id to the enum, done -- the wall brush and every existing wall pick it up automatically
-## because the look is chosen per level, not per wall.
+## Unlike `WeaponLibrary` and `EnemyLibrary` the styles are not built in code: a look is judged by eye,
+## so each one is a `SurfaceStyle` resource in `DIRECTORY`, edited in the inspector with the level
+## updating live (see the Surfaces dock in `addons/level_tools`). The file name is the id, and the
+## dropdowns on `Level` are filled from this folder, so adding a style is saving a file -- nothing to
+## register anywhere.
+##
+## "plain" is the one style that is not a file: it is the flat-colour default, and what any unknown id
+## falls back to, so it must exist even with the folder empty.
 
-const WALL_IDS: Array[String] = ["plain", "wood"]
-const FLOOR_IDS: Array[String] = ["plain", "stone_tile_floor"]
+const DIRECTORY: String = "res://src/levels/surfaces/"
+const PLAIN: String = "plain"
 
-const WALL_1_TEXTURE: String = "res://assets/textures/wall_1.png"
-const FLOOR_1_TEXTURE: String = "res://assets/textures/floor_1.png"
-
-static var _cache: Dictionary = {}
+static var _styles: Dictionary = {}
+static var _scanned: bool = false
+static var _plain_style: SurfaceStyle = null
 
 
 static func by_id(id: String) -> SurfaceStyle:
-	if _cache.has(id):
-		return _cache[id]
-	var style: SurfaceStyle = null
-	match id:
-		"wood":
-			style = _wood()
-		"stone_tile_floor":
-			style = _stone_tile_floor()
-		_:
-			# Unknown ids get the flat default rather than null: a typo should look plain, not crash.
-			style = _plain()
-	_cache[id] = style
-	return style
+	_scan()
+	if _styles.has(id):
+		return _styles[id]
+	# Unknown ids get the flat default rather than null: a typo should look plain, not crash.
+	return _plain()
+
+
+## Ids offered for walls, "plain" first.
+static func wall_ids() -> Array[String]:
+	return ids(SurfaceStyle.Kind.WALL)
+
+
+## Ids offered for floors, "plain" first.
+static func floor_ids() -> Array[String]:
+	return ids(SurfaceStyle.Kind.FLOOR)
+
+
+static func ids(kind: SurfaceStyle.Kind) -> Array[String]:
+	_scan()
+	var out: Array[String] = []
+	for id: String in _styles:
+		var style: SurfaceStyle = _styles[id]
+		if style.kind == kind:
+			out.append(id)
+	out.sort()
+	out.push_front(PLAIN)
+	return out
+
+
+## Where the style with this id lives (or would live).
+static func path_for(id: String) -> String:
+	return DIRECTORY.path_join(id + ".tres")
+
+
+## Forgets the folder listing, so the next lookup sees files added, renamed or removed since. The
+## resources themselves stay in Godot's resource cache, so anything already holding a style keeps the
+## same instance.
+static func invalidate() -> void:
+	_styles.clear()
+	_scanned = false
+
+
+static func _scan() -> void:
+	if _scanned:
+		return
+	_scanned = true
+	_styles.clear()
+	if not DirAccess.dir_exists_absolute(DIRECTORY):
+		return
+	# `ResourceLoader.list_directory` rather than `DirAccess`: in an exported game the files are remapped,
+	# and only the resource loader knows them by their original names.
+	for file: String in ResourceLoader.list_directory(DIRECTORY):
+		if file.ends_with("/") or not (file.ends_with(".tres") or file.ends_with(".res")):
+			continue
+		var id: String = file.get_basename()
+		if id == PLAIN:
+			push_warning("SurfaceLibrary: '%s' is reserved for the flat default; ignoring %s."
+				% [PLAIN, file])
+			continue
+		var style := load(DIRECTORY.path_join(file)) as SurfaceStyle
+		if style == null:
+			push_warning("SurfaceLibrary: %s is not a SurfaceStyle." % file)
+			continue
+		style.id = StringName(id)
+		_styles[id] = style
 
 
 ## The pre-surfaces look: a flat colour per wall, no texture, no floor. Default so that existing
 ## levels are untouched.
 static func _plain() -> SurfaceStyle:
-	var s := SurfaceStyle.new()
-	s.id = &"plain"
-	s.display_name = "Plain"
-	s.albedo = null
-	return s
-
-
-## Warm wood grain, for the lab and for testing the tiling. The texture is authored at 256 and tiled at
-## 64 world pixels, so at the game's fixed world scale one tile is about 8% of the screen height.
-static func _wood() -> SurfaceStyle:
-	var s := SurfaceStyle.new()
-	s.id = &"wood"
-	s.display_name = "Wood"
-	s.albedo = load(WALL_1_TEXTURE) as Texture2D
-	s.tile_world = Vector2(64.0, 64.0)
-	# Bright *over* white on purpose. A wall top is shadowed by its own light occluder -- a rectangle's
-	# interior is always behind one of its own edges from any light outside it -- so a lit wall receives
-	# roughly a third of what a lit floor does at the same distance. Measured on the lab scene: floor
-	# (57,39,17) against wall (18,15,11). Boosting the style's tint is how a wall ends up reading as
-	# brightly as the ground beside it; the alternative would be to stop wall tops receiving light at
-	# all, which would break the whole "your light reveals the room" idea.
-	s.tint = Color(0.38, 0.30, 0.20)
-	s.rim_ao_width = 14.0
-	s.rim_ao_strength = 0.3
-	s.base_band = 0
-	s.base_strength = 0
-	s.breakup_amount = 0.5
-	s.breakup_scale = 0.1
-	s.rim_width = 0
-	s.rim_boost = 0
-	return s
-
-
-## The same grain used as a floor: much larger tiles, much darker, and none of the edge shading (a floor
-## has no rim and does not drop away at its edges).
-static func _stone_tile_floor() -> SurfaceStyle:
-	var s := SurfaceStyle.new()
-	s.id = &"stone_tile_floor"
-	s.display_name = "Stone Tile Floor"
-	s.albedo = load(FLOOR_1_TEXTURE) as Texture2D
-	s.tile_world = Vector2(96.0, 96.0)
-	s.tint = Color(0.5, 0.5, 0.5, 1.0)
-	# A floor has no edge to be thick at, so none of the edge treatment applies.
-	s.rim_width = 0.0
-	s.rim_boost = 0.0
-	s.rim_ao_width = 0.0
-	s.rim_ao_strength = 0.0
-	s.base_band = 0.0
-	s.base_strength = 0.0
-	s.breakup_amount = 0.0
-	s.breakup_scale = 0.0
-	return s
+	if _plain_style == null:
+		_plain_style = SurfaceStyle.new()
+		_plain_style.id = StringName(PLAIN)
+		_plain_style.display_name = "Plain"
+		_plain_style.albedo = null
+	return _plain_style

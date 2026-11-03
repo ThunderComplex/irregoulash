@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="SurfaceStyle" format=3 uid="uid://2hbj63ld1dpi"]
+
+[ext_resource type="Script" uid="uid://d2ex1yop57mn1" path="res://src/levels/surface_style.gd" id="1_style"]
+[ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="2_tex"]
+
+[resource]
+script = ExtResource("1_style")
+kind = 1
+display_name = "Stone Tile Floor"
+albedo = ExtResource("2_tex")
+tile_world = Vector2(96, 96)
+tint = Color(0.5, 0.5, 0.5, 1)
+rim_width = 0.0
+rim_boost = 0.0
+rim_ao_width = 0.0
+rim_ao_strength = 0.0
+base_band = 0.0
+base_strength = 0.0
+breakup_amount = 0.0
+breakup_scale = 0.0
