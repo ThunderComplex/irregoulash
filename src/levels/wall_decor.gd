@@ -46,9 +46,11 @@ var _material: ShaderMaterial = null
 ## The lighting mask, sampled on the CPU so decoration appears where the wall around it is lit.
 var _reveal: RevealMask = null
 var _reveal_image: Image = null
-## Outline samples grouped by the wall that owns them: {mid, inward} per segment. `WallFill` asks this for
-## each of its vertices, so the same definition of "outside the wall" serves the fill and the decoration.
-## Outline segments bucketed by position, so sample_lighting_near stays cheap on a dense level.
+## Where the player was when the mask was last read. A wall is lit by the space on the player's side of
+## it, so every sample needs the player's position; caching it per update avoids a lookup per vertex.
+var _player_position: Vector2 = Vector2.ZERO
+var _has_player: bool = false
+## Outline segments bucketed by position, so `_nearest_segment` stays cheap on a dense level.
 var _segment_grid: Dictionary = {}
 
 
@@ -70,12 +72,27 @@ func _ready() -> void:
 ## here and impossible there.
 func use_reveal(mask: RevealMask) -> void:
 	_reveal = mask
+	_cache_player()
 	refresh()
 
 
 ## Re-reads the mask and rebuilds, so decoration follows the lighting at the mask's own update rate.
 func sync_reveal() -> void:
+	_cache_player()
 	refresh()
+
+
+## Remembers where the player is, once per mask update, so the many samples a rebuild makes do not each
+## ask the game director.
+func _cache_player() -> void:
+	# This runs in the editor too, where the autoloads are placeholder objects that cannot be called.
+	if Engine.is_editor_hint():
+		_has_player = false
+		return
+	var player := GameDirector.valid_player()
+	_has_player = player != null and is_instance_valid(player)
+	if _has_player:
+		_player_position = player.global_position
 
 
 ## Merges the walls and caches, per outline segment, everything the drawing pass needs: its ends, the
@@ -148,8 +165,8 @@ func setup(walls: Array[Wall], style: SurfaceStyle) -> void:
 	refresh()
 
 
-## Rebuilds the vertex data from the cached outlines and the current lighting mask. Cheap enough to run at
-## the mask's update rate.
+## Rebuilds the vertex data from the cached outlines and the current lighting mask. It runs at the mask's
+## update rate, so it is kept to per-segment work; per-vertex sampling is left to `WallFill`.
 func refresh() -> void:
 	if _style == null or not _style.is_textured():
 		mesh = null
@@ -162,16 +179,23 @@ func refresh() -> void:
 	mesh = surface.commit()
 
 
-## How lit the space near `point` is, judging by the nearest piece of *this wall's* own outline.
+## How lit the wall is at `point`, judged by the nearest piece of the whole silhouette that faces the
+## player.
 ##
 ## This is the single definition of "how lit is the wall here": the decoration samples it per segment, and
-## `WallFill` samples it per vertex. Both ask it the same way, so they cannot disagree, and neither can read
-## the wall's own shadow because the sample is taken a step outside the outline.
+## `WallFill` samples it per vertex, so the two cannot disagree. The sample is taken a step *outside* that
+## edge, because the mask on top of a wall is the wall's own shadow.
 func sample_lighting_near(point: Vector2) -> float:
 	# Nearest piece of the *whole* silhouette, not of the wall the caller belongs to. Restricting it per
 	# wall is what made joins seam: on one side of a join the nearest edge of wall A was sampled, on the
 	# other the nearest edge of wall B, and the two disagreed across a boundary that is not an edge at all.
-	var entry: Dictionary = _nearest_segment(point)
+	#
+	# Of the edges facing the player, though: a wall is lit by the space you look at it from. Without
+	# that, a 64px-thick wall is only lit for the ~20px nearest its lit edge and black for the rest,
+	# because the vertices there are nearest the far edge and sample the space behind the wall.
+	var entry: Dictionary = _nearest_segment(point, true)
+	if entry.is_empty():
+		entry = _nearest_segment(point, false)
 	if entry.is_empty():
 		return 0.0
 	var a: Vector2 = entry["a"]
@@ -184,14 +208,20 @@ func sample_lighting_near(point: Vector2) -> float:
 
 
 ## The outline segment closest to `point`, using the spatial grid so a dense maze does not turn every
-## vertex into a scan of the whole silhouette.
-func _nearest_segment(point: Vector2) -> Dictionary:
+## vertex into a scan of the whole silhouette. With `facing_player`, only segments whose free side is the
+## player's side count.
+func _nearest_segment(point: Vector2, facing_player: bool) -> Dictionary:
+	var want_facing: bool = facing_player and _has_player
 	var cell: Vector2i = Vector2i(int(floor(point.x / GRID_CELL)), int(floor(point.y / GRID_CELL)))
-	# Expand outwards until something is found: a point deep inside a thick block starts several cells
-	# from any outline.
+	# Expand outwards until the best candidate found is closer than any cell still unsearched.
+	#
+	# This used to stop at the first ring that contained *anything*, which is wrong: a segment one cell
+	# over can be right next to the point while the point's own cell holds a far-away segment. That is
+	# exactly what a wall whose edge sits on a cell boundary gets -- its own edge was missed in favour of
+	# the opposite side of the wall, so the whole wall sampled the space behind it and stayed black.
+	var best: Dictionary = {}
+	var best_distance: float = INF
 	for ring: int in range(0, GRID_SEARCH_RINGS + 1):
-		var best: Dictionary = {}
-		var best_distance: float = INF
 		for x: int in range(cell.x - ring, cell.x + ring + 1):
 			for y: int in range(cell.y - ring, cell.y + ring + 1):
 				var bucket: Variant = _segment_grid.get(Vector2i(x, y))
@@ -204,17 +234,30 @@ func _nearest_segment(point: Vector2) -> Dictionary:
 					var length_squared: float = along.length_squared()
 					var t: float = 0.0 if length_squared < 0.0001 else clampf(
 						(point - a).dot(along) / length_squared, 0.0, 1.0)
-					var distance: float = (a + along * t).distance_squared_to(point)
+					var closest: Vector2 = a + along * t
+					if want_facing and (_player_position - closest).dot(entry["inward"]) >= 0.0:
+						continue
+					var distance: float = closest.distance_squared_to(point)
 					if distance < best_distance:
 						best_distance = distance
 						best = entry
-		if not best.is_empty():
+		# The squares searched so far are exact, so the distance to their edge is the closest an
+		# unsearched segment could possibly be.
+		var reach: float = minf(
+			minf(point.x - float(cell.x - ring) * GRID_CELL,
+				float(cell.x + ring + 1) * GRID_CELL - point.x),
+			minf(point.y - float(cell.y - ring) * GRID_CELL,
+				float(cell.y + ring + 1) * GRID_CELL - point.y))
+		if not best.is_empty() and best_distance <= reach * reach:
 			return best
-	return {}
+	return best
 
 
-## How lit the mask says the space just outside this piece of outline is. Sampled a step *out* of the wall,
-## because the mask on top of the wall is the wall's own shadow.
+## How lit the mask says the space just outside this piece of outline is.
+##
+## Always a step *out* of the wall, never into it: `inward` points into the solid, and the mask on top of
+## the wall is the wall's own shadow, so a sample taken inward can only ever read darkness. Stepping
+## outward reads the space the wall borders -- which is what lights it.
 func _lit_outside(mid: Vector2, inward: Vector2) -> float:
 	if _reveal == null or _reveal_image == null:
 		return 1.0

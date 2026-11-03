@@ -144,6 +144,29 @@ Also worth knowing:
   Wall surfaces are therefore unshaded (`surface_unshaded.gdshader`), taking the place the silhouette
   had: the wall shows its material once explored, and does not brighten near a lamp. Floors keep the lit
   shader, because light reaches them.
+- **"How lit is this wall" is read from the lighting *beside* it, on the side the player is on.** The
+  lighting plate is a photograph of the level, and a wall is an occluder, so the mask *on* a wall is the
+  wall's own shadow: sampling there can only ever answer "how shadowed am I". `WallDecor` therefore merges
+  the walls into one silhouette and, for each vertex, steps ~10px outside the nearest piece of it and reads
+  the mask there. Three things this rule has had to get right, each found by playtesting:
+  1. **The nearest *point* on a segment**, not the segment's midpoint. With midpoints a long wall had four
+     sample positions, so most of it inherited an edge centre's lighting (a large wrongly-lit radius).
+  2. **The nearest piece of the whole silhouette**, not of the wall the vertex belongs to. Per-wall queries
+     seam at joins, because the two walls either side of a join sample different edges.
+  3. **The nearest edge *facing the player*, and always stepped outward.** Without the facing rule a
+     64px-thick wall is lit only for the ~20px nearest its lit edge and black for the rest, because the
+     vertices in its middle are nearest the far edge and sample the space behind it.
+- **A nearest-neighbour search may not stop at the first ring that finds anything.** `WallDecor` buckets
+  outline segments into a 96px grid and expanded ring by ring, returning the first ring with a candidate.
+  A segment one cell over can be flush against the query point while the point's own cell holds the far
+  side of the wall — which is exactly what a wall whose edge sits on a cell boundary gets. Every wall in
+  one level sampled its own shadow (`min=0.000 max=0.000`) and rendered black, while the same code looked
+  correct in the lab. The search now stops only when the best candidate is closer than the edge of the
+  squares already searched, which is exact.
+- **Sample each grid corner once.** `WallFill` emitted triangles per cell and sampled all four corners of
+  each, so an interior corner was sampled four times; on a 13-wall level that was 2.4x the rebuild cost.
+  The fill now shares one vertex grid across the cells (5.7ms instead of 13.9ms per rebuild, measured on
+  the camera-heavy test level).
 - **"Close enough to the path" is not "standing on the mesh".** Search targets were validated by
   asking whether a path *ended within 40px* of the candidate. A point 30px inside a wall satisfies
   that, so the enemy walked into the wall and ground against it. The check is now

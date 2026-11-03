@@ -100,6 +100,15 @@ func _build() -> void:
 func _resize() -> void:
 	if _viewport == null or world_rect.size.x <= 0.0 or world_rect.size.y <= 0.0:
 		return
+	# The camera and the plate are placed from the world rect, *not* from the pixel size: a level that grew
+	# can round to the same viewport size, and then a stale plate would cover only part of the level -- the
+	# lit region would simply stop partway down. Re-applying these is cheap and always correct.
+	_camera.zoom = Vector2(float(_viewport.size.x) / world_rect.size.x,
+		float(_viewport.size.y) / world_rect.size.y)
+	_camera.global_position = world_rect.get_center()
+	_plate.position = world_rect.position
+	_plate.size = world_rect.size
+
 	var size := Vector2i(
 		maxi(1, int(round(world_rect.size.x / WORLD_PER_TEXEL))),
 		maxi(1, int(round(world_rect.size.y / WORLD_PER_TEXEL))))
@@ -107,9 +116,6 @@ func _resize() -> void:
 		_viewport.size = size
 		_camera.zoom = Vector2(float(size.x) / world_rect.size.x,
 			float(size.y) / world_rect.size.y)
-		_camera.global_position = world_rect.get_center()
-		_plate.position = world_rect.position
-		_plate.size = world_rect.size
 		if _image_texture != null:
 			texture = null
 			_image_texture = null

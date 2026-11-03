@@ -7,9 +7,12 @@ extends MeshInstance2D
 ## around that by probing a ring of samples, which popped as the ring crossed a light boundary and read
 ## the far side's shadow as well as the near side's -- the "double shadow" you see when looking down a wall.
 ##
-## So it is baked instead: each vertex of the fill asks `WallDecor` where the nearest piece of the merged
-## outline is, samples the mask just outside it, and stores that as a vertex colour. The GPU interpolates
-## between vertices, which is smooth by construction and cannot read a shadow that is not there.
+## So it is baked instead: each vertex of the fill asks `WallDecor` how lit the wall is there, and stores
+## that as a vertex colour. The GPU interpolates between vertices, which is smooth by construction and
+## cannot read a shadow that is not there.
+##
+## The value is the lighting of the space on the *player's* side of the wall, so a wall is lit as a whole
+## rather than lighting one edge and going black across the rest of its thickness.
 
 const FILL_SHADER: Shader = preload("res://src/levels/wall_fill.gdshader")
 ## Size of the cells the fill is divided into, in world pixels. Smaller means a smoother lighting
@@ -62,27 +65,33 @@ func _emit_wall(surface: SurfaceTool, wall: Wall) -> void:
 	var half: Vector2 = wall.size * 0.5
 	var columns: int = maxi(1, int(ceil(wall.size.x / CELL)))
 	var rows: int = maxi(1, int(ceil(wall.size.y / CELL)))
+	# Sample each corner of the grid once. Every interior corner is shared by four cells, and sampling is
+	# by far the expensive part of this rebuild, so asking four times would quadruple it for nothing.
+	var points: Array[Vector2] = []
+	var lighting: PackedFloat32Array = PackedFloat32Array()
+	points.resize((columns + 1) * (rows + 1))
+	lighting.resize((columns + 1) * (rows + 1))
+	for column: int in columns + 1:
+		for row: int in rows + 1:
+			var point: Vector2 = wall.to_global(Vector2(
+				-half.x + wall.size.x * float(column) / float(columns),
+				-half.y + wall.size.y * float(row) / float(rows)))
+			var index: int = column * (rows + 1) + row
+			points[index] = point
+			lighting[index] = _lit(point)
 	for column: int in columns:
 		for row: int in rows:
-			var x0: float = - half.x + wall.size.x * (float(column) / float(columns))
-			var x1: float = - half.x + wall.size.x * (float(column + 1) / float(columns))
-			var y0: float = - half.y + wall.size.y * (float(row) / float(rows))
-			var y1: float = - half.y + wall.size.y * (float(row + 1) / float(rows))
-			var p00: Vector2 = wall.to_global(Vector2(x0, y0))
-			var p10: Vector2 = wall.to_global(Vector2(x1, y0))
-			var p11: Vector2 = wall.to_global(Vector2(x1, y1))
-			var p01: Vector2 = wall.to_global(Vector2(x0, y1))
-			var l00: float = _lit(p00)
-			var l10: float = _lit(p10)
-			var l11: float = _lit(p11)
-			var l01: float = _lit(p01)
-			_triangle(surface, p00, l00, p10, l10, p11, l11)
-			_triangle(surface, p00, l00, p11, l11, p01, l01)
+			var i00: int = column * (rows + 1) + row
+			var i10: int = (column + 1) * (rows + 1) + row
+			_triangle(surface, points[i00], lighting[i00], points[i10], lighting[i10],
+				points[i10 + 1], lighting[i10 + 1])
+			_triangle(surface, points[i00], lighting[i00], points[i10 + 1], lighting[i10 + 1],
+				points[i00 + 1], lighting[i00 + 1])
 
 
 func _lit(world_point: Vector2) -> float:
-	# The nearest piece of the whole silhouette: asking only this wall's own outline put a seam at every join,
-	# because the two walls either side of a join sampled different edges.
+	# `WallDecor` owns the one definition of "how lit is the wall here", so the rim and this fill cannot
+	# disagree about it.
 	return _decor.sample_lighting_near(world_point)
 
 

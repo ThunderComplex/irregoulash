@@ -499,6 +499,41 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.2,
 		},
 	],
+	## Just look at whatever level is loaded: one report and one screenshot, no teleports. Run this against
+	## any level to check its walls are lit where its floor is.
+	"surfaces": [
+		{
+			"god": true,
+			"wait": 0.8,
+			"surface_report": true,
+			"shot": "surfaces_loaded_level",
+		},
+	],
+	## The bug report itself: stand in the room the lit lamp is in and look at the south wall, then look at
+	## the same wall from the corridor. Run this against `src/levels/level_campaign_01.tscn`.
+	"campaign_01": [
+		{
+			"god": true,
+			"wait": 0.8,
+			"surface_report": true,
+			"shot": "campaign_01_spawn",
+		},
+		{
+			# In the lamp-lit room, facing the south wall (DrawnWall9).
+			"teleport": Vector2(878, 1080),
+			"aim": Vector2(0, 1),
+			"wait": 0.8,
+			"surface_report": true,
+			"shot": "campaign_01_south_wall_from_room",
+		},
+		{
+			# The same wall seen from the corridor south of it: the reveal must agree.
+			"teleport": Vector2(878, 1300),
+			"aim": Vector2(0, -1),
+			"wait": 0.8,
+			"shot": "campaign_01_south_wall_from_south",
+		},
+	],
 	## An open door's leaf is solid and unknown to the navmesh: can an enemy walk around it?
 	"door_avoid": [
 		{
@@ -1576,35 +1611,116 @@ func _wait_seconds(seconds: float) -> void:
 ## What the level's surface dropdowns actually resolved to, and whether each wall got a real material.
 ## A style that fails to apply leaves flat colour behind, which is easy to mistake for "the look I
 ## picked" in a dark screenshot.
+## What the level's surface dropdowns resolved to, whether the walls are lit where their floor is, and what
+## that costs. A style that fails to apply leaves flat colour behind, which is easy to mistake for "the look
+## I picked" in a dark screenshot; a wall that samples the wrong side of itself looks exactly like a wall in
+## darkness, so the per-wall bake range is the number that separates the two.
 func _report_surfaces() -> void:
 	var level: Node = GameDirector.current_level
 	if level == null:
 		print("[probe]   no level")
 		return
-	var wall_id: String = String(level.get("wall_surface_id"))
-	var floor_id: String = String(level.get("floor_surface_id"))
-	print("[probe]   level surfaces: walls='%s' floor='%s'" % [wall_id, floor_id])
-	# The lighting mask walls are multiplied by: if it is black, every wall is invisible, so its numbers
-	# are the first thing worth knowing.
+	print("[probe]   level surfaces: walls='%s' floor='%s'" % [
+		String(level.get("wall_surface_id")), String(level.get("floor_surface_id"))])
+
 	var mask := level.call("reveal_mask") as RevealMask
-	if mask != null:
-		var image: Image = mask.texture.get_image() if mask.texture != null else null
-		if image == null:
+	var mask_image: Image = mask.texture.get_image() if mask != null and mask.texture != null else null
+	if mask == null:
+		print("[probe]   no reveal mask")
+	else:
+		if mask_image == null:
 			print("[probe]   reveal mask: no texture yet (rect %s)" % str(mask.world_rect))
 		else:
-			var total: float = 0.0
-			var peak: float = 0.0
-			var samples: int = 0
-			for y: int in range(0, image.get_height(), 2):
-				for x: int in range(0, image.get_width(), 2):
-					var value: float = image.get_pixel(x, y).r
-					total += value
-					peak = maxf(peak, value)
-					samples += 1
 			print("[probe]   reveal mask %dx%d rect %s avg=%.3f peak=%.3f" % [
-				image.get_width(), image.get_height(), str(mask.world_rect),
-				total / maxf(1.0, float(samples)), peak,
-			])
+				mask_image.get_width(), mask_image.get_height(), str(mask.world_rect),
+				_mask_average(mask_image), _mask_peak(mask_image)])
+			# The mask is only useful if it is the picture of the lighting the level actually has. A lamp
+			# that is on in the world but dark in the mask means the mask viewport is not rendering it --
+			# wrong alignment, culling or size.
+			var lamps_on: int = 0
+			var lamps_reflected: int = 0
+			for node: Node in _all_nodes(level):
+				var light := node as PointLight2D
+				if light == null or light.energy <= 0.01:
+					continue
+				lamps_on += 1
+				if _mask_at(mask, mask_image, light.global_position) > 0.01:
+					lamps_reflected += 1
+			print("[probe]   lamps: %d on, %d of them present in the mask" % [
+				lamps_on, lamps_reflected])
+			# The mask as a picture: seeing it is worth more than any summary of its numbers.
+			var path: String = ProjectSettings.globalize_path("res://dev/shots/mask_debug.png")
+			var saved: Error = mask_image.save_png(path)
+			print("[probe]   mask image -> %s (%s)" % [path, "OK" if saved == OK else "failed"])
+		# The mask only lights points inside its rect; anything outside is unlit by definition, which is
+		# what a "the reveal stops partway down the level" report turns out to be.
+		if level.has_method("level_bounds"):
+			var bounds: Rect2 = level.call("level_bounds")
+			print("[probe]   level bounds %s  mask covers all of it: %s" % [
+				str(bounds), mask.world_rect.encloses(bounds)])
+
+	var fill := level.get_node_or_null("WallFill") as MeshInstance2D
+	print("[probe]   wall fill: %s" % ("missing" if fill == null else
+		"mesh=%s visible=%s" % [fill.mesh != null, fill.visible]))
+	if fill != null and fill.mesh != null:
+		var arrays: Array = fill.mesh.surface_get_arrays(0)
+		if arrays.size() > Mesh.ARRAY_COLOR and arrays[Mesh.ARRAY_COLOR] != null:
+			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var colours: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+			var lit_vertices: int = 0
+			for colour: Color in colours:
+				if colour.r > 0.05:
+					lit_vertices += 1
+			print("[probe]   fill mesh: %d vertices, %d lit (colour > 0.05)" % [
+				vertices.size(), lit_vertices])
+
+	var decor := level.get_node_or_null("WallDecor") as WallDecor
+	if decor != null:
+		var minimum: float = 1.0
+		var maximum: float = 0.0
+		for node: Node in _all_nodes(level):
+			var wall := node as Wall
+			if wall == null:
+				continue
+			var centre: float = decor.sample_lighting_near(wall.global_position)
+			minimum = minf(minimum, centre)
+			maximum = maxf(maximum, centre)
+			# What the fill actually bakes across this wall: a grid over its footprint, sampled the same
+			# way `WallFill` does. A wall whose range is 0..0 is black whatever the mask says.
+			var low: float = 1.0
+			var high: float = 0.0
+			var half: Vector2 = wall.size * 0.5
+			for column: int in 5:
+				for row: int in 5:
+					var point: Vector2 = wall.to_global(Vector2(
+						-half.x + wall.size.x * float(column) / 4.0,
+						-half.y + wall.size.y * float(row) / 4.0))
+					var sample: float = decor.sample_lighting_near(point)
+					low = minf(low, sample)
+					high = maxf(high, sample)
+			print("[probe]   wall '%s' bakes %.3f..%.3f" % [wall.name, low, high])
+		print("[probe]   wall lighting at wall centres: min=%.3f max=%.3f" % [minimum, maximum])
+		# The cost of the surface system: the fill rebuilds every vertex at the mask's rate, so a slow
+		# sample is a periodic hitch, not just a number.
+		var started: int = Time.get_ticks_usec()
+		var taken: int = 0
+		for node: Node in _all_nodes(level):
+			var wall := node as Wall
+			if wall == null:
+				continue
+			for repeat: int in 40:
+				decor.sample_lighting_near(wall.global_position)
+				taken += 1
+		print("[probe]   lighting sample cost: %.2f us each" % [
+			float(Time.get_ticks_usec() - started) / maxf(1.0, float(taken))])
+		var wall_fill := fill as WallFill
+		if wall_fill != null:
+			var rebuild_start: int = Time.get_ticks_usec()
+			for repeat: int in 3:
+				wall_fill.refresh()
+			print("[probe]   fill rebuild: %.2f ms (rebuilds at the mask's rate)" % [
+				float(Time.get_ticks_usec() - rebuild_start) / 3000.0])
+
 	var floor_node := level.get_node_or_null("Floor") as Polygon2D
 	print("[probe]   floor node: %s" % ("none" if floor_node == null else
 		"visible=%s tiled=%s" % [floor_node.visible, floor_node.material is ShaderMaterial]))
@@ -1638,6 +1754,42 @@ func _report_surfaces() -> void:
 			str(body.color),
 		])
 		break
+
+
+## Mean and peak of the mask, sampled every second texel: enough to tell "the level is dark" from "the mask
+## is black".
+func _mask_average(image: Image) -> float:
+	var total: float = 0.0
+	var samples: int = 0
+	for y: int in range(0, image.get_height(), 2):
+		for x: int in range(0, image.get_width(), 2):
+			total += image.get_pixel(x, y).r
+			samples += 1
+	return total / maxf(1.0, float(samples))
+
+
+func _mask_peak(image: Image) -> float:
+	var peak: float = 0.0
+	for y: int in range(0, image.get_height(), 2):
+		for x: int in range(0, image.get_width(), 2):
+			peak = maxf(peak, image.get_pixel(x, y).r)
+	return peak
+
+
+## What the reveal mask says at a world point, 0..1. Used to tell "the wall is in darkness" apart from "the
+## sampler is reading the wrong place".
+func _mask_at(mask: RevealMask, image: Image, world_point: Vector2) -> float:
+	if mask == null or image == null:
+		return -1.0
+	var rect: Rect2 = mask.world_rect
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return -1.0
+	var uv: Vector2 = (world_point - rect.position) / rect.size
+	if uv.x < 0.0 or uv.y < 0.0 or uv.x > 1.0 or uv.y > 1.0:
+		return -1.0
+	return image.get_pixel(
+		clampi(int(uv.x * float(image.get_width())), 0, image.get_width() - 1),
+		clampi(int(uv.y * float(image.get_height())), 0, image.get_height() - 1)).r
 
 #endregion
 

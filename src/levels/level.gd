@@ -234,7 +234,9 @@ func _ensure_reveal_mask() -> RevealMask:
 		_reveal = RevealMask.new()
 		_reveal.name = "Reveal"
 		add_child(_reveal, false, Node.INTERNAL_MODE_DISABLED)
-	var rect: Rect2 = level_bounds().grow(64.0)
+	# Generous margin: walls are sampled from a step *outside* their outline, and the mask only lights points
+	# inside its rect, so a wall sitting on the edge of the level needs room beyond it.
+	var rect: Rect2 = level_bounds().grow(256.0)
 	_reveal.setup(rect, get_world_2d())
 	# Wall materials cannot point at a mask that has not been rendered yet, so re-apply everything once
 	# the first frame is read back.

@@ -6,9 +6,11 @@
 [ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="3_lamp"]
 [ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_un6eu"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]
+[ext_resource type="Script" uid="uid://tdmd7rqbsvoa" path="res://src/levels/patrol_route.gd" id="5_un6eu"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
+[ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="7_lxqdr"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_m82m0"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_awj53"]
 shader = ExtResource("2_awj53")
 shader_parameter/albedo = ExtResource("3_un6eu")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -16,7 +18,7 @@ shader_parameter/tint = Color(0.5, 0.5, 0.5, 1)
 shader_parameter/breakup_amount = 0.0
 shader_parameter/breakup_scale = 0.0
 shader_parameter/breakup_mask_scale = 6.0
-shader_parameter/size_world = Vector2(5775.6563, 5027.6563)
+shader_parameter/size_world = Vector2(7073.62, 6305.62)
 shader_parameter/rim_width = 0.0
 shader_parameter/rim_boost = 0.0
 shader_parameter/rim_ao_width = 0.0
@@ -24,10 +26,10 @@ shader_parameter/rim_ao_strength = 0.0
 shader_parameter/base_band = 0.0
 shader_parameter/base_strength = 0.0
 
-[sub_resource type="NavigationPolygon" id="NavigationPolygon_mq3e7"]
-vertices = PackedVector2Array(1650, 146, 1650, 46, 1710, -14, 1710, 942, -14, -14, 46, 46, -14, 942, 46, 594, 622, 594, 622, 882, 722, 882, 722, 494, 146, 494, 146, 146, 1006, 146, 1006, 850, 1106, 850, 1106, 146)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 2, 1, 5), PackedInt32Array(6, 4, 5, 7), PackedInt32Array(7, 8, 9, 6), PackedInt32Array(3, 6, 9, 10), PackedInt32Array(11, 12, 13, 14), PackedInt32Array(11, 14, 15, 10), PackedInt32Array(3, 10, 15, 16), PackedInt32Array(0, 3, 16, 17)])
-outlines = Array[PackedVector2Array]([PackedVector2Array(-32, -32, 1728, -32, 1728, 960, -32, 960)])
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_lxqdr"]
+vertices = PackedVector2Array(826, 370, 826, 238, 1006, 146, 1006, 914, 146, 146, 726, 238, 1806, -14, 1806, 1294, 1746, 1234, 1746, 1134, -14, 1294, 622, 1234, 722, 494, 146, 494, 726, 370, 1262, 302, 1262, 814, 1106, 814, 1106, 146, 1650, 146, 1362, 302, 46, 594, 622, 594, -14, -14, 46, 46, 1650, 46, 1362, 914, 722, 1134)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 2, 1, 5), PackedInt32Array(6, 7, 8, 9), PackedInt32Array(8, 7, 10, 11), PackedInt32Array(12, 13, 4, 5, 14), PackedInt32Array(15, 16, 17, 18), PackedInt32Array(15, 18, 19, 20), PackedInt32Array(21, 22, 11, 10), PackedInt32Array(21, 10, 23, 24), PackedInt32Array(24, 23, 6, 25), PackedInt32Array(25, 6, 9, 19), PackedInt32Array(20, 19, 9, 26), PackedInt32Array(26, 9, 27, 3), PackedInt32Array(0, 3, 27, 12, 14)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(-32, -32, 1824, -32, 1824, 1312, -32, 1312)])
 parsed_geometry_type = 1
 source_geometry_mode = 1
 source_geometry_group_name = &"wall"
@@ -37,15 +39,16 @@ agent_radius = 18.0
 script = ExtResource("1_level")
 level_title = "Campaign 1"
 objective = "Get to the exit"
+bounds_rect = Rect2(-900, -600, 2000, 2000)
 wall_surface_id = "wood"
 floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_m82m0")
-position = Vector2(847.9999, 464)
+material = SubResource("ShaderMaterial_awj53")
+position = Vector2(1024, 640)
 color = Color(0.5, 0.5, 0.5, 1)
-polygon = PackedVector2Array(-2887.8281, -2513.8281, 2887.8281, -2513.8281, 2887.8281, 2513.8281, -2887.8281, 2513.8281)
+polygon = PackedVector2Array(-3536.81, -3152.81, 3536.81, -3152.81, 3536.81, 3152.81, -3536.81, 3152.81)
 metadata/_edit_lock_ = true
 
 [node name="Walls" type="Node2D" parent="." unique_id=325946596]
@@ -75,32 +78,93 @@ position = Vector2(1056, 480)
 size = Vector2(64, 704)
 
 [node name="DrawnWall7" parent="Walls" unique_id=1116338892 instance=ExtResource("2_wall")]
-position = Vector2(512, 304)
+position = Vector2(776, 304)
 size = Vector2(64, 96)
+
+[node name="DrawnWall8" parent="Walls" unique_id=1747427477 instance=ExtResource("2_wall")]
+position = Vector2(672, 1040)
+size = Vector2(64, 352)
+
+[node name="DrawnWall10" parent="Walls" unique_id=1647050949 instance=ExtResource("2_wall")]
+position = Vector2(1184, 864)
+size = Vector2(320, 64)
+
+[node name="DrawnWall11" parent="Walls" unique_id=1351588869 instance=ExtResource("2_wall")]
+position = Vector2(1312, 576)
+size = Vector2(64, 512)
+
+[node name="DrawnWall12" parent="Walls" unique_id=2033306852 instance=ExtResource("2_wall")]
+position = Vector2(1920, 1024)
+size = Vector2(128, 384)
+
+[node name="DrawnWall9" parent="Walls" unique_id=1500919981 instance=ExtResource("2_wall")]
+position = Vector2(1152, 1184)
+size = Vector2(896, 64)
 
 [node name="Routes" type="Node2D" parent="." unique_id=1220520183]
 
+[node name="Guard1Route" type="Node2D" parent="Routes" unique_id=862909844]
+script = ExtResource("5_un6eu")
+
+[node name="P0" type="Marker2D" parent="Routes/Guard1Route" unique_id=916870233]
+position = Vector2(864, 832)
+
+[node name="Guard2Route" type="Node2D" parent="Routes" unique_id=490364469]
+script = ExtResource("5_un6eu")
+
+[node name="P0" type="Marker2D" parent="Routes/Guard2Route" unique_id=1224158388]
+position = Vector2(1184, 583)
+
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
-position = Vector2(220, 384)
+position = Vector2(208, 298)
 
 [node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
 
 [node name="Lamp0" parent="Lamps" unique_id=1065493755 instance=ExtResource("3_lamp")]
-position = Vector2(842, 408)
+position = Vector2(939, 215)
+radius = 210.0
+
+[node name="Lamp4" parent="Lamps" unique_id=1901478582 instance=ExtResource("3_lamp")]
+position = Vector2(285, 307)
+radius = 300.0
+
+[node name="Lamp1" parent="Lamps" unique_id=1353851989 instance=ExtResource("3_lamp")]
+position = Vector2(875, 718)
+radius = 210.0
+
+[node name="Lamp3" parent="Lamps" unique_id=632961327 instance=ExtResource("3_lamp")]
+position = Vector2(1182, 1026)
+radius = 210.0
+
+[node name="Lamp2" parent="Lamps" unique_id=1502672115 instance=ExtResource("3_lamp")]
+position = Vector2(1184, 482)
 radius = 210.0
 
 [node name="Enemies" type="Node2D" parent="." unique_id=1203562756]
 
+[node name="Guard1" parent="Enemies" unique_id=1142744916 instance=ExtResource("7_lxqdr")]
+position = Vector2(864, 768)
+rotation = 1.5696568
+patrol_route = NodePath("../../Routes/Guard1Route")
+
+[node name="Guard2" parent="Enemies" unique_id=315682153 instance=ExtResource("7_lxqdr")]
+position = Vector2(1185.0001, 435.00003)
+rotation = 1.5633391
+patrol_route = NodePath("../../Routes/Guard2Route")
+
 [node name="Pickups" type="Node2D" parent="." unique_id=330227706]
 
 [node name="Pickup0" parent="Pickups" unique_id=134755550 instance=ExtResource("5_pickup")]
-position = Vector2(400, 620)
+position = Vector2(1192, 732)
+kind = "ammo"
+weapon_id = "pistol"
+amount = 10
 
 [node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("6_exit")]
-position = Vector2(1160, 384)
+position = Vector2(2002, 574)
 is_final = true
 
 [node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]
 visible = false
-navigation_polygon = SubResource("NavigationPolygon_mq3e7")
-metadata/navmesh_hash = 314445465
+navigation_polygon = SubResource("NavigationPolygon_lxqdr")
+metadata/navmesh_hash = 385517776
