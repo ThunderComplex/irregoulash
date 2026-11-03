@@ -14,7 +14,7 @@ extends MeshInstance2D
 const FILL_SHADER: Shader = preload("res://src/levels/wall_fill.gdshader")
 ## Size of the cells the fill is divided into, in world pixels. Smaller means a smoother lighting
 ## gradient across a wall and more vertices.
-const CELL: float = 24.0
+const CELL: float = 32.0
 
 var _walls: Array[Wall] = []
 var _style: SurfaceStyle = null
@@ -72,15 +72,15 @@ func _emit_wall(surface: SurfaceTool, wall: Wall) -> void:
 			var p10: Vector2 = wall.to_global(Vector2(x1, y0))
 			var p11: Vector2 = wall.to_global(Vector2(x1, y1))
 			var p01: Vector2 = wall.to_global(Vector2(x0, y1))
-			var l00: float = _lit(wall, p00)
-			var l10: float = _lit(wall, p10)
-			var l11: float = _lit(wall, p11)
-			var l01: float = _lit(wall, p01)
+			var l00: float = _lit(p00)
+			var l10: float = _lit(p10)
+			var l11: float = _lit(p11)
+			var l01: float = _lit(p01)
 			_triangle(surface, p00, l00, p10, l10, p11, l11)
 			_triangle(surface, p00, l00, p11, l11, p01, l01)
 
 
-func _lit(wall: Wall, world_point: Vector2) -> float:
+func _lit(world_point: Vector2) -> float:
 	# The nearest piece of the whole silhouette: asking only this wall's own outline put a seam at every join,
 	# because the two walls either side of a join sampled different edges.
 	return _decor.sample_lighting_near(world_point)
