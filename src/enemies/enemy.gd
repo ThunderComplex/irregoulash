@@ -16,7 +16,7 @@ extends CharacterBody2D
 
 signal died(enemy: Enemy)
 
-enum State { PATROL, SUSPICIOUS, ALERT, SEARCH, RETURN }
+enum State {PATROL, SUSPICIOUS, ALERT, SEARCH, RETURN}
 
 const STATE_NAMES: Array[String] = ["PATROL", "SUSPICIOUS", "ALERT", "SEARCH", "RETURN"]
 ## Dropped loot is an instance of the authored scene, not a script instance. The scene carries
@@ -735,7 +735,7 @@ func _update_facing(delta: float) -> void:
 	elif state == State.SUSPICIOUS:
 		turn_rate = 13.0
 	_facing = wrapf(lerp_angle(_facing, _look_at_angle, clampf(delta * turn_rate, 0.0, 1.0)),
-		-PI, PI)
+		- PI, PI)
 	if visual != null:
 		visual.rotation = _facing
 
@@ -774,7 +774,7 @@ func _pick_search_target() -> void:
 		var radius: float = SEARCH_STEP * float(ring)
 		var samples: int = 8 + ring * 4
 		var best: Vector2 = Vector2.ZERO
-		var best_score: float = -INF
+		var best_score: float = - INF
 		for i: int in samples:
 			var offset: float = TAU * float(i) / float(samples)
 			var point: Vector2 = last_known + Vector2.from_angle(heading + offset) * radius
@@ -944,6 +944,7 @@ func _drop_loot() -> void:
 	pickup.kind = "weapon"
 	pickup.weapon_id = archetype.drop_weapon
 	pickup.global_position = global_position + Vector2(0.0, 6.0)
+	pickup.weapon_ammo = archetype.burst
 	parent.add_child(pickup)
 
 #endregion

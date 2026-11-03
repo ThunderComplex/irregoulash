@@ -30,6 +30,14 @@ extends Area2D
 		amount = value
 		if Engine.is_editor_hint():
 			queue_redraw()
+## Reserve ammo a *weapon* pickup gives; `amount` is not used for weapons. -1 means the weapon's own
+## default: a full reserve if the weapon is new, two ammo pickups' worth if it is already carried.
+## Enemy drops set this so a dead guard is not a full resupply.
+@export var weapon_ammo: int = -1:
+	set(value):
+		weapon_ammo = value
+		if Engine.is_editor_hint():
+			queue_redraw()
 
 var _t: float = 0.0
 var _light: PointLight2D = null
@@ -177,7 +185,7 @@ func _try_collect(player: Player) -> void:
 		"weapon":
 			if holder == null:
 				return
-			var is_new: bool = holder.add_weapon(weapon_id, -1, true)
+			var is_new: bool = holder.add_weapon(weapon_id, weapon_ammo, true)
 			AudioDirector.play_at(&"pickup_weapon", global_position, -3.0)
 			if is_new:
 				GameDirector.announce_message(
