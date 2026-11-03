@@ -5,11 +5,10 @@
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
 [ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="3_lamp"]
 [ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_un6eu"]
-[ext_resource type="Script" uid="uid://42vdeppvwt1a" path="res://src/levels/wall.gd" id="5_mq3e7"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_mq3e7"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_m82m0"]
 shader = ExtResource("2_awj53")
 shader_parameter/albedo = ExtResource("3_un6eu")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -43,7 +42,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_mq3e7")
+material = SubResource("ShaderMaterial_m82m0")
 position = Vector2(847.9999, 464)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-2887.8281, -2513.8281, 2887.8281, -2513.8281, 2887.8281, 2513.8281, -2887.8281, 2513.8281)
@@ -75,10 +74,8 @@ size = Vector2(992, 64)
 position = Vector2(1056, 480)
 size = Vector2(64, 704)
 
-[node name="DrawnWall7" type="StaticBody2D" parent="Walls" unique_id=1116338892 instance=ExtResource("2_wall")]
+[node name="DrawnWall7" parent="Walls" unique_id=1116338892 instance=ExtResource("2_wall")]
 position = Vector2(512, 304)
-collision_mask = 0
-script = ExtResource("5_mq3e7")
 size = Vector2(64, 96)
 
 [node name="Routes" type="Node2D" parent="." unique_id=1220520183]

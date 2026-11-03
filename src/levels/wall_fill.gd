@@ -1,4 +1,4 @@
-class_name WallFill
+﻿class_name WallFill
 extends MeshInstance2D
 ## The textured surface of every wall, as one mesh whose vertices carry how lit they are.
 ##
@@ -59,7 +59,6 @@ func refresh() -> void:
 
 ## A grid over the wall's footprint, each vertex carrying its own lighting.
 func _emit_wall(surface: SurfaceTool, wall: Wall) -> void:
-	print("hi")
 	var half: Vector2 = wall.size * 0.5
 	var columns: int = maxi(1, int(ceil(wall.size.x / CELL)))
 	var rows: int = maxi(1, int(ceil(wall.size.y / CELL)))
@@ -82,7 +81,9 @@ func _emit_wall(surface: SurfaceTool, wall: Wall) -> void:
 
 
 func _lit(wall: Wall, world_point: Vector2) -> float:
-	return _decor.sample_lighting_near(world_point, wall)
+	# The nearest piece of the whole silhouette: asking only this wall's own outline put a seam at every join,
+	# because the two walls either side of a join sampled different edges.
+	return _decor.sample_lighting_near(world_point)
 
 
 func _triangle(surface: SurfaceTool, a: Vector2, la: float, b: Vector2, lb: float, c: Vector2,

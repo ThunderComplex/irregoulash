@@ -1,4 +1,4 @@
-﻿class_name WallDecor
+class_name WallDecor
 extends MeshInstance2D
 ## Rim and ambient occlusion for a level's walls, drawn from the *merged* outline of the wall mass.
 ##
@@ -30,6 +30,10 @@ const SOUTH_FACING: float = 0.35
 ## How far outside the outline the lighting mask is read, in world pixels. On the outline itself a wall
 ## reads its own shadow.
 const REVEAL_PROBE: float = 10.0
+## Size of the spatial bucket used to find the nearest outline segment.
+const GRID_CELL: float = 96.0
+## How many buckets outwards the search may go before giving up.
+const GRID_SEARCH_RINGS: int = 4
 
 ## Multiplies the decoration by the same lighting mask the wall fill uses, so rim and occlusion appear
 ## exactly where the wall they belong to is lit.
@@ -44,7 +48,8 @@ var _reveal: RevealMask = null
 var _reveal_image: Image = null
 ## Outline samples grouped by the wall that owns them: {mid, inward} per segment. `WallFill` asks this for
 ## each of its vertices, so the same definition of "outside the wall" serves the fill and the decoration.
-var _wall_outline: Dictionary = {}
+## Outline segments bucketed by position, so sample_lighting_near stays cheap on a dense level.
+var _segment_grid: Dictionary = {}
 
 
 func _ready() -> void:
@@ -117,15 +122,24 @@ func setup(walls: Array[Wall], style: SurfaceStyle) -> void:
 		for i: int in count:
 			var a: Vector2 = outline[i]
 			var b: Vector2 = outline[(i + 1) % count]
-			var owner: Wall = _owner_of((a + b) * 0.5, a, b)
-			owners.append(owner)
+			var wall_owner: Wall = _owner_of((a + b) * 0.5, a, b)
+			owners.append(wall_owner)
 			south.append((-edge_inward[i]).y > SOUTH_FACING)
 			# Cache the segment per owning wall: `WallFill` asks each of its vertices for the nearest one,
 			# and restricting the search to the wall's own outline keeps that cheap.
-			if owner != null:
-				var list: Array = _wall_outline.get(owner, [])
-				list.append({"mid": (a + b) * 0.5, "inward": edge_inward[i]})
-				_wall_outline[owner] = list
+			# Bucket the segment by every grid cell its bounding box touches, so the nearest-outline query
+			# is a handful of comparisons rather than a scan of the whole silhouette.
+			var entry := {"a": a, "b": b, "inward": edge_inward[i]}
+			var low := Vector2i(int(floor(minf(a.x, b.x) / GRID_CELL)),
+				int(floor(minf(a.y, b.y) / GRID_CELL)))
+			var high := Vector2i(int(floor(maxf(a.x, b.x) / GRID_CELL)),
+				int(floor(maxf(a.y, b.y) / GRID_CELL)))
+			for gx: int in range(low.x, high.x + 1):
+				for gy: int in range(low.y, high.y + 1):
+					var key := Vector2i(gx, gy)
+					var bucket: Array = _segment_grid.get(key, [])
+					bucket.append(entry)
+					_segment_grid[key] = bucket
 
 		_outlines.append({
 			"points": outline, "normals": normals, "scales": scales,
@@ -153,18 +167,50 @@ func refresh() -> void:
 ## This is the single definition of "how lit is the wall here": the decoration samples it per segment, and
 ## `WallFill` samples it per vertex. Both ask it the same way, so they cannot disagree, and neither can read
 ## the wall's own shadow because the sample is taken a step outside the outline.
-func sample_lighting_near(point: Vector2, wall: Wall) -> float:
-	var entries: Array = _wall_outline.get(wall, [])
-	if entries.is_empty():
+func sample_lighting_near(point: Vector2) -> float:
+	# Nearest piece of the *whole* silhouette, not of the wall the caller belongs to. Restricting it per
+	# wall is what made joins seam: on one side of a join the nearest edge of wall A was sampled, on the
+	# other the nearest edge of wall B, and the two disagreed across a boundary that is not an edge at all.
+	var entry: Dictionary = _nearest_segment(point)
+	if entry.is_empty():
 		return 0.0
-	var nearest: Dictionary = entries[0]
-	var nearest_distance: float = INF
-	for entry: Dictionary in entries:
-		var distance: float = (entry["mid"] as Vector2).distance_squared_to(point)
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest = entry
-	return _lit_outside(nearest["mid"], nearest["inward"])
+	var a: Vector2 = entry["a"]
+	var b: Vector2 = entry["b"]
+	var along: Vector2 = b - a
+	var length_squared: float = along.length_squared()
+	var t: float = 0.0 if length_squared < 0.0001 else clampf(
+		(point - a).dot(along) / length_squared, 0.0, 1.0)
+	return _lit_outside(a + along * t, entry["inward"])
+
+
+## The outline segment closest to `point`, using the spatial grid so a dense maze does not turn every
+## vertex into a scan of the whole silhouette.
+func _nearest_segment(point: Vector2) -> Dictionary:
+	var cell: Vector2i = Vector2i(int(floor(point.x / GRID_CELL)), int(floor(point.y / GRID_CELL)))
+	# Expand outwards until something is found: a point deep inside a thick block starts several cells
+	# from any outline.
+	for ring: int in range(0, GRID_SEARCH_RINGS + 1):
+		var best: Dictionary = {}
+		var best_distance: float = INF
+		for x: int in range(cell.x - ring, cell.x + ring + 1):
+			for y: int in range(cell.y - ring, cell.y + ring + 1):
+				var bucket: Variant = _segment_grid.get(Vector2i(x, y))
+				if not (bucket is Array):
+					continue
+				for entry: Dictionary in (bucket as Array):
+					var a: Vector2 = entry["a"]
+					var b: Vector2 = entry["b"]
+					var along: Vector2 = b - a
+					var length_squared: float = along.length_squared()
+					var t: float = 0.0 if length_squared < 0.0001 else clampf(
+						(point - a).dot(along) / length_squared, 0.0, 1.0)
+					var distance: float = (a + along * t).distance_squared_to(point)
+					if distance < best_distance:
+						best_distance = distance
+						best = entry
+		if not best.is_empty():
+			return best
+	return {}
 
 
 ## How lit the mask says the space just outside this piece of outline is. Sampled a step *out* of the wall,
