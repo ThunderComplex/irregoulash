@@ -160,6 +160,12 @@ kind = "ammo"
 weapon_id = "pistol"
 amount = 10
 
+[node name="Pickup1" parent="Pickups" unique_id=538610333 instance=ExtResource("5_pickup")]
+position = Vector2(224, 300)
+kind = "ability"
+weapon_id = "pistol"
+amount = 10
+
 [node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("6_exit")]
 position = Vector2(2002, 574)
 is_final = true

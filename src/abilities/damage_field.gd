@@ -24,6 +24,13 @@ var color: Color = Color(1.0, 0.55, 0.18)
 var blocks_movement: bool = false
 var blocks_light: bool = false
 var alpha: float = 0.55
+## The flat placeholder shape. Effects that draw themselves (the fire wall's particles) turn it off;
+## the collision, occluder and damage do not depend on it.
+var show_visual: bool = true
+## Rectangles only: occlude light along the long centre line instead of across the whole shape. A
+## filled occluder shadows its own inside, so the ground under a fire wall went pitch black; a spine
+## still stops light (and so sight) crossing it, and leaves each half lit from its own side.
+var occlude_spine: bool = false
 
 var _tick_left: float = 0.0
 var _visual: Polygon2D = null
@@ -31,7 +38,8 @@ var _visual: Polygon2D = null
 
 func _ready() -> void:
 	z_index = Layers.Z_PICKUP
-	_build_visual()
+	if show_visual:
+		_build_visual()
 	if blocks_movement:
 		_build_collision()
 	if blocks_light:
@@ -121,7 +129,12 @@ func _build_occluder() -> void:
 	var occluder := LightOccluder2D.new()
 	occluder.name = "Occluder"
 	var polygon := OccluderPolygon2D.new()
-	polygon.polygon = Shapes.circle(radius, 20) if radius > 0.0 else Shapes.rect(size)
+	if radius > 0.0:
+		polygon.polygon = Shapes.circle(radius, 20)
+	elif occlude_spine:
+		polygon.polygon = Shapes.rect(Vector2(size.x, 8.0))
+	else:
+		polygon.polygon = Shapes.rect(size)
 	polygon.closed = true
 	occluder.occluder = polygon
 	# Mask 1 is what the vision rig and the lamps use.

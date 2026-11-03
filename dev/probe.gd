@@ -779,6 +779,42 @@ const SCENARIOS: Dictionary = {
 			"report": true,
 		},
 	],
+	## The fire wall's look over its life: catching, burning, burning down, gone. Run against
+	## `dev/surface_lab.tscn`, whose floor shows where the fire's own light falls.
+	"fire_wall": [
+		{
+			"set_abilities": ["fire_wall"],
+			"aim": Vector2(1.0, 0.0),
+			"god": true,
+			"wait": 0.5,
+		},
+		{
+			"cast_ability": 0,
+			"ability_target": Vector2(918.0, 601.0),
+			"wait": 0.12,
+			"shot": "fire_wall_01_ignite",
+		},
+		{
+			"wait": 1.5,
+			"shot": "fire_wall_02_burning",
+			"ability_effects": true,
+		},
+		{
+			# Looking away: the wall is lit by its own glow, not the player's cone.
+			"aim": Vector2(-1.0, 0.0),
+			"wait": 0.6,
+			"shot": "fire_wall_03_own_light",
+		},
+		{
+			"aim": Vector2(1.0, 0.0),
+			"wait": 3.05,
+			"shot": "fire_wall_04_burning_down",
+		},
+		{
+			"wait": 1.2,
+			"shot": "fire_wall_05_gone",
+		},
+	],
 	## Bake a navmesh at runtime and verify it: that the server knows about it, that
 	## enemies pick it up, and that its paths never cross walls.
 	"navmesh": [

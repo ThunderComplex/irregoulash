@@ -7,6 +7,10 @@ extends Node
 ## still works in the dark because the effects are drawn unshaded -- muzzle
 ## flashes and blood being visible in the black is a deliberate feature: it is
 ## how you track a fight you cannot fully see.
+##
+## Richer, longer-lived effects (fire, and whatever comes after it) are particle
+## emitters instead, described by `ParticlePreset`s from `ParticleLibrary`: see
+## `emitter()`, `burst()` and `stop_emitter()` below.
 
 var _camera: Camera2D = null
 var _world: Node2D = null
@@ -220,6 +224,67 @@ func pulse_ring(parent: Node2D, color: Color, radius: float) -> Node2D:
 	ring.z_index = Z_FX - 2
 	parent.add_child(ring)
 	return ring
+
+#endregion
+
+
+#region particles
+
+## A continuous emitter attached to `parent`, so it moves and turns with it and is freed with it.
+## Particles simulate in world space, so moving the parent leaves a trail rather than dragging the
+## whole fire along. Stop it with `stop_emitter()` to let it die down instead of vanishing.
+func emitter(preset: ParticlePreset, parent: Node2D, offset: Vector2 = Vector2.ZERO) -> CPUParticles2D:
+	if preset == null or parent == null:
+		return null
+	var node := CPUParticles2D.new()
+	node.name = "Particles"
+	preset.apply_to(node)
+	node.position = offset
+	parent.add_child(node)
+	if preset.direction_in_world:
+		node.direction = preset.direction.rotated(-node.global_rotation)
+	node.emitting = true
+	return node
+
+
+## A one-shot burst in the world, freed when its last particle dies. `direction` turns the preset's
+## own emission direction (and its box, if it has one), so a burst can spray away from a wall.
+func burst(preset: ParticlePreset, position: Vector2, direction: Vector2 = Vector2.UP) -> CPUParticles2D:
+	var parent: Node2D = _container()
+	if preset == null or parent == null:
+		return null
+	var node := CPUParticles2D.new()
+	node.name = "Burst"
+	preset.apply_to(node)
+	node.one_shot = true
+	parent.add_child(node)
+	node.global_position = position
+	node.global_rotation = direction.angle() - preset.direction.angle()
+	node.emitting = true
+	_free_after(node, preset.max_lifetime() + 0.1)
+	return node
+
+
+## Stops new particles and frees the emitter once the ones in flight have burnt out.
+func stop_emitter(node: CPUParticles2D) -> void:
+	if node == null or not is_instance_valid(node) or not node.emitting:
+		return
+	node.emitting = false
+	_free_after(node, node.lifetime + 0.1)
+
+
+func _free_after(node: Node, seconds: float) -> void:
+	if not is_inside_tree():
+		return
+	# By id, not by capturing the node: an emitter usually dies with its parent before the timer fires,
+	# and a lambda that captured a freed object errors when it runs.
+	var id: int = node.get_instance_id()
+	var timer: SceneTreeTimer = get_tree().create_timer(seconds, false)
+	timer.timeout.connect(func() -> void:
+		var still: Node = instance_from_id(id) as Node
+		if still != null:
+			still.queue_free()
+	)
 
 #endregion
 
