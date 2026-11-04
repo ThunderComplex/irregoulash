@@ -7,8 +7,8 @@ extends Node2D
 ## goes through the same `take_hit()` interface bullets use, so kill credit and the
 ## stale-source handling come along for free.
 ##
-## It can also be solid and shadow-casting, which is what makes the fire wall an
-## obstacle rather than just a damage zone.
+## It can also be solid, sight-blocking and shadow-casting. The fire wall is the last two:
+## it hides each side from the other without stopping anyone walking through it.
 
 ## Which physics layers this hurts. A player ability hurts enemies.
 var hits_mask: int = Layers.ENEMY
@@ -20,16 +20,22 @@ var radius: float = 0.0
 ## Who gets credit and blame. Validated on use, because it can die mid-effect.
 var source: Node = null
 var color: Color = Color(1.0, 0.55, 0.18)
-## A wall of fire is both of these; an explosion is neither.
+## Solid to everything, like a wall. Nothing uses it right now: a solid fire burns nobody,
+## because nobody can get into it.
 var blocks_movement: bool = false
+## Hides what is behind it from enemies' sight rays (`Layers.SIGHT_ONLY`), without stopping
+## movement or bullets. Pair it with `blocks_light`, which does the same for the player.
+var blocks_sight: bool = false
 var blocks_light: bool = false
 var alpha: float = 0.55
 ## The flat placeholder shape. Effects that draw themselves (the fire wall's particles) turn it off;
 ## the collision, occluder and damage do not depend on it.
 var show_visual: bool = true
-## Rectangles only: occlude light along the long centre line instead of across the whole shape. A
-## filled occluder shadows its own inside, so the ground under a fire wall went pitch black; a spine
-## still stops light (and so sight) crossing it, and leaves each half lit from its own side.
+## Rectangles only: block light and sight along the long centre line instead of across the whole
+## shape. A filled occluder shadows its own inside, so the ground under a fire wall went pitch black;
+## a spine still stops light crossing it, and leaves each half lit from its own side. The sight body
+## follows the same line, so the player and the enemies see exactly as far into the fire as each
+## other.
 var occlude_spine: bool = false
 
 var _tick_left: float = 0.0
@@ -41,7 +47,9 @@ func _ready() -> void:
 	if show_visual:
 		_build_visual()
 	if blocks_movement:
-		_build_collision()
+		_build_body("Solid", Layers.WORLD, make_shape())
+	elif blocks_sight:
+		_build_body("SightBlocker", Layers.SIGHT_ONLY, _blocker_shape())
 	if blocks_light:
 		_build_occluder()
 	# Hit straight away: an explosion that waits a tick before hurting feels broken.
@@ -112,17 +120,27 @@ func _build_visual() -> void:
 	add_child(_visual)
 
 
-func _build_collision() -> void:
+## A static body in the field's footprint. On `WORLD` it is a wall (it already blocks sight, as
+## walls do); on `SIGHT_ONLY` it only stops sight rays.
+func _build_body(body_name: String, layer: int, shape: Shape2D) -> void:
 	var body := StaticBody2D.new()
-	body.name = "Solid"
-	# WORLD layer, so it stops the player and enemies and catches bullets.
-	body.collision_layer = Layers.WORLD
+	body.name = body_name
+	body.collision_layer = layer
 	body.collision_mask = 0
 	var collider := CollisionShape2D.new()
 	collider.name = "Collision"
-	collider.shape = make_shape()
+	collider.shape = shape
 	body.add_child(collider)
 	add_child(body)
+
+
+## The shape that blocks sight: the whole field, or just its spine (see `occlude_spine`).
+func _blocker_shape() -> Shape2D:
+	if radius <= 0.0 and occlude_spine:
+		var spine := RectangleShape2D.new()
+		spine.size = Vector2(size.x, 2.0)
+		return spine
+	return make_shape()
 
 
 func _build_occluder() -> void:

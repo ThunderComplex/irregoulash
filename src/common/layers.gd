@@ -18,11 +18,14 @@ const PICKUP: int = 1 << 5
 ## ground to a halt. Putting the open leaf on its own layer keeps every property that matters (cover,
 ## bullets, sight, the player's feet) and gives enemies a clear route past it.
 const DOOR: int = 1 << 6
+## Blocks sight and nothing else: no movement, no bullets. A fire wall is on it, so it hides both
+## sides from each other while anyone can walk (and burn) through it or shoot blind across it.
+const SIGHT_ONLY: int = 1 << 7
 
 ## Everything solid that blocks *movement*. Walls, and shut doors.
 const SOLID: int = WORLD
-## What blocks sight: walls, and a door leaf whether it is open or shut.
-const SIGHT_BLOCKERS: int = WORLD | DOOR
+## What blocks sight: walls, a door leaf whether it is open or shut, and sight-only blockers.
+const SIGHT_BLOCKERS: int = WORLD | DOOR | SIGHT_ONLY
 ## What a bullet fired by the player can hit.
 const PLAYER_SHOT_HITS: int = WORLD | DOOR | ENEMY
 ## What a bullet fired by an enemy can hit.

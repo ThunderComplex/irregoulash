@@ -31,13 +31,13 @@ static func by_id(id: String) -> AbilityResource:
 	return ability
 
 
-## A wall of fire at the cursor: the only ability that is also an obstacle. It blocks
-## movement and light, so it doubles as a way to cut a line of sight.
+## A wall of fire at the cursor: the only ability that changes the level. It blocks sight
+## both ways without blocking movement, so it cuts a line of sight and burns whoever follows.
 static func _build_fire_wall() -> AbilityResource:
 	var a := AbilityResource.new()
 	a.id = &"fire_wall"
 	a.display_name = "Fire Wall"
-	a.description = "A burning barrier. Blocks sight and movement."
+	a.description = "A burning barrier. Blocks sight both ways; enemies who cross it burn."
 	a.targeting = AbilityResource.Targeting.POINT
 	a.cooldown = 5.0
 	a.damage = 13.0

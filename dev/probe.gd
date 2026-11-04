@@ -727,7 +727,7 @@ const SCENARIOS: Dictionary = {
 	],
 	## Abilities: the holder has one cast path, and these three abilities have to do three
 	## different things through it. Damage is read off the enemies; the fire wall's
-	## solidity and shadow-casting are read off the effect it leaves behind.
+	## sight-blocking and shadow-casting are read off the effect it leaves behind.
 	"abilities": [
 		{
 			"set_abilities": ["fire_tempest", "lightning_bolt"],
@@ -764,7 +764,7 @@ const SCENARIOS: Dictionary = {
 			"ability_effects": true,
 		},
 		{
-			# In the open: spawned, and it is solid and shadow-casting.
+			# In the open: spawned, sight-blocking and shadow-casting, but not solid.
 			"cast_ability": 0,
 			"ability_target": Vector2(224.0, 620.0),
 			"wait": 0.6,
@@ -813,6 +813,30 @@ const SCENARIOS: Dictionary = {
 		{
 			"wait": 1.2,
 			"shot": "fire_wall_05_gone",
+		},
+	],
+	## The fire wall's rules rather than its look: it hides each side from the other, but
+	## bullets and bodies pass through, it burns enemies standing in it and never the player.
+	## Run against `dev/surface_lab.tscn`.
+	"fire_wall_rules": [
+		{
+			"set_abilities": ["fire_wall"],
+			"aim": Vector2(1.0, 0.0),
+			"wait": 0.5,
+		},
+		{
+			"cast_ability": 0,
+			"ability_target": Vector2(918.0, 601.0),
+			"wait": 0.3,
+			"fire_wall_report": true,
+		},
+		{
+			# Into the fire: the player walks in and should come out unhurt, the enemy dropped into
+			# it should burn.
+			"teleport": Vector2(918.0, 640.0),
+			"enemy_into_fire": Vector2(918.0, 560.0),
+			"wait": 1.3,
+			"fire_wall_report": true,
 		},
 	],
 	## Bake a navmesh at runtime and verify it: that the server knows about it, that
@@ -2053,6 +2077,9 @@ var _dashed_door_name: String = ""
 ## Announcements, so a test can assert that an action is *silent* rather than merely harmless.
 var _announce_log: Array[String] = []
 var _announce_connected: bool = false
+## The enemy the fire wall rules scenario drops into the fire, and its health when it landed.
+var _fire_enemy: Enemy = null
+var _fire_enemy_start_hp: float = 0.0
 
 
 func _connect_noise_log() -> void:
@@ -2461,6 +2488,11 @@ func _run(scenario: String) -> void:
 		# "bake the mesh, wait, then report" has to bake first.
 		if step.has("bake_navmesh"):
 			_bake_navmesh_runtime()
+		if step.has("enemy_into_fire"):
+			_fire_enemy = (load("res://src/enemies/enemy.tscn") as PackedScene).instantiate() as Enemy
+			GameDirector.spawn_parent().add_child(_fire_enemy)
+			_fire_enemy.global_position = step["enemy_into_fire"]
+			_fire_enemy_start_hp = _fire_enemy.health.current
 		if step.has("alert_all"):
 			var alerted: Node = GameDirector.current_level
 			if alerted != null and alerted.has_method("debug_alert_all"):
@@ -2512,6 +2544,8 @@ func _run(scenario: String) -> void:
 			_report_navmesh()
 		if step.has("ability_effects"):
 			_report_ability_effects()
+		if step.has("fire_wall_report"):
+			_report_fire_wall()
 		if step.has("presentation"):
 			_report_presentation()
 		if step.has("settings_menu_report"):
@@ -2788,15 +2822,56 @@ func _report_ability_effects() -> void:
 		if effect == null:
 			continue
 		found += 1
-		print("[probe]   effect %-18s solid=%s occludes=%s field=%s  life_left=%.2f" % [
+		print("[probe]   effect %-18s solid=%s blocks_sight=%s occludes=%s field=%s  life_left=%.2f" % [
 			effect.get_script().resource_path.get_file(),
 			effect.find_child("Solid", true, false) != null,
+			effect.find_child("SightBlocker", true, false) != null,
 			effect.find_child("Occluder", true, false) != null,
 			effect.find_child("Field", true, false) != null,
 			effect.remaining_fraction(),
 		])
 	if found == 0:
 		print("[probe]   no ability effects alive")
+
+
+## Rays across every live fire wall, one per thing that might be stopped by it, plus what happened to
+## anyone standing in it.
+func _report_fire_wall() -> void:
+	var parent: Node = GameDirector.spawn_parent()
+	var space: PhysicsDirectSpaceState2D = get_tree().root.get_world_2d().direct_space_state
+	if parent == null or space == null:
+		return
+	for node: Node in _all_nodes(parent):
+		var wall := node as FireWall
+		if wall == null:
+			continue
+		# The wall's local Y is its thickness, so a ray along it crosses the fire.
+		var across: Vector2 = wall.global_transform.y.normalized() * 80.0
+		var checks: Array = [
+			["enemy sight", Layers.SIGHT_BLOCKERS, true],
+			["player's cone noticed", Layers.SOLID | Layers.SIGHT_ONLY, true],
+			["player bullets", Layers.PLAYER_SHOT_HITS, false],
+			["enemy bullets", Layers.ENEMY_SHOT_HITS, false],
+			["player movement", Layers.SOLID | Layers.DOOR, false],
+			["enemy movement", Layers.SOLID, false],
+		]
+		var line: Array[String] = []
+		for check: Array in checks:
+			var query := PhysicsRayQueryParameters2D.create(wall.global_position - across,
+				wall.global_position + across, int(check[1]))
+			var blocked: bool = not space.intersect_ray(query).is_empty()
+			line.append("%s=%s%s" % [check[0], "blocked" if blocked else "passes",
+				"" if blocked == bool(check[2]) else " (WRONG)"])
+		print("[probe]   fire wall: " + ", ".join(line))
+	var player: Player = GameDirector.valid_player()
+	if player != null:
+		print("[probe]   player hp in fire: %.1f / %.1f" % [player.health.current, player.health.max_health])
+	if _fire_enemy != null:
+		if is_instance_valid(_fire_enemy):
+			print("[probe]   enemy in fire: hp %.1f -> %.1f" % [_fire_enemy_start_hp,
+				_fire_enemy.health.current])
+		else:
+			print("[probe]   enemy in fire: hp %.1f -> burnt to death" % _fire_enemy_start_hp)
 
 
 ## Lints every level scene. This runs inside a real game run rather than as a

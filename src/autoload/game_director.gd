@@ -261,7 +261,9 @@ func player_sees(point: Vector2) -> bool:
 	var rig: VisionRig = who.get_node_or_null("Vision") as VisionRig
 	if rig == null:
 		return false
-	return rig.can_see_point(point)
+	# Sight-only blockers too: the cone does not shine through a fire wall, so nobody behind one
+	# should notice it.
+	return rig.can_see_point(point, Layers.SOLID | Layers.SIGHT_ONLY)
 
 
 func stats_line() -> String:

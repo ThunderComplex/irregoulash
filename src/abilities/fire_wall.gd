@@ -1,8 +1,11 @@
 class_name FireWall
 extends AbilityEffect
-## A wall of fire: the ability that also changes the level, because it blocks movement
-## and light. Cast across a corridor it cuts a line of sight as much as it blocks a path,
-## which is the tactical point of it.
+## A wall of fire: the ability that also changes the level, because it blocks sight.
+## Cast across a corridor it cuts the line of sight both ways -- the player cannot see past
+## it and neither can the enemies -- which is the tactical point of it. It does not block
+## movement: walking through it is free for the player and burns enemies, so a guard who
+## goes after where he last saw you takes the fire on the way. Bullets pass through, so
+## both sides can still shoot blind across it.
 ##
 ## The look is four `ParticleLibrary` presets layered over the damage field's footprint --
 ## coals on the ground, flames, smoke, embers -- plus a flickering light on each side. The
@@ -46,7 +49,7 @@ func begin(caster: Node2D, target: Vector2, slot: AbilitySlot) -> bool:
 	_field.hits_mask = Layers.ENEMY
 	_field.source = caster
 	_field.color = data.color
-	_field.blocks_movement = true
+	_field.blocks_sight = true
 	_field.blocks_light = true
 	_field.show_visual = false
 	_field.occlude_spine = true
@@ -66,7 +69,7 @@ func begin(caster: Node2D, target: Vector2, slot: AbilitySlot) -> bool:
 func _build_fire(size: Vector2) -> void:
 	var half: Vector2 = size * 0.5
 	# Coals cover the whole footprint; flames, smoke and embers come from slightly inside it, so the
-	# fire's silhouette stays within the solid area rather than spilling past where it blocks you.
+	# fire's silhouette stays within the area that burns rather than spilling past it.
 	var inner: Vector2 = half * Vector2(0.92, 0.7)
 	_add_emitter("coals", half, size)
 	_add_emitter("flames", inner, size)
