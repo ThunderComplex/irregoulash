@@ -46,10 +46,10 @@ static func by_id(id: String) -> ParticlePreset:
 ## own. Little initial speed and a strong lift: a flame does not fly, it climbs.
 static func _flames() -> ParticlePreset:
 	var p := ParticlePreset.new()
-	p.amount = 110
-	p.lifetime = 0.6
+	p.amount = 125
+	p.lifetime = 0.7
 	p.lifetime_randomness = 0.4
-	p.preprocess = 0.5
+	p.preprocess = 0.6
 	p.shape = ParticlePreset.Shape.BOX
 	p.direction = Vector2.UP
 	p.direction_in_world = true
@@ -59,13 +59,15 @@ static func _flames() -> ParticlePreset:
 	p.gravity = Vector2(0.0, -110.0)
 	p.damping_min = 0.0
 	p.damping_max = 3.0
-	p.tangential_min = -6.0
-	p.tangential_max = 6.0
+	p.tangential_min = -60.0
+	p.tangential_max = 60.0
 	p.texture = flame_tongue()
 	p.align_to_motion = true
 	p.size_min = 16.0
 	p.size_max = 26.0
 	p.size_curve = _curve([Vector2(0.0, 0.55), Vector2(0.25, 1.0), Vector2(1.0, 0.25)])
+	p.spin_min = 10.0
+	p.spin_max = 50.0
 	p.colors = _gradient([
 		[0.0, Color(1.0, 0.95, 0.75, 0.0)],
 		[0.1, Color(1.0, 0.86, 0.5, 0.75)],
@@ -80,7 +82,7 @@ static func _flames() -> ParticlePreset:
 ## Bright specks thrown up out of the fire, living longer and drifting further than the flames do.
 static func _embers() -> ParticlePreset:
 	var p := ParticlePreset.new()
-	p.amount = 22
+	p.amount = 75
 	p.lifetime = 1.3
 	p.lifetime_randomness = 0.5
 	p.preprocess = 0.8
@@ -95,8 +97,8 @@ static func _embers() -> ParticlePreset:
 	p.tangential_min = -30.0
 	p.tangential_max = 30.0
 	p.size_min = 2.5
-	p.size_max = 4.5
-	p.size_curve = _curve([Vector2(0.0, 1.0), Vector2(1.0, 0.3)])
+	p.size_max = 7.5
+	p.size_curve = _curve([Vector2(0.0, 1.0), Vector2(1.0, 0.2)])
 	p.colors = _gradient([
 		[0.0, Color(1.0, 0.92, 0.6, 1.0)],
 		[0.5, Color(1.0, 0.55, 0.15, 0.9)],
@@ -110,7 +112,7 @@ static func _embers() -> ParticlePreset:
 ## dim what is behind it, and kept faint: in pitch darkness heavy smoke would just be a black hole.
 static func _smoke() -> ParticlePreset:
 	var p := ParticlePreset.new()
-	p.amount = 14
+	p.amount = 50
 	p.lifetime = 1.8
 	p.lifetime_randomness = 0.4
 	p.preprocess = 1.0
@@ -125,8 +127,8 @@ static func _smoke() -> ParticlePreset:
 	p.tangential_max = 10.0
 	p.spin_min = -40.0
 	p.spin_max = 40.0
-	p.size_min = 26.0
-	p.size_max = 44.0
+	p.size_min = 20.0
+	p.size_max = 50.0
 	p.size_curve = _curve([Vector2(0.0, 0.5), Vector2(1.0, 1.2)])
 	p.colors = _gradient([
 		[0.0, Color(0.16, 0.12, 0.1, 0.0)],
