@@ -1,4 +1,4 @@
-﻿@tool
+@tool
 class_name Door
 extends Node2D
 ## A door in a wall: it blocks movement, bullets and light while shut, and stops blocking all
@@ -18,6 +18,9 @@ extends Node2D
 ## doors have to be passable in the baked mesh or enemies could never path through a doorway.
 
 signal changed()
+
+## How far outside a leaf's face the lighting is read: clear of the leaf's own shadow.
+const REVEAL_PROBE: float = 10.0
 
 enum State {CLOSED, OPEN, BROKEN}
 
@@ -56,6 +59,15 @@ var _collision: CollisionShape2D = null
 var _occluder: LightOccluder2D = null
 var _polygon: OccluderPolygon2D = null
 var _tween: Tween = null
+## The level's lighting mask, when it has one (a textured level). A door blocks light with its own
+## occluder, so -- exactly like a wall -- its inside is always in its own shadow and the lighting can
+## never brighten it: a lit door rendered black. With a mask, the art is drawn unshaded and lit from the
+## mask just outside the face the player is looking at, the way walls are.
+var _reveal: RevealMask = null
+var _reveal_cooldown: float = 0.0
+var _panel: Polygon2D = null
+var _edge: Line2D = null
+var _lock_plate: Polygon2D = null
 ## The enemy that opened this door and still intends to shut it behind itself.
 var _closer: Node = null
 ## True while the leaf is between two angles.
@@ -142,7 +154,6 @@ func smash(by: Node) -> void:
 	FxDirector.spark_burst(global_position, Vector2.UP, 14, Color(0.78, 0.6, 0.38), 190.0, 0.45)
 	FxDirector.flash_light(global_position, Color(0.95, 0.8, 0.5), 0.7, 130.0, 0.18)
 	GameDirector.make_noise(global_position, Tuning.noise_door_smash, by)
-	GameDirector.announce_message("DOOR SMASHED", Color(0.95, 0.85, 0.6))
 	changed.emit()
 	queue_free()
 
@@ -326,19 +337,26 @@ func _build_leaf_art() -> void:
 
 	var panel := Polygon2D.new()
 	panel.name = "Panel"
-	panel.polygon = corners
+	# The long edges have a midpoint each, so the reveal can shade a door lit at one end only.
+	panel.polygon = PackedVector2Array([
+		corners[0], Vector2(size.x * 0.5, -size.y * 0.5), corners[1],
+		corners[2], Vector2(size.x * 0.5, size.y * 0.5), corners[3],
+	])
 	panel.color = Color(0.44, 0.30, 0.34) if locked else Color(0.52, 0.36, 0.22)
 	panel.z_index = Layers.Z_WALL
 	_art.add_child(panel)
+	_panel = panel
 
-	var edge := Line2D.new()
-	edge.name = "Edge"
-	edge.points = Shapes.closed_outline(corners)
-	edge.width = 2.0
-	edge.default_color = Color(0.95, 0.55, 0.6) if locked else Color(0.86, 0.72, 0.5)
-	edge.z_index = Layers.Z_WALL_EDGE
-	_art.add_child(edge)
+	#var edge := Line2D.new()
+	#edge.name = "Edge"
+	#edge.points = Shapes.closed_outline(corners)
+	#edge.width = 1.0
+	#edge.default_color = Color(0.95, 0.55, 0.6) if locked else Color(0.86, 0.72, 0.5)
+	#edge.z_index = Layers.Z_WALL_EDGE
+	#_art.add_child(edge)
+	#_edge = edge
 
+	_lock_plate = null
 	if locked:
 		var plate := Polygon2D.new()
 		plate.name = "Lock"
@@ -347,7 +365,93 @@ func _build_leaf_art() -> void:
 		plate.position = Vector2(size.x * 0.5, 0.0)
 		plate.color = Color(1.0, 0.78, 0.3)
 		plate.z_index = Layers.Z_WALL_EDGE
-		_leaf.add_child(plate)
+		# Under the art node, so the rebuild on unlock clears it with everything else. It used to hang
+		# off the leaf itself, and an unlocked door kept showing its lock.
+		_art.add_child(plate)
+		_lock_plate = plate
+	_apply_reveal()
+
+
+#region reveal
+
+func _process(delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
+	_reveal_cooldown -= delta
+	if _reveal_cooldown > 0.0:
+		return
+	# The mask's own rate: it only changes ten times a second.
+	_reveal_cooldown = 0.1
+	if _reveal == null or not is_instance_valid(_reveal):
+		_reveal = _find_reveal_mask()
+		if _reveal == null:
+			return
+	_apply_reveal()
+
+
+## The level's mask, found by walking up like `Wall` does. Asked for on a timer rather than once in
+## `_ready`, because the level creates its mask after its children are ready.
+func _find_reveal_mask() -> RevealMask:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("reveal_mask"):
+			return node.call("reveal_mask") as RevealMask
+		node = node.get_parent()
+	return null
+
+
+## Unshaded, so the fog cannot black the door out; its brightness comes from `_apply_reveal` instead.
+func _apply_reveal_materials() -> void:
+	for item: CanvasItem in [_panel, _edge, _lock_plate]:
+		if item != null and is_instance_valid(item):
+			item.material = FxDirector.unshaded_material()
+
+
+## Lights the leaf from the mask, sampled a step outside the long face the player is on: the space you
+## look at a door from is what lights it, as with walls. Read at both ends and the middle and blended
+## across the panel, and in the leaf's own space so it follows the door as it swings.
+func _apply_reveal() -> void:
+	if _reveal == null or not is_instance_valid(_reveal) or _leaf == null or _panel == null:
+		return
+	if _panel.material == null:
+		# A fresh panel (first time, or rebuilt on unlock) still has the default lit material.
+		_apply_reveal_materials()
+	var half: float = size.y * 0.5 + REVEAL_PROBE
+	var side: float = _player_side()
+	var lit := PackedFloat32Array()
+	for x: float in [2.0, size.x * 0.5, size.x - 2.0]:
+		var value: float
+		if side == 0.0:
+			# Nobody to see it from: whichever face is brighter.
+			value = maxf(_reveal.lighting_at(_leaf.to_global(Vector2(x, half))),
+				_reveal.lighting_at(_leaf.to_global(Vector2(x, -half))))
+		else:
+			value = _reveal.lighting_at(_leaf.to_global(Vector2(x, side * half)))
+		lit.append(value * 0.6)
+	# `vertex_colors` replace a polygon's `color` rather than tinting it, so the door's own colour has to
+	# be carried into each one.
+	var base: Color = _panel.color
+	var shade: Array[Color] = []
+	for value: float in lit:
+		shade.append(Color(base.r * value, base.g * value, base.b * value, base.a))
+	# Same order as the panel's polygon: three along the top edge, then three back along the bottom.
+	_panel.vertex_colors = PackedColorArray([shade[0], shade[1], shade[2], shade[2], shade[1], shade[0]])
+	var average: float = (lit[0] + lit[1] + lit[2]) / 3.0
+	if _edge != null:
+		_edge.self_modulate = Color(average, average, average)
+	if _lock_plate != null and is_instance_valid(_lock_plate):
+		_lock_plate.self_modulate = Color(average, average, average)
+
+
+## Which long face of the leaf the player is on, in the leaf's space: 1 for +y, -1 for -y, 0 with no
+## player.
+func _player_side() -> float:
+	var player: Player = GameDirector.valid_player()
+	if player == null:
+		return 0.0
+	return 1.0 if _leaf.to_local(player.global_position).y >= 0.0 else -1.0
+
+#endregion
 
 
 func _hinge(trans: Tween.TransitionType, angle: float) -> void:

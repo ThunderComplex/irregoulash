@@ -173,7 +173,8 @@ func refresh() -> void:
 	if _style == null or not _style.is_textured():
 		mesh = null
 		return
-	_reveal_image = _reveal.texture.get_image() if _reveal != null and _reveal.texture != null else null
+	# The mask's own copy: `texture.get_image()` would be a second GPU read-back every refresh.
+	_reveal_image = _reveal.image if _reveal != null else null
 	var surface := SurfaceTool.new()
 	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for entry: Dictionary in _outlines:

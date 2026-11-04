@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cm18cddlcskw1" path="res://src/levels/level.gd" id="1_level"]
 [ext_resource type="Shader" uid="uid://pygep2sn14nj" path="res://src/levels/surface.gdshader" id="2_awj53"]
+[ext_resource type="PackedScene" uid="uid://bdsl36775kqdd" path="res://src/levels/level_campaign_02.tscn" id="2_un6eu"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
 [ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="3_lamp"]
 [ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_un6eu"]
@@ -10,7 +11,7 @@
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="7_lxqdr"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_awj53"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lxqdr"]
 shader = ExtResource("2_awj53")
 shader_parameter/albedo = ExtResource("3_un6eu")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -26,7 +27,7 @@ shader_parameter/rim_ao_strength = 0.0
 shader_parameter/base_band = 0.0
 shader_parameter/base_strength = 0.0
 
-[sub_resource type="NavigationPolygon" id="NavigationPolygon_lxqdr"]
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_un6eu"]
 vertices = PackedVector2Array(2446, -14, 2446, 1294, 2386, 1234, 2386, 46, -14, 1294, 622, 1234, -14, -14, 46, 46, 46, 594, 622, 594, 826, 370, 826, 238, 1006, 146, 1006, 914, 146, 146, 726, 238, 722, 494, 146, 494, 726, 370, 1262, 302, 1262, 814, 1106, 814, 1106, 146, 1614, 146, 1362, 302, 1614, 914, 1362, 914, 1714, 914, 1714, 146, 2286, 146, 2286, 1134, 722, 1134)
 polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(2, 1, 4, 5), PackedInt32Array(6, 0, 3, 7), PackedInt32Array(4, 6, 7, 8), PackedInt32Array(5, 4, 8, 9), PackedInt32Array(10, 11, 12, 13), PackedInt32Array(14, 12, 11, 15), PackedInt32Array(16, 17, 14, 15, 18), PackedInt32Array(19, 20, 21, 22), PackedInt32Array(19, 22, 23, 24), PackedInt32Array(24, 23, 25, 26), PackedInt32Array(27, 28, 29, 30), PackedInt32Array(27, 30, 31, 25), PackedInt32Array(26, 25, 31), PackedInt32Array(13, 26, 31), PackedInt32Array(10, 13, 31, 16, 18)])
 outlines = Array[PackedVector2Array]([PackedVector2Array(-32, -32, 2464, -32, 2464, 1312, -32, 1312)])
@@ -45,7 +46,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_awj53")
+material = SubResource("ShaderMaterial_lxqdr")
 position = Vector2(1216, 640)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-4060.5955, -3484.5955, 4060.5955, -3484.5955, 4060.5955, 3484.5955, -4060.5955, 3484.5955)
@@ -139,16 +140,18 @@ position = Vector2(2144, 352)
 position = Vector2(1824, 352)
 
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
-position = Vector2(250, 312)
+position = Vector2(191, 314)
 
 [node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
+metadata/_edit_lock_ = true
+metadata/_edit_group_ = true
 
 [node name="Lamp0" parent="Lamps" unique_id=1065493755 instance=ExtResource("3_lamp")]
 position = Vector2(939, 215)
 radius = 210.0
 
 [node name="Lamp4" parent="Lamps" unique_id=1901478582 instance=ExtResource("3_lamp")]
-position = Vector2(285, 307)
+position = Vector2(467, 307)
 radius = 300.0
 
 [node name="Lamp1" parent="Lamps" unique_id=1353851989 instance=ExtResource("3_lamp")]
@@ -195,17 +198,11 @@ kind = "health"
 weapon_id = "pistol"
 amount = 15
 
-[node name="Pickup1" parent="Pickups" unique_id=538610333 instance=ExtResource("5_pickup")]
-position = Vector2(2276, 930)
-kind = "ability"
-weapon_id = "pistol"
-amount = 10
-
 [node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("6_exit")]
 position = Vector2(1976, 488)
-is_final = true
+next_level = ExtResource("2_un6eu")
 
 [node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]
 visible = false
-navigation_polygon = SubResource("NavigationPolygon_lxqdr")
-metadata/navmesh_hash = 344405155
+navigation_polygon = SubResource("NavigationPolygon_un6eu")
+metadata/navmesh_hash = 921544849

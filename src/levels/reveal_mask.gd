@@ -35,6 +35,10 @@ signal first_sample()
 signal sampled()
 
 var texture: Texture2D = null
+## The last read-back on the CPU, for anything that looks the lighting up per point (wall outlines,
+## doors). Kept rather than fetched from `texture` on demand: that would be another GPU read-back each
+## time.
+var image: Image = null
 ## The world-space rectangle the mask covers, which is what turns a world position into a texel.
 var world_rect: Rect2 = Rect2()
 
@@ -137,17 +141,31 @@ func _sample() -> void:
 	var rendered: Texture2D = _viewport.get_texture()
 	if rendered == null:
 		return
-	var image: Image = rendered.get_image()
-	if image == null or image.is_empty():
+	var grabbed: Image = rendered.get_image()
+	if grabbed == null or grabbed.is_empty():
 		return
+	image = grabbed
 	if _image_texture == null:
-		_image_texture = ImageTexture.create_from_image(image)
+		_image_texture = ImageTexture.create_from_image(grabbed)
 		texture = _image_texture
 		first_sample.emit()
 	else:
-		_image_texture.update(image)
+		_image_texture.update(grabbed)
 	# Decoration is drawn on the CPU and reads the mask directly, so it has to be told when the mask moves.
 	sampled.emit()
+
+
+## How lit `point` is, 0..1, from the last read-back. 1 before the first sample (nothing should go
+## black just because the mask has not been photographed yet), 0 outside the mask.
+func lighting_at(point: Vector2) -> float:
+	if image == null or world_rect.size.x <= 0.0 or world_rect.size.y <= 0.0:
+		return 1.0
+	var uv: Vector2 = (point - world_rect.position) / world_rect.size
+	if uv.x < 0.0 or uv.y < 0.0 or uv.x > 1.0 or uv.y > 1.0:
+		return 0.0
+	var x: int = clampi(int(uv.x * float(image.get_width())), 0, image.get_width() - 1)
+	var y: int = clampi(int(uv.y * float(image.get_height())), 0, image.get_height() - 1)
+	return image.get_pixel(x, y).r
 
 
 func is_ready() -> bool:

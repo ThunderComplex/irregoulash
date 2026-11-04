@@ -864,6 +864,28 @@ const SCENARIOS: Dictionary = {
 			"fire_wall_report": true,
 		},
 	],
+	## How doors read in a lit, textured level: looked at, looked away from, and opened. Run
+	## against `src/levels/level_campaign_02.tscn`, whose Door1 is east of the spawn.
+	"door_reveal": [
+		{
+			"god": true,
+			"aim": Vector2(1.0, 0.0),
+			"wait": 1.0,
+			"shot": "door_reveal_01_looking_at",
+		},
+		{
+			"aim": Vector2(-1.0, 0.0),
+			"wait": 0.6,
+			"shot": "door_reveal_02_looking_away",
+		},
+		{
+			"aim": Vector2(1.0, 0.0),
+			"teleport": Vector2(860.0, 661.0),
+			"interact_door": true,
+			"wait": 0.8,
+			"shot": "door_reveal_03_opened",
+		},
+	],
 	## Bake a navmesh at runtime and verify it: that the server knows about it, that
 	## enemies pick it up, and that its paths never cross walls.
 	"navmesh": [

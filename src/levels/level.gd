@@ -1,4 +1,4 @@
-﻿@tool
+@tool
 class_name Level
 extends Node2D
 ## Base behaviour for every level.
@@ -31,9 +31,6 @@ const EDITOR_PREVIEW_NODE: StringName = &"EditorLightingPreview"
 
 @export var level_title: String = "LEVEL"
 @export var objective: String = "Find the way out."
-## Where this level's non-final exits lead. An exit with no `next_level` of its own
-## falls back to this, so a level with several exits only needs it set once here.
-@export var next_level: PackedScene
 @export var start_weapons: Array[String] = ["pistol"]
 @export var starting_ammo_bonus: int = 0
 

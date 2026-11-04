@@ -148,25 +148,11 @@ func _enter(_player: Player) -> void:
 
 	GameDirector.notify_level_cleared()
 	var target: PackedScene = next_level
-	if target == null:
-		target = level_next_level()
 	if target != null:
 		GameDirector.load_level(target.resource_path)
 	else:
 		GameDirector.announce_message("No next level set", Color(1.0, 0.5, 0.4))
 		GameDirector.notify_win()
-
-
-## The owning level's own `next_level`, used when this exit has none of its own, so a
-## level with several exits only needs the destination set once.
-func level_next_level() -> PackedScene:
-	var node: Node = get_parent()
-	while node != null:
-		if node.has_method("level_bounds"):
-			var fallback: Variant = node.get("next_level")
-			return fallback as PackedScene
-		node = node.get_parent()
-	return null
 
 
 #region editor gizmo
@@ -192,8 +178,6 @@ func editor_label() -> String:
 	if is_final:
 		return "FINAL EXIT: WINS THE RUN"
 	var target: PackedScene = next_level
-	if target == null:
-		target = level_next_level()
 	if target == null:
 		return "NO NEXT LEVEL SET"
 	var path: String = target.resource_path
