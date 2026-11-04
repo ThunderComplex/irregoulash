@@ -31,7 +31,7 @@ static func _build_guard() -> EnemyArchetype:
 	var a := EnemyArchetype.new()
 	a.id = &"guard"
 	a.display_name = "Guard"
-	a.max_health = 55.0
+	a.max_health = 50.0
 	a.radius = 13.0
 	a.speed_patrol = 62.0
 	a.speed_alert = 132.0
@@ -39,14 +39,14 @@ static func _build_guard() -> EnemyArchetype:
 	a.sight_range = 430.0
 	a.sight_fov = 105.0
 	a.detect_multiplier = 1.0
-	a.damage = 8.0
+	a.damage = 16.0
 	a.pellets = 1
 	a.fire_interval = 0.22
 	a.burst = 3
 	a.burst_pause = 0.75
 	a.spread_deg = 6.5
 	a.fire_range = 520.0
-	a.reaction_time = 0.5
+	a.reaction_time = 0.2
 	a.preferred_range = 260.0
 	a.drop_weapon = "pistol"
 	return a

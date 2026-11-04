@@ -95,9 +95,6 @@ extends Node
 @export_group("Combat")
 @export var player_bullet_speed: float = 1500.0
 @export var enemy_bullet_speed: float = 780.0
-## Enemy reaction delay between seeing you and firing.
-@export var enemy_reaction_time: float = 0.42
-@export var enemy_burst_pause: float = 0.65
 ## Extra inaccuracy (degrees) added to enemy shots at max range.
 @export var enemy_extra_spread: float = 7.0
 ## How long the terrain remembers a bullet hole.

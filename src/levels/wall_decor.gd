@@ -21,6 +21,8 @@ extends MeshInstance2D
 ## Growth used when merging, so walls that merely touch are treated as connected: a shared edge is
 ## zero-area overlap, which polygon merging does not count as an overlap.
 const TOUCH_EPSILON: float = 0.5
+## Enclosed free space smaller than this many square pixels is a sliver left by `TOUCH_EPSILON`, not a room.
+const MIN_ROOM_AREA: float = 64.0
 ## Rings across the occlusion band. Four is enough to read as a gradient at these widths.
 const AO_RINGS: int = 4
 ## Sharp corners produce huge mitres; cap them so a very acute angle does not shoot off across the room.
@@ -384,48 +386,125 @@ func _owner_of(point: Vector2, a: Vector2, b: Vector2) -> Wall:
 
 #region merging
 
-## Union of every wall's footprint, as outer outlines and hole outlines.
+## Union of every wall's footprint, as outlines: the outer contour of each group of touching walls, plus
+## the boundary of every free space enclosed by that group -- the rooms.
+##
+## The rooms are the part that is easy to lose. `merge_polygons` reports a closed ring of walls as an outer
+## contour and a separate hole, and the outer contour on its own is a *filled* shape covering the whole
+## level: merging the next wall into it swallows that wall whole, and dropping the hole drops every edge
+## that faces into a room. A level whose outer walls closed into a loop came out as a single outline round
+## its outside, no wall had an edge to sample light from, and nothing was ever revealed. So the outer
+## contour is built per group of walls that actually touch, and the rooms are cut back out of it from the
+## walls themselves rather than trusted to the merge.
 static func _merged_outlines(walls: Array[Wall]) -> Array[PackedVector2Array]:
-	var polygons: Array[PackedVector2Array] = []
+	var footprints: Array[PackedVector2Array] = []
 	for wall: Wall in walls:
 		if wall != null and is_instance_valid(wall):
-			polygons.append(_grown(wall.world_polygon(), TOUCH_EPSILON))
-	if polygons.is_empty():
-		return polygons
+			footprints.append(_grown(wall.world_polygon(), TOUCH_EPSILON))
+	var out: Array[PackedVector2Array] = []
+	for group: Array[PackedVector2Array] in _touching_groups(footprints):
+		var outer: PackedVector2Array = _outer_contour(group)
+		out.append(outer)
+		out.append_array(_enclosed_space(outer, group))
+	return out
 
-	# Merge pairs until nothing more can be merged. Runs once per level, not per frame, and wall counts
-	# are in the dozens even for a maze of rooms.
-	var changed: bool = true
-	while changed:
-		changed = false
+
+## Footprints split into groups that touch, directly or through each other. A wall standing alone in a
+## room is its own group, so it keeps its own outline instead of vanishing into the room's surroundings.
+static func _touching_groups(footprints: Array[PackedVector2Array]) -> Array[Array]:
+	var group_of: Array[int] = []
+	for i: int in footprints.size():
+		group_of.append(i)
+	for i: int in footprints.size():
+		for j: int in range(i + 1, footprints.size()):
+			if Geometry2D.intersect_polygons(footprints[i], footprints[j]).is_empty():
+				continue
+			var from: int = group_of[j]
+			var to: int = group_of[i]
+			if from == to:
+				continue
+			for k: int in group_of.size():
+				if group_of[k] == from:
+					group_of[k] = to
+	var by_root: Dictionary = {}
+	for i: int in footprints.size():
+		if not by_root.has(group_of[i]):
+			var fresh: Array[PackedVector2Array] = []
+			by_root[group_of[i]] = fresh
+		(by_root[group_of[i]] as Array[PackedVector2Array]).append(footprints[i])
+	var groups: Array[Array] = []
+	for root: int in by_root:
+		groups.append(by_root[root])
+	return groups
+
+
+## The outside edge of one group of touching footprints. Holes the merge reports are ignored here on
+## purpose; `_enclosed_space` finds them properly.
+static func _outer_contour(group: Array[PackedVector2Array]) -> PackedVector2Array:
+	var outer: PackedVector2Array = group[0]
+	var pending: Array[PackedVector2Array] = group.slice(1)
+	# A footprint can only be merged once something it touches is already in; keep sweeping until every
+	# one has been, or a sweep makes no progress (which a touching group cannot do, but a loop must end).
+	var progress: bool = true
+	while not pending.is_empty() and progress:
+		progress = false
 		var i: int = 0
-		while i < polygons.size():
-			var j: int = i + 1
-			while j < polygons.size():
-				var merged: Array[PackedVector2Array] = Geometry2D.merge_polygons(polygons[i],
-					polygons[j])
-				if _is_real_merge(merged, polygons[i], polygons[j]):
-					polygons[i] = merged[0]
-					for extra: int in range(1, merged.size()):
-						polygons.append(merged[extra])
-					polygons.remove_at(j)
-					changed = true
-				else:
-					j += 1
-			i += 1
-	return polygons
+		while i < pending.size():
+			var solids: Array[PackedVector2Array] = []
+			for piece: PackedVector2Array in Geometry2D.merge_polygons(outer, pending[i]):
+				if not Geometry2D.is_polygon_clockwise(piece):
+					solids.append(piece)
+			if solids.size() == 1:
+				outer = solids[0]
+				pending.remove_at(i)
+				progress = true
+			else:
+				# Not touching what has been merged so far: the two came back separately.
+				i += 1
+	return outer
 
 
-## `merge_polygons` hands back the two inputs untouched when they do not overlap, and an outer polygon
-## plus hole polygons when one contains the other. Tell those apart so a ring of walls merges instead of
-## being treated as separate.
-static func _is_real_merge(merged: Array[PackedVector2Array], a: PackedVector2Array,
-		b: PackedVector2Array) -> bool:
-	if merged.size() != 2:
-		return merged.size() == 1
-	var first: PackedVector2Array = merged[0]
-	var second: PackedVector2Array = merged[1]
-	return not ((first == a and second == b) or (first == b and second == a))
+## The free space inside `outer` once every footprint of its group is cut out of it: the rooms the group
+## encloses. Empty for a group that encloses nothing, which is almost every group.
+static func _enclosed_space(outer: PackedVector2Array,
+		group: Array[PackedVector2Array]) -> Array[PackedVector2Array]:
+	var free: Array[PackedVector2Array] = [outer]
+	var pending: Array[PackedVector2Array] = group.duplicate()
+	var progress: bool = true
+	while not pending.is_empty() and progress:
+		progress = false
+		var i: int = 0
+		while i < pending.size():
+			var cut: Array[PackedVector2Array] = []
+			var punched_hole: bool = false
+			for region: PackedVector2Array in free:
+				for piece: PackedVector2Array in Geometry2D.clip_polygons(region, pending[i]):
+					if Geometry2D.is_polygon_clockwise(piece):
+						punched_hole = true
+					cut.append(piece)
+			if punched_hole:
+				# This footprint sits strictly inside a free region, away from everything cut so far, and
+				# `clip_polygons` would report it as a hole that the next cut ignores. Cut it once a
+				# neighbour has carved the region up to it.
+				i += 1
+				continue
+			free = cut
+			pending.remove_at(i)
+			progress = true
+	# The footprints are grown by `TOUCH_EPSILON`, so cutting them out of their own union leaves hairline
+	# slivers along every join. Anything smaller than a wall corner is not a room.
+	var rooms: Array[PackedVector2Array] = []
+	for region: PackedVector2Array in free:
+		if absf(_area(region)) > MIN_ROOM_AREA:
+			rooms.append(region)
+	return rooms
+
+
+static func _area(points: PackedVector2Array) -> float:
+	var total: float = 0.0
+	for i: int in points.size():
+		total += points[i].cross(points[(i + 1) % points.size()])
+	return total * 0.5
 
 
 ## The wall's footprint in world space, grown by `amount` about its centre so touching walls count as
