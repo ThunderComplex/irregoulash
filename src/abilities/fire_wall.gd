@@ -112,6 +112,7 @@ func _tick(delta: float) -> void:
 	_t += delta
 	var left: float = lifetime * remaining_fraction()
 	if left <= _burn_down and not _emitters.is_empty():
+		_field.queue_free()
 		for node: CPUParticles2D in _emitters:
 			FxDirector.stop_emitter(node)
 		_emitters.clear()
