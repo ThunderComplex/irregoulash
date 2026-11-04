@@ -5,14 +5,12 @@
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
 [ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="3_lamp"]
 [ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_un6eu"]
-[ext_resource type="Script" uid="uid://42vdeppvwt1a" path="res://src/levels/wall.gd" id="5_lxqdr"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]
 [ext_resource type="Script" uid="uid://tdmd7rqbsvoa" path="res://src/levels/patrol_route.gd" id="5_un6eu"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="7_lxqdr"]
-[ext_resource type="Script" uid="uid://c1femwp0kyllt" path="res://src/enemies/enemy.gd" id="9_lxqdr"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_i28rg"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_awj53"]
 shader = ExtResource("2_awj53")
 shader_parameter/albedo = ExtResource("3_un6eu")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -20,7 +18,7 @@ shader_parameter/tint = Color(0.5, 0.5, 0.5, 1)
 shader_parameter/breakup_amount = 0.0
 shader_parameter/breakup_scale = 0.0
 shader_parameter/breakup_mask_scale = 6.0
-shader_parameter/size_world = Vector2(7073.62, 6305.62)
+shader_parameter/size_world = Vector2(8121.191, 6969.191)
 shader_parameter/rim_width = 0.0
 shader_parameter/rim_boost = 0.0
 shader_parameter/rim_ao_width = 0.0
@@ -47,10 +45,10 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_i28rg")
-position = Vector2(1024, 640)
+material = SubResource("ShaderMaterial_awj53")
+position = Vector2(1216, 640)
 color = Color(0.5, 0.5, 0.5, 1)
-polygon = PackedVector2Array(-3536.81, -3152.81, 3536.81, -3152.81, 3536.81, 3152.81, -3536.81, 3152.81)
+polygon = PackedVector2Array(-4060.5955, -3484.5955, 4060.5955, -3484.5955, 4060.5955, 3484.5955, -4060.5955, 3484.5955)
 metadata/_edit_lock_ = true
 
 [node name="Walls" type="Node2D" parent="." unique_id=325946596]
@@ -96,31 +94,19 @@ position = Vector2(1312, 576)
 size = Vector2(64, 512)
 
 [node name="DrawnWall9" parent="Walls" unique_id=1500919981 instance=ExtResource("2_wall")]
-position = Vector2(1152, 1184)
-size = Vector2(896, 64)
+position = Vector2(1536, 1184)
+size = Vector2(1664, 64)
 
-[node name="DrawnWall13" type="StaticBody2D" parent="Walls" unique_id=928829635 instance=ExtResource("2_wall")]
+[node name="DrawnWall13" parent="Walls" unique_id=928829635 instance=ExtResource("2_wall")]
 position = Vector2(1664, 480)
-collision_mask = 0
-script = ExtResource("5_lxqdr")
 size = Vector2(64, 832)
 
-[node name="DrawnWall12" type="StaticBody2D" parent="Walls" unique_id=1116064317 instance=ExtResource("2_wall")]
-position = Vector2(1968, 1184)
-collision_mask = 0
-script = ExtResource("5_lxqdr")
-size = Vector2(800, 64)
-
-[node name="DrawnWall14" type="StaticBody2D" parent="Walls" unique_id=1044593559 instance=ExtResource("2_wall")]
+[node name="DrawnWall14" parent="Walls" unique_id=1044593559 instance=ExtResource("2_wall")]
 position = Vector2(2000, 96)
-collision_mask = 0
-script = ExtResource("5_lxqdr")
 size = Vector2(608, 64)
 
-[node name="DrawnWall15" type="StaticBody2D" parent="Walls" unique_id=1481890617 instance=ExtResource("2_wall")]
+[node name="DrawnWall15" parent="Walls" unique_id=1481890617 instance=ExtResource("2_wall")]
 position = Vector2(2336, 608)
-collision_mask = 0
-script = ExtResource("5_lxqdr")
 size = Vector2(64, 1088)
 
 [node name="Routes" type="Node2D" parent="." unique_id=1220520183]
@@ -197,11 +183,8 @@ position = Vector2(1185.0001, 435.00003)
 rotation = 1.5633391
 patrol_route = NodePath("../../Routes/Guard2Route")
 
-[node name="Guard3" type="CharacterBody2D" parent="Enemies" unique_id=1682189099 instance=ExtResource("7_lxqdr")]
+[node name="Guard3" parent="Enemies" unique_id=1682189099 instance=ExtResource("7_lxqdr")]
 position = Vector2(1792, 256)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("9_lxqdr")
 patrol_route = NodePath("../../Routes/Guard3Route")
 
 [node name="Pickups" type="Node2D" parent="." unique_id=330227706]

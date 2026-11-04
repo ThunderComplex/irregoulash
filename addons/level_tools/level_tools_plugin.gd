@@ -19,6 +19,16 @@ extends EditorPlugin
 ##   second coordinate space (the editor's overlay draws in window space, not in the
 ##   2D viewport's space) for very little value. Draw, then adjust or undo.
 ##
+## WALL EDGES
+##   Select one wall (with every tool switched off) and each of its four edges gets a
+##   handle. Drag a handle, or anywhere along an edge, to move that edge in or out:
+##     * drag                    -> only that edge moves; the opposite one stays put
+##     * hold Ctrl               -> the opposite edge moves the same amount the other
+##                                  way, so the wall grows or shrinks about its centre
+##     * hold Alt                -> ignore grid snapping
+##     * right-click or Esc      -> cancel the drag
+##   Each drag is one undo step. Dragging the wall's body still moves it as usual.
+##
 ## LINT LEVEL
 ##   Runs `LevelLint` over the open scene: no spawn point, no exit, an exit that
 ##   goes nowhere, content buried inside a wall, an enemy wired to a broken patrol
@@ -31,6 +41,7 @@ const WALL_SCENE: PackedScene = preload("res://src/levels/wall.tscn")
 const ENEMY_SCENE: PackedScene = preload("res://src/enemies/enemy.tscn")
 const DOOR_SCENE: PackedScene = preload("res://src/levels/door.tscn")
 const SURFACE_DOCK_SCRIPT: GDScript = preload("res://addons/level_tools/surface_dock.gd")
+const WALL_EDGES: GDScript = preload("res://addons/level_tools/wall_edges.gd")
 
 ## Grid step for snapping. Hold Alt while drawing or placing to ignore it.
 const SNAP: float = 32.0
@@ -38,6 +49,12 @@ const SNAP: float = 32.0
 const DEFAULT_THICKNESS: float = 64.0
 ## A drag whose thin axis is under this many pixels becomes a band, not a rectangle.
 const BAND_THRESHOLD: float = 24.0
+## Edge handles, in screen pixels so they are the same size at every zoom: the drawn square, how close
+## the mouse must be to grab a handle, and to grab an edge anywhere along its length.
+const EDGE_HANDLE_SIZE: float = 9.0
+const EDGE_HANDLE_GRAB: float = 11.0
+const EDGE_LINE_GRAB: float = 6.0
+const EDGE_COLOR: Color = Color(1.0, 0.72, 0.25)
 
 var _brush_button: CheckButton = null
 var _lint_button: Button = null
@@ -74,6 +91,17 @@ var _reported_sources: bool = false
 var _enemy_on: bool = false
 var _pending_enemy: Enemy = null
 var _pending_route: PatrolRoute = null
+
+## Wall edge editing: the edge under the mouse, and the drag in progress (which wall, which edge, and its
+## rectangle and position when the drag began, so a cancel or an undo can put it back exactly).
+var _edge_hover: int = -1
+var _edge_wall: Wall = null
+var _edge_drag: int = -1
+var _edge_start_rect: Rect2 = Rect2()
+var _edge_start_position: Vector2 = Vector2.ZERO
+## The control the 2D editor lets plugins draw on. The handles are drawn on it *and* the mouse is read
+## from it, so the two share one coordinate space and a handle is exactly where it can be grabbed.
+var _edge_overlay: Control = null
 
 
 #region plugin lifecycle
@@ -139,11 +167,16 @@ func _enter_tree() -> void:
 	add_control_to_container(CONTAINER_CANVAS_EDITOR_MENU, _lint_button)
 
 	_add_surface_dock()
+	EditorInterface.get_selection().selection_changed.connect(_on_selection_changed)
 
 
 func _exit_tree() -> void:
 	_cancel_drag()
 	_forget_pending_enemy()
+	_cancel_edge_drag()
+	var selection: EditorSelection = EditorInterface.get_selection()
+	if selection.selection_changed.is_connected(_on_selection_changed):
+		selection.selection_changed.disconnect(_on_selection_changed)
 	_remove_surface_dock()
 	if _brush_button != null:
 		remove_control_from_container(CONTAINER_CANVAS_EDITOR_MENU, _brush_button)
@@ -276,7 +309,7 @@ func _forward_canvas_gui_input(event: InputEvent) -> bool:
 		return _enemy_input(event)
 	if _door_on:
 		return _door_input(event)
-	return false
+	return _edge_input(event)
 
 
 ## The wall brush's input. Both tools want the left mouse button, so only one of them
@@ -312,6 +345,197 @@ func _brush_input(event: InputEvent) -> bool:
 			return true
 
 	return false
+
+#endregion
+
+
+#region wall edges
+
+## The wall whose edges can be dragged: exactly one Wall selected, and no tool switched on (every tool
+## wants the left mouse button for itself).
+func _edited_wall() -> Wall:
+	if _brush_on or _enemy_on or _door_on:
+		return null
+	var nodes: Array = EditorInterface.get_selection().get_selected_nodes()
+	if nodes.size() != 1:
+		return null
+	var wall := nodes[0] as Wall
+	if wall == null or not wall.is_inside_tree():
+		return null
+	return wall
+
+
+func _on_selection_changed() -> void:
+	_cancel_edge_drag()
+	_edge_hover = -1
+	update_overlays()
+
+
+## Grabbing and dragging an edge. Everything that is not on an edge is handed back to the editor, so
+## selecting, moving the wall by its body and box-selecting all keep working with a wall selected.
+func _edge_input(event: InputEvent) -> bool:
+	var wall: Wall = _edited_wall()
+	if wall == null:
+		if _edge_hover != -1:
+			_edge_hover = -1
+			update_overlays()
+		return false
+
+	if event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event
+		_last_event_position = mb.position
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed:
+				var edge: int = _edge_under_mouse(wall)
+				if edge == -1:
+					return false
+				_begin_edge_drag(wall, edge)
+				return true
+			if _edge_drag != -1:
+				_commit_edge_drag()
+				return true
+			return false
+		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed and _edge_drag != -1:
+			_cancel_edge_drag()
+			return true
+		return false
+
+	if event is InputEventMouseMotion:
+		_last_event_position = (event as InputEventMouseMotion).position
+		if _edge_drag != -1:
+			_update_edge_drag()
+			return true
+		var hover: int = _edge_under_mouse(wall)
+		if hover != _edge_hover:
+			_edge_hover = hover
+			update_overlays()
+		return false
+
+	if event is InputEventKey:
+		var key: InputEventKey = event
+		if _edge_drag != -1 and key.pressed and key.keycode == KEY_ESCAPE:
+			_cancel_edge_drag()
+			return true
+		# Pressing or releasing Ctrl mid-drag switches between one edge and both, without waiting for
+		# the mouse to move.
+		if _edge_drag != -1 and key.keycode == KEY_CTRL:
+			_update_edge_drag()
+			return true
+	return false
+
+
+func _edge_under_mouse(wall: Wall) -> int:
+	if _edge_overlay == null or not is_instance_valid(_edge_overlay):
+		return -1
+	return WALL_EDGES.pick(wall.world_rect(), _world_to_overlay(),
+		_edge_overlay.get_local_mouse_position(), EDGE_HANDLE_GRAB, EDGE_LINE_GRAB)
+
+
+## World space to the overlay's pixels: the edited scene's own canvas transform, then the editor's pan
+## and zoom. The editor's 2D viewport has no camera; it applies the view through
+## `global_canvas_transform`, so `canvas_transform` alone ignores the view entirely (that drew the
+## handles at raw world coordinates, pinned to one spot on screen, and made them impossible to click).
+func _world_to_overlay() -> Transform2D:
+	var viewport: SubViewport = EditorInterface.get_editor_viewport_2d()
+	if viewport == null:
+		return Transform2D.IDENTITY
+	return viewport.global_canvas_transform * viewport.canvas_transform
+
+
+## The mouse in world space, read through the same overlay and transform the handles are drawn with.
+func _edge_cursor_world() -> Vector2:
+	if _edge_overlay == null or not is_instance_valid(_edge_overlay):
+		return _cursor_world()
+	return _world_to_overlay().affine_inverse() * _edge_overlay.get_local_mouse_position()
+
+
+func _begin_edge_drag(wall: Wall, edge: int) -> void:
+	_edge_wall = wall
+	_edge_drag = edge
+	_edge_start_rect = wall.world_rect()
+	_edge_start_position = wall.position
+	update_overlays()
+
+
+## Live: the wall follows the mouse while dragging, so what you see is the real geometry (the level
+## rebuilds its surfaces to match). The undo step is only made on release.
+func _update_edge_drag() -> void:
+	if _edge_wall == null or not is_instance_valid(_edge_wall):
+		_edge_drag = -1
+		return
+	var coordinate: float = WALL_EDGES.axis_coordinate(_edge_drag, _snap_point(_edge_cursor_world()))
+	var rect: Rect2 = WALL_EDGES.dragged(_edge_start_rect, _edge_drag, coordinate,
+		Input.is_key_pressed(KEY_CTRL), SNAP * 0.5)
+	_apply_wall_rect(_edge_wall, rect)
+	update_overlays()
+
+
+func _commit_edge_drag() -> void:
+	var wall: Wall = _edge_wall
+	var start_size: Vector2 = _edge_start_rect.size
+	var start_position: Vector2 = _edge_start_position
+	_edge_drag = -1
+	_edge_wall = null
+	if wall == null or not is_instance_valid(wall):
+		return
+	if wall.size == start_size and wall.position == start_position:
+		update_overlays()
+		return
+	var undo: EditorUndoRedoManager = get_undo_redo()
+	undo.create_action("Resize wall")
+	undo.add_do_property(wall, "size", wall.size)
+	undo.add_do_property(wall, "position", wall.position)
+	undo.add_undo_property(wall, "size", start_size)
+	undo.add_undo_property(wall, "position", start_position)
+	undo.commit_action()
+	update_overlays()
+
+
+## Puts the wall back where the drag found it, without touching the undo history.
+func _cancel_edge_drag() -> void:
+	if _edge_drag != -1 and _edge_wall != null and is_instance_valid(_edge_wall):
+		_edge_wall.size = _edge_start_rect.size
+		_edge_wall.position = _edge_start_position
+	_edge_drag = -1
+	_edge_wall = null
+	update_overlays()
+
+
+## A wall is its centre plus its size, so a new rectangle is both. Size first: setting it rebuilds the
+## wall's shapes, and the position move after it is then a plain transform change.
+func _apply_wall_rect(wall: Wall, rect: Rect2) -> void:
+	wall.size = rect.size
+	wall.global_position = rect.get_center()
+
+
+## The handles, drawn over the 2D viewport, through the same transform the mouse is tested against.
+func _forward_canvas_draw_over_viewport(overlay: Control) -> void:
+	_edge_overlay = overlay
+	var wall: Wall = _edited_wall()
+	if wall == null:
+		return
+	var to_overlay: Transform2D = _world_to_overlay()
+
+	var rect: Rect2 = wall.world_rect()
+	var active: int = _edge_drag if _edge_drag != -1 else _edge_hover
+	for edge: int in [0, 1, 2, 3]:
+		var ends: PackedVector2Array = WALL_EDGES.segment(rect, edge)
+		var hot: bool = edge == active
+		overlay.draw_line(to_overlay * ends[0], to_overlay * ends[1],
+			EDGE_COLOR if hot else Color(EDGE_COLOR, 0.45), 3.0 if hot else 1.5)
+		var centre: Vector2 = to_overlay * WALL_EDGES.handle(rect, edge)
+		var half: float = EDGE_HANDLE_SIZE * (0.65 if hot else 0.5)
+		var square := Rect2(centre - Vector2.ONE * half, Vector2.ONE * half * 2.0)
+		overlay.draw_rect(square, EDGE_COLOR if hot else Color(0.1, 0.1, 0.12, 0.9))
+		overlay.draw_rect(square, EDGE_COLOR, false, 1.5)
+
+	if _edge_drag != -1:
+		# The size as it will be saved, next to the cursor, so a wall can be dragged to an exact length.
+		var mode: String = "  (both edges)" if Input.is_key_pressed(KEY_CTRL) else ""
+		overlay.draw_string(ThemeDB.fallback_font,
+			to_overlay * WALL_EDGES.handle(rect, _edge_drag) + Vector2(14.0, -10.0),
+			"%d x %d%s" % [roundi(rect.size.x), roundi(rect.size.y), mode],
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, EDGE_COLOR)
 
 #endregion
 

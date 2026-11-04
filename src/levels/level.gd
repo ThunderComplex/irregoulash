@@ -118,7 +118,16 @@ var _editor_near_radius: float = 115.0
 ## The styles whose `changed` this level listens to, so an inspector edit restyles it live.
 var _watched_styles: Array[SurfaceStyle] = []
 var _restyle_queued: bool = false
+## The walls' shapes when the surfaces were last built. A textured wall is drawn by the level's shared
+## fill and outline meshes, not by the wall itself, so moving, drawing or resizing one in the editor
+## leaves it looking unchanged until those are rebuilt.
+var _wall_hash: int = 0
+var _walls_changed: bool = false
+var _wall_rebuild_cooldown: float = 0.0
 #endregion
+
+## While walls are being dragged, the editor rebuilds the level's surfaces at most this often.
+const EDITOR_WALL_REBUILD_INTERVAL: float = 0.1
 
 
 func _ready() -> void:
@@ -554,7 +563,7 @@ func _apply_editor_preview() -> void:
 	fog.color = Color(ambient, ambient, minf(1.0, ambient * 1.08), 1.0)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# Editor only (see _ready).
 	if not Engine.is_editor_hint():
 		return
@@ -563,13 +572,34 @@ func _process(_delta: float) -> void:
 	if current != _gizmo_hash:
 		_gizmo_hash = current
 		queue_redraw()
+	_follow_wall_edits(delta)
 
 
-func _editor_state() -> int:
-	var parts: Array = [level_bounds(), walls.size()]
+## Rebuilds the surfaces when the walls change shape, throttled so dragging an edge does not rebuild
+## every frame, and always once more after the last change so the final shape is the one shown.
+func _follow_wall_edits(delta: float) -> void:
+	var shape: int = _editor_wall_state()
+	if shape != _wall_hash:
+		# The first hash is the state `_editor_ready` already built from.
+		_walls_changed = _wall_hash != 0
+		_wall_hash = shape
+	_wall_rebuild_cooldown -= delta
+	if _walls_changed and _wall_rebuild_cooldown <= 0.0:
+		_walls_changed = false
+		_wall_rebuild_cooldown = EDITOR_WALL_REBUILD_INTERVAL
+		_refresh_surfaces()
+
+
+func _editor_wall_state() -> int:
+	var parts: Array = [walls.size()]
 	for wall: Wall in walls:
 		if is_instance_valid(wall):
 			parts.append(wall.world_rect())
+	return hash(parts)
+
+
+func _editor_state() -> int:
+	var parts: Array = [level_bounds(), _editor_wall_state()]
 	parts.append(exits.size())
 	var marker := find_child("PlayerSpawn", true, false) as Marker2D
 	parts.append(marker.global_position if marker != null else Vector2.ZERO)
