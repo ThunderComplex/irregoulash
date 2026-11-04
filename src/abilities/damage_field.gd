@@ -85,6 +85,14 @@ func apply_damage() -> void:
 		var away: Vector2 = at - global_position
 		if away.length_squared() < 1.0:
 			away = Vector2.RIGHT
+		# Tell the victim where the caster is *before* the hit lands. `take_hit` guesses the attacker
+		# from the hit direction, which suits a bullet (it points back at the shooter) but not a field,
+		# whose direction only points away from its own centre: the guess landed somewhere past the
+		# middle of the fire, and an unaware enemy went off to search a spot nobody had been -- often
+		# another enemy's patrol point. Already alerted, `take_hit` skips its guess.
+		var caster := valid_source() as Node2D
+		if caster != null and collider.has_method("alert_from"):
+			collider.alert_from(caster.global_position)
 		collider.take_hit(damage, valid_source(), at, away.normalized(), 0.0)
 
 

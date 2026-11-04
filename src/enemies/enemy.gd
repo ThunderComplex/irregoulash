@@ -457,7 +457,10 @@ func _shout() -> void:
 			continue
 		if other.global_position.distance_to(global_position) > Tuning.shout_radius:
 			continue
-		other.alert_from(global_position)
+		# Where *this* enemy thinks the player is, not where it is standing. Passing our own position
+		# sent every friend in earshot to the shouter's spot -- usually its patrol point -- to search
+		# there, which looked like guards wandering off to each other's routes.
+		other.alert_from(last_known)
 
 
 func alert_from(where: Vector2) -> void:

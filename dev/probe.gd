@@ -831,11 +831,18 @@ const SCENARIOS: Dictionary = {
 			"fire_wall_report": true,
 		},
 		{
-			# Into the fire: the player walks in and should come out unhurt, the enemy dropped into
-			# it should burn.
-			"teleport": Vector2(918.0, 640.0),
+			# An unaware enemy, facing away from the player, dropped into the fire with the player's
+			# cone turned away too. It should burn, and go after the *player* -- not after a guess
+			# somewhere past the middle of the fire.
+			"aim": Vector2(-1.0, 0.0),
 			"enemy_into_fire": Vector2(918.0, 560.0),
-			"wait": 1.3,
+			"wait": 0.25,
+			"fire_wall_report": true,
+		},
+		{
+			# Into the fire: the player walks in and should come out unhurt.
+			"teleport": Vector2(918.0, 640.0),
+			"wait": 1.1,
 			"fire_wall_report": true,
 		},
 	],
@@ -2546,6 +2553,16 @@ func _run(scenario: String) -> void:
 			_report_ability_effects()
 		if step.has("fire_wall_report"):
 			_report_fire_wall()
+		if step.has("track_enemies"):
+			# Every enemy's state and what it is heading for: the quickest way to see why a guard
+			# went somewhere unexpected.
+			for enemy_node: Node in get_tree().get_nodes_in_group("enemy"):
+				var e := enemy_node as Enemy
+				if e == null:
+					continue
+				print("[probe]   %s %-10s pos=%s last_known=%s search_target=%s post=%s" % [e.name,
+					Enemy.STATE_NAMES[e.state], e.global_position.round(), e.last_known.round(),
+					(e.get("_search_target") as Vector2).round(), e.post.round()])
 		if step.has("presentation"):
 			_report_presentation()
 		if step.has("settings_menu_report"):
@@ -2868,8 +2885,12 @@ func _report_fire_wall() -> void:
 		print("[probe]   player hp in fire: %.1f / %.1f" % [player.health.current, player.health.max_health])
 	if _fire_enemy != null:
 		if is_instance_valid(_fire_enemy):
-			print("[probe]   enemy in fire: hp %.1f -> %.1f" % [_fire_enemy_start_hp,
-				_fire_enemy.health.current])
+			var off_by: float = -1.0
+			if player != null:
+				off_by = _fire_enemy.last_known.distance_to(player.global_position)
+			print("[probe]   enemy in fire: hp %.1f -> %.1f  state=%s  last_known is %.0fpx from the player" % [
+				_fire_enemy_start_hp, _fire_enemy.health.current,
+				Enemy.STATE_NAMES[_fire_enemy.state], off_by])
 		else:
 			print("[probe]   enemy in fire: hp %.1f -> burnt to death" % _fire_enemy_start_hp)
 

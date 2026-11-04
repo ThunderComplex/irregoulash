@@ -113,12 +113,14 @@ position = Vector2(864, 832)
 script = ExtResource("5_un6eu")
 
 [node name="P0" type="Marker2D" parent="Routes/Guard2Route" unique_id=1224158388]
-position = Vector2(1184, 583)
+position = Vector2(1186, 619)
 
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
-position = Vector2(208, 298)
+position = Vector2(829, 485)
 
 [node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
+metadata/_edit_lock_ = true
+metadata/_edit_group_ = true
 
 [node name="Lamp0" parent="Lamps" unique_id=1065493755 instance=ExtResource("3_lamp")]
 position = Vector2(939, 215)
@@ -137,7 +139,7 @@ position = Vector2(1182, 1026)
 radius = 210.0
 
 [node name="Lamp2" parent="Lamps" unique_id=1502672115 instance=ExtResource("3_lamp")]
-position = Vector2(1184, 482)
+position = Vector2(1184, 475)
 radius = 210.0
 
 [node name="Enemies" type="Node2D" parent="." unique_id=1203562756]
@@ -161,7 +163,7 @@ weapon_id = "pistol"
 amount = 10
 
 [node name="Pickup1" parent="Pickups" unique_id=538610333 instance=ExtResource("5_pickup")]
-position = Vector2(224, 300)
+position = Vector2(831, 490)
 kind = "ability"
 weapon_id = "pistol"
 amount = 10
