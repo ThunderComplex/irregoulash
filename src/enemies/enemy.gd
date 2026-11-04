@@ -114,6 +114,7 @@ var _react_timer: float = 0.0
 var _fire_cd: float = 0.0
 var _burst_left: int = 0
 var _pause_cd: float = 0.0
+var _shout_cd: float = 0.0
 
 var _footstep_accum: float = 0.0
 var _gizmo_hash: int = 0
@@ -348,6 +349,11 @@ func _tick_alert(delta: float) -> void:
 
 	if _can_shoot(player.global_position):
 		_shoot_at(player.global_position)
+	
+	_shout_cd += delta	
+	if archetype.shouts and _shout_cd >= Tuning.shout_cooldown:
+		_shout()
+		_shout_cd = 0
 
 
 func _tick_search(delta: float) -> void:
@@ -405,6 +411,7 @@ func _enter_alert(where: Vector2) -> void:
 	FxDirector.flash_light(global_position, Color(1.0, 0.55, 0.35), 0.9, 130.0, 0.35)
 	GameDirector.notify_alert()
 	if archetype.shouts:
+		_shout_cd = 0
 		_shout()
 
 
@@ -555,13 +562,10 @@ func take_hit(amount: float, source = null, hit_position: Vector2 = Vector2.ZERO
 	velocity += direction * knockback * 0.6
 	AudioDirector.play_at(&"enemy_hurt", global_position, -7.0)
 	# Being shot at is itself information, even without seeing the shooter.
-	awareness = minf(1.0, awareness + 0.55)
+	awareness = 1.0
 	if state != State.ALERT:
-		var guess: Vector2 = hit_position - direction * 140.0
-		if awareness >= Tuning.awareness_alert:
-			_enter_alert(guess)
-		elif state == State.PATROL or state == State.RETURN:
-			_enter_suspicious(guess)
+		var guess: Vector2 = hit_position - direction * Tuning.take_damage_guess_distance
+		_enter_alert(guess)
 
 #endregion
 

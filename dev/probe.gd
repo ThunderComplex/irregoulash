@@ -756,17 +756,22 @@ const SCENARIOS: Dictionary = {
 		},
 		{
 			"set_abilities": ["fire_wall"],
-			# Inside geometry: refused before anything is spent, so the cooldown stays 0.
+			# Deep inside a 256x192 block: no room within the nudge reach, so refused before
+			# anything is spent, and the cooldown stays 0.
+			"teleport": Vector2(288.0, 544.0),
 			"cast_ability": 0,
-			"ability_target": Vector2(32.0, 500.0),
+			"ability_target": Vector2(320.0, 224.0),
 			"wait": 0.7,
 			"report": true,
 			"ability_effects": true,
 		},
 		{
-			# In the open: spawned, sight-blocking and shadow-casting, but not solid.
+			# Clipping the thin west wall: nudged out of it instead of refused. It should land
+			# just east of the wall (x >= 116: the wall's edge plus the placement radius) and be
+			# sight-blocking and shadow-casting, but not solid.
+			"teleport": Vector2(224.0, 900.0),
 			"cast_ability": 0,
-			"ability_target": Vector2(224.0, 620.0),
+			"ability_target": Vector2(32.0, 500.0),
 			"wait": 0.6,
 			"report": true,
 			"ability_effects": true,
@@ -777,6 +782,19 @@ const SCENARIOS: Dictionary = {
 			"ability_target": Vector2(224.0, 620.0),
 			"wait": 0.4,
 			"report": true,
+		},
+		{
+			# Just past the middle of the thin wall at y 384..448, cast from the south. The nearest
+			# room is on the *far* side (68px away, against 100px back on this side, past the nudge
+			# reach), so only the line-of-sight rule stops the fire slipping into the next room:
+			# refused.
+			"set_abilities": ["fire_wall"],
+			"teleport": Vector2(1408.0, 600.0),
+			"cast_ability": 0,
+			"ability_target": Vector2(1408.0, 400.0),
+			"wait": 0.4,
+			"report": true,
+			"ability_effects": true,
 		},
 	],
 	## The fire wall's look over its life: catching, burning, burning down, gone. Run against
@@ -2839,8 +2857,8 @@ func _report_ability_effects() -> void:
 		if effect == null:
 			continue
 		found += 1
-		print("[probe]   effect %-18s solid=%s blocks_sight=%s occludes=%s field=%s  life_left=%.2f" % [
-			effect.get_script().resource_path.get_file(),
+		print("[probe]   effect %-18s at=%s solid=%s blocks_sight=%s occludes=%s field=%s  life_left=%.2f" % [
+			effect.get_script().resource_path.get_file(), effect.global_position.round(),
 			effect.find_child("Solid", true, false) != null,
 			effect.find_child("SightBlocker", true, false) != null,
 			effect.find_child("Occluder", true, false) != null,

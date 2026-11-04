@@ -116,7 +116,7 @@ script = ExtResource("5_un6eu")
 position = Vector2(1186, 619)
 
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
-position = Vector2(829, 485)
+position = Vector2(250, 312)
 
 [node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
 metadata/_edit_lock_ = true
@@ -163,7 +163,7 @@ weapon_id = "pistol"
 amount = 10
 
 [node name="Pickup1" parent="Pickups" unique_id=538610333 instance=ExtResource("5_pickup")]
-position = Vector2(831, 490)
+position = Vector2(1514, 302)
 kind = "ability"
 weapon_id = "pistol"
 amount = 10

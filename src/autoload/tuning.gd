@@ -83,8 +83,10 @@ extends Node
 ## Ceiling on a search radius, so a long chase does not turn into a level-wide sweep.
 @export var search_budget_max: float = 900.0
 @export var suspicious_look_time: float = 1.2
+@export var take_damage_guess_distance: float = 300.0
 ## Radius in which a shouting enemy alerts its friends.
 @export var shout_radius: float = 520.0
+@export var shout_cooldown: float = 5.0
 ## Enemy body
 @export var enemy_radius: float = 13.0
 #endregion
