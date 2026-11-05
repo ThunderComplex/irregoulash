@@ -1874,7 +1874,7 @@ func _report_surfaces() -> void:
 	if fill != null and fill.mesh != null:
 		var arrays: Array = fill.mesh.surface_get_arrays(0)
 		if arrays.size() > Mesh.ARRAY_COLOR and arrays[Mesh.ARRAY_COLOR] != null:
-			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var vertices: Variant = arrays[Mesh.ARRAY_VERTEX]  # 2D or 3D, depending on how the fill was built
 			var colours: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
 			var lit_vertices: int = 0
 			for colour: Color in colours:

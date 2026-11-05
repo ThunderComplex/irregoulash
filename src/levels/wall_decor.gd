@@ -54,6 +54,31 @@ var _player_position: Vector2 = Vector2.ZERO
 var _has_player: bool = false
 ## Outline segments bucketed by position, so `_nearest_segment` stays cheap on a dense level.
 var _segment_grid: Dictionary = {}
+## How many segments `setup` has bucketed; each entry's `id`, so a segment spanning several cells is
+## recognised as one.
+var _segment_count: int = 0
+
+
+## `sample_lighting_near`, precomputed for a fixed set of points (the wall fill's vertices).
+##
+## Everything about a lookup except the player's position and the mask's pixels is fixed while the walls
+## do not move: which outline segments are near a point, the closest spot on each, which way is into the
+## wall, and which mask pixel that spot is read from. Working it out once per wall setup leaves a lookup
+## costing a dot product per candidate and a byte read, instead of a grid search through dictionaries.
+class LightingCache:
+	extends RefCounted
+	## Per point, where its candidates start in the arrays below; one extra entry at the end.
+	var offsets := PackedInt32Array()
+	## Per candidate, nearest first: the closest spot on the segment, and the segment's inward normal.
+	var closest := PackedVector2Array()
+	var inward := PackedVector2Array()
+	## Per candidate, the byte in the mask image its lighting is read from, or -1 outside the mask.
+	## Depends on the mask's rect and size, so it is rebuilt when those change.
+	var pixel := PackedInt32Array()
+	var pixel_layout: Array = []
+
+	func point_count() -> int:
+		return offsets.size() - 1
 
 
 func _ready() -> void:
@@ -103,6 +128,11 @@ func setup(walls: Array[Wall], style: SurfaceStyle) -> void:
 	_walls = walls
 	_style = style
 	_outlines.clear()
+	# Cleared here, not only filled: the level sets this up more than once (on load, then again when the
+	# mask's first frame arrives, and on every wall edit in the editor), and every segment used to be
+	# bucketed again on top of the last time -- each lighting lookup searched every segment twice.
+	_segment_grid.clear()
+	_segment_count = 0
 	if style == null or not style.is_textured():
 		refresh()
 		return
@@ -148,7 +178,8 @@ func setup(walls: Array[Wall], style: SurfaceStyle) -> void:
 			# and restricting the search to the wall's own outline keeps that cheap.
 			# Bucket the segment by every grid cell its bounding box touches, so the nearest-outline query
 			# is a handful of comparisons rather than a scan of the whole silhouette.
-			var entry := {"a": a, "b": b, "inward": edge_inward[i]}
+			var entry := {"a": a, "b": b, "inward": edge_inward[i], "id": _segment_count}
+			_segment_count += 1
 			var low := Vector2i(int(floor(minf(a.x, b.x) / GRID_CELL)),
 				int(floor(minf(a.y, b.y) / GRID_CELL)))
 			var high := Vector2i(int(floor(maxf(a.x, b.x) / GRID_CELL)),
@@ -208,6 +239,154 @@ func sample_lighting_near(point: Vector2) -> float:
 	var t: float = 0.0 if length_squared < 0.0001 else clampf(
 		(point - a).dot(along) / length_squared, 0.0, 1.0)
 	return _lit_outside(a + along * t, entry["inward"])
+
+
+## Builds the cache for `points`. The candidates for a point are every segment `_nearest_segment` could
+## pick for it -- all of those in its block of grid cells -- sorted by distance, so the first one facing
+## the player is the one it would have returned, and the first of all is its fallback.
+func lighting_cache(points: PackedVector2Array) -> LightingCache:
+	var cache := LightingCache.new()
+	cache.offsets.resize(points.size() + 1)
+	# Every point in a grid cell has the same block of cells around it, so the segments in that block are
+	# gathered once per cell, not once per point.
+	var near_cell: Dictionary = {}
+	for index: int in points.size():
+		cache.offsets[index] = cache.closest.size()
+		var point: Vector2 = points[index]
+		var cell := Vector2i(int(floor(point.x / GRID_CELL)), int(floor(point.y / GRID_CELL)))
+		if not near_cell.has(cell):
+			near_cell[cell] = _segments_around(cell)
+		var found: Array[Array] = []
+		for entry: Dictionary in (near_cell[cell] as Array):
+			var a: Vector2 = entry["a"]
+			var along: Vector2 = (entry["b"] as Vector2) - a
+			var length_squared: float = along.length_squared()
+			var t: float = 0.0 if length_squared < 0.0001 else clampf(
+				(point - a).dot(along) / length_squared, 0.0, 1.0)
+			var closest: Vector2 = a + along * t
+			found.append([closest.distance_squared_to(point), found.size(), closest, entry["inward"]])
+		found.sort_custom(func(left: Array, right: Array) -> bool:
+			return left[0] < right[0] or (left[0] == right[0] and left[1] < right[1]))
+		for candidate: Array in found:
+			cache.closest.append(candidate[2])
+			cache.inward.append(candidate[3])
+	cache.offsets[points.size()] = cache.closest.size()
+	return cache
+
+
+## Whether there is a mask frame to light from. Without one every point reads fully lit, so a lighting
+## cache would never be consulted -- which is always the case in the editor, where the mask is not
+## photographed.
+func has_lighting() -> bool:
+	return _reveal != null and _reveal_image != null
+
+
+## Every segment in the block of cells `_nearest_segment` searches around `cell`, each once, in the order
+## it first meets them: ring by ring, outwards. Equally near segments keep that order when sorted, which
+## matters because ties are real -- a vertex on a wall's corner is exactly as close to both edges that
+## meet there, and the two read the lighting from different sides.
+func _segments_around(cell: Vector2i) -> Array[Dictionary]:
+	var seen: Dictionary = {}
+	var out: Array[Dictionary] = []
+	for ring: int in range(0, GRID_SEARCH_RINGS + 1):
+		for x: int in range(cell.x - ring, cell.x + ring + 1):
+			for y: int in range(cell.y - ring, cell.y + ring + 1):
+				var bucket: Variant = _segment_grid.get(Vector2i(x, y))
+				if not (bucket is Array):
+					continue
+				for entry: Dictionary in (bucket as Array):
+					if seen.has(entry["id"]):
+						continue
+					seen[entry["id"]] = true
+					out.append(entry)
+	return out
+
+
+## Fills `out` (one value per point of `cache`) with how lit each point is: the same answer as
+## `sample_lighting_near`, from the cache and the mask's current frame.
+func sample_cached(cache: LightingCache, out: PackedFloat32Array) -> void:
+	var count: int = cache.point_count()
+	out.resize(count)
+	if _reveal == null or _reveal_image == null or _reveal.world_rect.size.x <= 0.0 \
+			or _reveal.world_rect.size.y <= 0.0:
+		out.fill(1.0)
+		return
+	var bytes_per_pixel: int = _bytes_per_pixel(_reveal_image.get_format())
+	if bytes_per_pixel == 0:
+		# A format this does not read directly: fall back to the slow, general path.
+		for index: int in count:
+			out[index] = _cached_choice_slow(cache, index)
+		return
+	_ensure_pixels(cache, bytes_per_pixel)
+	var data: PackedByteArray = _reveal_image.get_data()
+	var player: Vector2 = _player_position
+	var facing: bool = _has_player
+	var offsets: PackedInt32Array = cache.offsets
+	var closest: PackedVector2Array = cache.closest
+	var inward: PackedVector2Array = cache.inward
+	var pixel: PackedInt32Array = cache.pixel
+	for index: int in count:
+		var start: int = offsets[index]
+		var end: int = offsets[index + 1]
+		if start == end:
+			out[index] = 0.0
+			continue
+		var chosen: int = start
+		if facing:
+			for candidate: int in range(start, end):
+				if (player - closest[candidate]).dot(inward[candidate]) < 0.0:
+					chosen = candidate
+					break
+		var at: int = pixel[chosen]
+		out[index] = 0.0 if at < 0 else float(data[at]) / 255.0
+
+
+## The mask byte each candidate reads, worked out the way `_lit_outside` finds its pixel. Kept until the
+## mask's rect or resolution changes.
+func _ensure_pixels(cache: LightingCache, bytes_per_pixel: int) -> void:
+	var rect: Rect2 = _reveal.world_rect
+	var width: int = _reveal_image.get_width()
+	var height: int = _reveal_image.get_height()
+	var layout: Array = [rect, width, height, bytes_per_pixel]
+	if cache.pixel_layout == layout and cache.pixel.size() == cache.closest.size():
+		return
+	cache.pixel_layout = layout
+	cache.pixel.resize(cache.closest.size())
+	for candidate: int in cache.closest.size():
+		var point: Vector2 = cache.closest[candidate] - cache.inward[candidate] * REVEAL_PROBE
+		var uv: Vector2 = (point - rect.position) / rect.size
+		if uv.x < 0.0 or uv.y < 0.0 or uv.x > 1.0 or uv.y > 1.0:
+			cache.pixel[candidate] = -1
+			continue
+		var x: int = clampi(int(uv.x * float(width)), 0, width - 1)
+		var y: int = clampi(int(uv.y * float(height)), 0, height - 1)
+		cache.pixel[candidate] = (y * width + x) * bytes_per_pixel
+
+
+## Bytes per pixel for the formats whose first byte is the red channel, 0 for anything else.
+static func _bytes_per_pixel(format: Image.Format) -> int:
+	match format:
+		Image.FORMAT_RGBA8:
+			return 4
+		Image.FORMAT_RGB8:
+			return 3
+		Image.FORMAT_R8, Image.FORMAT_L8:
+			return 1
+	return 0
+
+
+func _cached_choice_slow(cache: LightingCache, index: int) -> float:
+	var start: int = cache.offsets[index]
+	var end: int = cache.offsets[index + 1]
+	if start == end:
+		return 0.0
+	var chosen: int = start
+	if _has_player:
+		for candidate: int in range(start, end):
+			if (_player_position - cache.closest[candidate]).dot(cache.inward[candidate]) < 0.0:
+				chosen = candidate
+				break
+	return _lit_outside(cache.closest[chosen], cache.inward[chosen])
 
 
 ## The outline segment closest to `point`, using the spatial grid so a dense maze does not turn every

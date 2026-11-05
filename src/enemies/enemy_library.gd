@@ -91,7 +91,7 @@ static func _build_heavy() -> EnemyArchetype:
 	a.sight_range = 380.0
 	a.sight_fov = 95.0
 	a.detect_multiplier = 0.8
-	a.damage = 7.0
+	a.damage = 10.0
 	a.pellets = 5
 	a.fire_interval = 0.5
 	a.burst = 1

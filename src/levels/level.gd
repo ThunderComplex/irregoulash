@@ -229,7 +229,7 @@ func _refresh_surfaces() -> void:
 func _watch_styles() -> void:
 	var wanted: Array[SurfaceStyle] = [wall_surface(), floor_surface()]
 	for style: SurfaceStyle in _watched_styles:
-		if is_instance_valid(style) and not wanted.has(style) 				and style.changed.is_connected(_on_style_changed):
+		if is_instance_valid(style) and not wanted.has(style) and style.changed.is_connected(_on_style_changed):
 			style.changed.disconnect(_on_style_changed)
 	_watched_styles.clear()
 	for style: SurfaceStyle in wanted:

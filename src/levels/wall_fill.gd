@@ -13,6 +13,10 @@ extends MeshInstance2D
 ##
 ## The value is the lighting of the space on the *player's* side of the wall, so a wall is lit as a whole
 ## rather than lighting one edge and going black across the rest of its thickness.
+##
+## It rebuilds every time the mask updates, so the per-frame part is kept small: the grid, its triangles
+## and everything about each vertex's lighting lookup that does not change while the walls stand still
+## are worked out once in `setup`. A refresh only reads the lighting and swaps in new vertex colours.
 
 const FILL_SHADER: Shader = preload("res://src/levels/wall_fill.gdshader")
 ## Size of the cells the fill is divided into, in world pixels. Smaller means a smoother lighting
@@ -23,6 +27,15 @@ var _walls: Array[Wall] = []
 var _style: SurfaceStyle = null
 var _decor: WallDecor = null
 var _material: ShaderMaterial = null
+var _mesh: ArrayMesh = null
+
+## The grid over every wall, built once per setup: one vertex per grid corner, shared by the cells around
+## it, and the triangles between them.
+var _points := PackedVector2Array()
+var _indices := PackedInt32Array()
+var _lighting: WallDecor.LightingCache = null
+var _lit := PackedFloat32Array()
+var _colors := PackedColorArray()
 
 
 func _ready() -> void:
@@ -42,64 +55,68 @@ func setup(walls: Array[Wall], style: SurfaceStyle, decor: WallDecor) -> void:
 		_material.set_shader_parameter("tint", _style.tint)
 		_material.set_shader_parameter("breakup_amount", _style.breakup_amount)
 		_material.set_shader_parameter("breakup_scale", _style.breakup_scale)
+	_build_grid()
 	refresh()
 
 
-## Rebuilds the mesh from the cached walls and the mask's current state.
+## Rebuilds the vertex colours from the mask's current state.
 func refresh() -> void:
-	if _style == null or not _style.is_textured() or _decor == null:
+	if _style == null or not _style.is_textured() or _decor == null or _points.is_empty():
 		mesh = null
 		visible = false
 		return
 	visible = true
-	var surface := SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	if _decor.has_lighting():
+		# Built on the first refresh that has a mask frame, not in `setup`: until then (and always in the
+		# editor, where the mask is never photographed) every point is fully lit and the cache would go
+		# unused, while building it costs tens of milliseconds -- every wall edit, in the editor.
+		if _lighting == null:
+			_lighting = _decor.lighting_cache(_points)
+		_decor.sample_cached(_lighting, _lit)
+	else:
+		_lit.resize(_points.size())
+		_lit.fill(1.0)
+	_colors.resize(_lit.size())
+	for index: int in _lit.size():
+		var value: float = _lit[index]
+		_colors[index] = Color(value, value, value, 1.0)
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = _points
+	arrays[Mesh.ARRAY_COLOR] = _colors
+	arrays[Mesh.ARRAY_INDEX] = _indices
+	if _mesh == null:
+		_mesh = ArrayMesh.new()
+	_mesh.clear_surfaces()
+	_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh = _mesh
+
+
+## A grid over each wall's footprint, `CELL` apart. The lighting lookups for its corners are left to the
+## first refresh that needs them.
+func _build_grid() -> void:
+	_points.clear()
+	_indices.clear()
+	_lighting = null
+	if _style == null or not _style.is_textured() or _decor == null:
+		return
 	for wall: Wall in _walls:
 		if wall != null and is_instance_valid(wall):
-			_emit_wall(surface, wall)
-	mesh = surface.commit()
+			_add_wall(wall)
 
 
-## A grid over the wall's footprint, each vertex carrying its own lighting.
-func _emit_wall(surface: SurfaceTool, wall: Wall) -> void:
+func _add_wall(wall: Wall) -> void:
 	var half: Vector2 = wall.size * 0.5
 	var columns: int = maxi(1, int(ceil(wall.size.x / CELL)))
 	var rows: int = maxi(1, int(ceil(wall.size.y / CELL)))
-	# Sample each corner of the grid once. Every interior corner is shared by four cells, and sampling is
-	# by far the expensive part of this rebuild, so asking four times would quadruple it for nothing.
-	var points: Array[Vector2] = []
-	var lighting: PackedFloat32Array = PackedFloat32Array()
-	points.resize((columns + 1) * (rows + 1))
-	lighting.resize((columns + 1) * (rows + 1))
+	var base: int = _points.size()
 	for column: int in columns + 1:
 		for row: int in rows + 1:
-			var point: Vector2 = wall.to_global(Vector2(
+			_points.append(wall.to_global(Vector2(
 				-half.x + wall.size.x * float(column) / float(columns),
-				-half.y + wall.size.y * float(row) / float(rows)))
-			var index: int = column * (rows + 1) + row
-			points[index] = point
-			lighting[index] = _lit(point)
+				-half.y + wall.size.y * float(row) / float(rows))))
 	for column: int in columns:
 		for row: int in rows:
-			var i00: int = column * (rows + 1) + row
-			var i10: int = (column + 1) * (rows + 1) + row
-			_triangle(surface, points[i00], lighting[i00], points[i10], lighting[i10],
-				points[i10 + 1], lighting[i10 + 1])
-			_triangle(surface, points[i00], lighting[i00], points[i10 + 1], lighting[i10 + 1],
-				points[i00 + 1], lighting[i00 + 1])
-
-
-func _lit(world_point: Vector2) -> float:
-	# `WallDecor` owns the one definition of "how lit is the wall here", so the rim and this fill cannot
-	# disagree about it.
-	return _decor.sample_lighting_near(world_point)
-
-
-func _triangle(surface: SurfaceTool, a: Vector2, la: float, b: Vector2, lb: float, c: Vector2,
-		lc: float) -> void:
-	surface.set_color(Color(la, la, la, 1.0))
-	surface.add_vertex(Vector3(a.x, a.y, 0.0))
-	surface.set_color(Color(lb, lb, lb, 1.0))
-	surface.add_vertex(Vector3(b.x, b.y, 0.0))
-	surface.set_color(Color(lc, lc, lc, 1.0))
-	surface.add_vertex(Vector3(c.x, c.y, 0.0))
+			var i00: int = base + column * (rows + 1) + row
+			var i10: int = base + (column + 1) * (rows + 1) + row
+			_indices.append_array(PackedInt32Array([i00, i10, i10 + 1, i00, i10 + 1, i00 + 1]))

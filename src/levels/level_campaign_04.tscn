@@ -1,0 +1,235 @@
+[gd_scene format=3 uid="uid://baqe6b7mjufvo"]
+
+[ext_resource type="Script" uid="uid://cm18cddlcskw1" path="res://src/levels/level.gd" id="1_kpsgy"]
+[ext_resource type="Shader" uid="uid://pygep2sn14nj" path="res://src/levels/surface.gdshader" id="2_chwto"]
+[ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_kduoq"]
+[ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="4_d6vt1"]
+[ext_resource type="Script" uid="uid://tdmd7rqbsvoa" path="res://src/levels/patrol_route.gd" id="6_kduoq"]
+[ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="6_mtdhp"]
+[ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="8_d6vt1"]
+[ext_resource type="Script" uid="uid://c1femwp0kyllt" path="res://src/enemies/enemy.gd" id="9_d3owa"]
+[ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="9_hdi75"]
+[ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="10_met3y"]
+[ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="12_mtdhp"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_kpsgy"]
+shader = ExtResource("2_chwto")
+shader_parameter/albedo = ExtResource("3_kduoq")
+shader_parameter/tile_world = Vector2(96, 96)
+shader_parameter/tint = Color(0.5, 0.5, 0.5, 1)
+shader_parameter/breakup_amount = 0.0
+shader_parameter/breakup_scale = 0.0
+shader_parameter/breakup_mask_scale = 6.0
+shader_parameter/size_world = Vector2(13140.115, 12468.115)
+shader_parameter/rim_width = 0.0
+shader_parameter/rim_boost = 0.0
+shader_parameter/rim_ao_width = 0.0
+shader_parameter/rim_ao_strength = 0.0
+shader_parameter/base_band = 0.0
+shader_parameter/base_strength = 0.0
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_kduoq"]
+vertices = PackedVector2Array(1390, -718, 1390, 2254, 1330, 1298, 1330, -658, -2254, -718, -1138, -658, -1138, -174, -530, -174, -530, 494, -1198, 494, -1198, -658, -2194, -658, -2254, 2254, -2194, 1266, -1106, 1266, -1106, 2194, -462, 2194, -462, 1298, 658, 914, 1230, 1198, -782.3594, 1198, 558, 914, 18, 914, -82, 914, 1230, -558, 658, 430, -1298, -558, -1298, 594, -1486, 594, -1486, -306, -2094, -558, -1874, -306, -2094, 1198, -1874, 594, -846, 1198, -430, 594, -430, -274, -1038, -274, -1038, -558, 558, -558, 558, 78, 18, 78, 18, -174, 402, -174, 402, -274, 658, 178, 658, -558, -82, 178, 558, 430, 18, 430, -82, 430, -782.3594, 1266, -562, 1266, -562, 2094, -1006, 2094, -1006, 1266, -846, 1266, -82, -274)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 0, 3, 5), PackedInt32Array(6, 7, 8, 9), PackedInt32Array(6, 9, 10, 5), PackedInt32Array(4, 5, 10), PackedInt32Array(4, 10, 11), PackedInt32Array(12, 4, 11, 13), PackedInt32Array(13, 14, 15, 12), PackedInt32Array(1, 12, 15, 16), PackedInt32Array(2, 1, 16, 17), PackedInt32Array(18, 19, 20, 21), PackedInt32Array(22, 21, 20), PackedInt32Array(23, 22, 20), PackedInt32Array(24, 19, 18, 25), PackedInt32Array(26, 27, 28, 29), PackedInt32Array(30, 26, 29, 31), PackedInt32Array(32, 30, 31, 33), PackedInt32Array(34, 32, 33, 28), PackedInt32Array(34, 28, 27), PackedInt32Array(20, 34, 27, 35, 23), PackedInt32Array(36, 37, 38, 39), PackedInt32Array(40, 41, 42, 43), PackedInt32Array(39, 40, 43, 44), PackedInt32Array(45, 46, 24), PackedInt32Array(45, 24, 25), PackedInt32Array(47, 45, 25, 48), PackedInt32Array(48, 21, 22, 49), PackedInt32Array(47, 48, 49), PackedInt32Array(47, 49, 50, 36), PackedInt32Array(51, 52, 53, 54), PackedInt32Array(54, 55, 56), PackedInt32Array(51, 54, 56, 20), PackedInt32Array(20, 56, 34), PackedInt32Array(50, 23, 35, 36), PackedInt32Array(57, 47, 36), PackedInt32Array(57, 36, 39), PackedInt32Array(57, 39, 44)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(-2272, -736, 1408, -736, 1408, 2272, -2272, 2272)])
+parsed_geometry_type = 1
+source_geometry_mode = 1
+source_geometry_group_name = &"wall"
+agent_radius = 18.0
+
+[node name="LevelCampaign1" type="Node2D" unique_id=60981112]
+script = ExtResource("1_kpsgy")
+level_title = "Campaign 2"
+objective = "Get to the exit"
+bounds_rect = Rect2(-900, -600, 2000, 2000)
+wall_surface_id = "wood"
+floor_surface_id = "stone_tile_floor"
+
+[node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
+z_index = -20
+material = SubResource("ShaderMaterial_kpsgy")
+position = Vector2(-432, 768)
+color = Color(0.5, 0.5, 0.5, 1)
+polygon = PackedVector2Array(-6570.0576, -6234.0576, 6570.0576, -6234.0576, 6570.0576, 6234.0576, -6570.0576, 6234.0576)
+metadata/_edit_lock_ = true
+
+[node name="Walls" type="Node2D" parent="." unique_id=325946596]
+
+[node name="DrawnWall1" parent="Walls" unique_id=1582823184 instance=ExtResource("4_d6vt1")]
+position = Vector2(288, 128)
+size = Vector2(576, 64)
+
+[node name="DrawnWall2" parent="Walls" unique_id=826200508 instance=ExtResource("4_d6vt1")]
+position = Vector2(608, -240)
+size = Vector2(64, 800)
+
+[node name="DrawnWall3" parent="Walls" unique_id=794734769 instance=ExtResource("4_d6vt1")]
+position = Vector2(-32, -16)
+size = Vector2(64, 352)
+
+[node name="DrawnWall4" parent="Walls" unique_id=571921159 instance=ExtResource("4_d6vt1")]
+position = Vector2(160, -224)
+size = Vector2(448, 64)
+
+[node name="DrawnWall5" parent="Walls" unique_id=263519895 instance=ExtResource("4_d6vt1")]
+position = Vector2(-240, -608)
+size = Vector2(1632, 64)
+
+[node name="DrawnWall6" parent="Walls" unique_id=796224879 instance=ExtResource("4_d6vt1")]
+position = Vector2(-480, 128)
+size = Vector2(64, 768)
+
+[node name="DrawnWall7" parent="Walls" unique_id=409180453 instance=ExtResource("4_d6vt1")]
+position = Vector2(-784, -224)
+size = Vector2(544, 64)
+
+[node name="DrawnWall8" parent="Walls" unique_id=959557827 instance=ExtResource("4_d6vt1")]
+position = Vector2(-1088, -416)
+size = Vector2(64, 448)
+
+[node name="DrawnWall9" parent="Walls" unique_id=2049497099 instance=ExtResource("4_d6vt1")]
+position = Vector2(-832, 544)
+size = Vector2(768, 64)
+
+[node name="DrawnWall10" parent="Walls" unique_id=2013050769 instance=ExtResource("4_d6vt1")]
+position = Vector2(-1248, -32)
+size = Vector2(64, 1216)
+
+[node name="DrawnWall11" parent="Walls" unique_id=2030650508 instance=ExtResource("4_d6vt1")]
+position = Vector2(-1696, -608)
+size = Vector2(832, 64)
+
+[node name="DrawnWall12" parent="Walls" unique_id=1064642170 instance=ExtResource("4_d6vt1")]
+position = Vector2(-1680, 144)
+size = Vector2(352, 864)
+
+[node name="DrawnWall13" parent="Walls" unique_id=1766442572 instance=ExtResource("4_d6vt1")]
+position = Vector2(-2144, 304)
+size = Vector2(64, 1888)
+
+[node name="DrawnWall14" parent="Walls" unique_id=1861026901 instance=ExtResource("4_d6vt1")]
+position = Vector2(-1488, 1232)
+size = Vector2(1248, 32)
+
+[node name="DrawnWall15" parent="Walls" unique_id=539606894 instance=ExtResource("4_d6vt1")]
+position = Vector2(-622.1793, 1232)
+size = Vector2(284.35858, 32)
+
+[node name="DrawnWall16" parent="Walls" unique_id=260925386 instance=ExtResource("4_d6vt1")]
+position = Vector2(-32, 672)
+size = Vector2(64, 448)
+
+[node name="DrawnWall17" parent="Walls" unique_id=1695512276 instance=ExtResource("4_d6vt1")]
+position = Vector2(-1056, 1680)
+size = Vector2(64, 864)
+
+[node name="DrawnWall18" parent="Walls" unique_id=858854999 instance=ExtResource("4_d6vt1")]
+position = Vector2(-816, 2144)
+size = Vector2(544, 64)
+
+[node name="DrawnWall19" parent="Walls" unique_id=2111726226 instance=ExtResource("4_d6vt1")]
+position = Vector2(-512, 1712)
+size = Vector2(64, 928)
+
+[node name="DrawnWall20" parent="Walls" unique_id=1323400177 instance=ExtResource("4_d6vt1")]
+position = Vector2(384, 1248)
+size = Vector2(1728, 64)
+
+[node name="DrawnWall21" parent="Walls" unique_id=1964381824 instance=ExtResource("4_d6vt1")]
+position = Vector2(944, -608)
+size = Vector2(608, 64)
+
+[node name="DrawnWall22" parent="Walls" unique_id=697151901 instance=ExtResource("4_d6vt1")]
+position = Vector2(1280, 320)
+size = Vector2(64, 1920)
+
+[node name="DrawnWall23" parent="Walls" unique_id=96141941 instance=ExtResource("4_d6vt1")]
+position = Vector2(608, 672)
+size = Vector2(64, 448)
+
+[node name="Routes" type="Node2D" parent="." unique_id=1220520183]
+
+[node name="Heavy1Route" type="Node2D" parent="Routes" unique_id=476714700]
+script = ExtResource("6_kduoq")
+
+[node name="P0" type="Marker2D" parent="Routes/Heavy1Route" unique_id=304458266]
+position = Vector2(-1408, -448)
+
+[node name="P1" type="Marker2D" parent="Routes/Heavy1Route" unique_id=786862417]
+position = Vector2(-1984, -416)
+
+[node name="Guard1Route" type="Node2D" parent="Routes" unique_id=448761053]
+script = ExtResource("6_kduoq")
+
+[node name="P0" type="Marker2D" parent="Routes/Guard1Route" unique_id=2109850464]
+position = Vector2(-768, -416)
+
+[node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
+position = Vector2(166, -46)
+
+[node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
+
+[node name="Lamp0" parent="Lamps" unique_id=1065493755 instance=ExtResource("6_mtdhp")]
+position = Vector2(999, 216)
+radius = 300.0
+
+[node name="Lamp1" parent="Lamps" unique_id=1901478582 instance=ExtResource("6_mtdhp")]
+position = Vector2(-254, -396)
+radius = 300.0
+
+[node name="Lamp2" parent="Lamps" unique_id=37546153 instance=ExtResource("6_mtdhp")]
+position = Vector2(390, -53)
+radius = 200.0
+energy = 0.65
+
+[node name="Enemies" type="Node2D" parent="." unique_id=1203562756]
+
+[node name="Heavy1" parent="Enemies" unique_id=1286272414 instance=ExtResource("8_d6vt1")]
+position = Vector2(-1984, -448)
+archetype_id = "heavy"
+patrol_route = NodePath("../../Routes/Heavy1Route")
+
+[node name="Guard1" type="CharacterBody2D" parent="Enemies" unique_id=1392110194 instance=ExtResource("8_d6vt1")]
+position = Vector2(-576, -416)
+collision_layer = 4
+motion_mode = 1
+script = ExtResource("9_d3owa")
+patrol_route = NodePath("../../Routes/Guard1Route")
+
+[node name="Pickups" type="Node2D" parent="." unique_id=330227706]
+
+[node name="Pickup0" parent="Pickups" unique_id=134755550 instance=ExtResource("9_hdi75")]
+position = Vector2(-1684, -432)
+kind = "ability"
+weapon_id = "pistol"
+amount = 1
+
+[node name="Pickup1" parent="Pickups" unique_id=520285047 instance=ExtResource("9_hdi75")]
+position = Vector2(-951, -516)
+kind = "ammo"
+weapon_id = "pistol"
+amount = 20
+
+[node name="Pickup2" parent="Pickups" unique_id=207979302 instance=ExtResource("9_hdi75")]
+position = Vector2(-951, -314)
+kind = "ammo"
+amount = 40
+
+[node name="Pickup3" parent="Pickups" unique_id=791926239 instance=ExtResource("9_hdi75")]
+position = Vector2(-952, -414)
+kind = "health"
+amount = 50
+
+[node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("10_met3y")]
+position = Vector2(-790, 1999)
+is_final = true
+
+[node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]
+visible = false
+navigation_polygon = SubResource("NavigationPolygon_kduoq")
+metadata/navmesh_hash = 1069281424
+
+[node name="Doors" type="Node2D" parent="." unique_id=789437148]
+
+[node name="Door1" parent="Doors" unique_id=1854819751 instance=ExtResource("12_mtdhp")]
+position = Vector2(-815, 1232)

@@ -11,7 +11,7 @@
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="7_lxqdr"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_lxqdr"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_un6eu"]
 shader = ExtResource("2_awj53")
 shader_parameter/albedo = ExtResource("3_un6eu")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -46,7 +46,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_lxqdr")
+material = SubResource("ShaderMaterial_un6eu")
 position = Vector2(1216, 640)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-4060.5955, -3484.5955, 4060.5955, -3484.5955, 4060.5955, 3484.5955, -4060.5955, 3484.5955)
@@ -196,7 +196,13 @@ patrol_route = NodePath("../../Routes/Guard3Route")
 position = Vector2(1192, 732)
 kind = "health"
 weapon_id = "pistol"
-amount = 15
+amount = 50
+
+[node name="Pickup1" parent="Pickups" unique_id=230695746 instance=ExtResource("5_pickup")]
+position = Vector2(2165, 991)
+kind = "upgrade"
+weapon_id = "pistol"
+amount = 50
 
 [node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("6_exit")]
 position = Vector2(1976, 488)
