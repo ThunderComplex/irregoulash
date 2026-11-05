@@ -12,7 +12,7 @@
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="9_nfir1"]
 [ext_resource type="PackedScene" uid="uid://cccf6mus3fwso" path="res://src/levels/level_campaign_03.tscn" id="10_bnbio"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_bbfix"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bnbio"]
 shader = ExtResource("2_bvryq")
 shader_parameter/albedo = ExtResource("3_bnbio")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -47,7 +47,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_bbfix")
+material = SubResource("ShaderMaterial_bnbio")
 position = Vector2(232.5, 832)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-3335.8892, -3167.3892, 3335.8892, -3167.3892, 3335.8892, 3167.3892, -3335.8892, 3167.3892)

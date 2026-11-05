@@ -65,6 +65,9 @@ func _ready() -> void:
 	_phase = randf() * TAU
 	_ensure_children()
 	_rebuild()
+	# The level watches the lit positions in the editor: moving a lamp changes the wall lighting preview,
+	# and the preview is only re-photographed when something it cares about moved.
+	add_to_group(&"lamp")
 
 
 func _process(delta: float) -> void:

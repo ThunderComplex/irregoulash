@@ -47,6 +47,8 @@ var _camera: Camera2D = null
 var _plate: ColorRect = null
 var _image_texture: ImageTexture = null
 var _cooldown: float = 0.0
+## Set while a one-shot editor sample is pending, so repeated edits coalesce into one sample.
+var _sample_queued: bool = false
 
 
 func _ready() -> void:
@@ -126,10 +128,35 @@ func _resize() -> void:
 
 
 func _process(delta: float) -> void:
+	# The editor does not run on a timer. Nothing moves there on its own -- lamps hold still and there is
+	# no player -- so the mask is only out of date after an edit, and `request_sample` covers that. Left
+	# on a timer, every sample rebuilt the fill and the outline for every wall ten times a second, which
+	# is what made a large level crawl while it was being authored (200 walls: 71 ms per editor frame,
+	# 19 ms with this guard).
+	if Engine.is_editor_hint():
+		return
 	_cooldown -= delta
 	if _cooldown > 0.0:
 		return
 	_cooldown = UPDATE_INTERVAL
+	_sample()
+
+
+## Asks for one sample, for the editor. Deferred by a couple of frames so the viewport has rendered the
+## edit that prompted it. Coalesces, so a burst of edits costs one sample rather than one each.
+func request_sample() -> void:
+	if not Engine.is_editor_hint() or _sample_queued:
+		return
+	_sample_queued = true
+	_delayed_sample.call_deferred()
+
+
+func _delayed_sample() -> void:
+	# Two frames: the viewport has to have rendered the edit before its texture is read back, and the
+	# very first render after a scene loads can still be empty.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_sample_queued = false
 	_sample()
 
 

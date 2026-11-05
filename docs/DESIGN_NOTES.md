@@ -81,6 +81,18 @@ Also worth knowing:
   `dev/check_scene_hygiene.gd`. It is what makes editor-only helpers safe: the
   lighting preview and the wall brush's drag preview can be added from `@tool` code
   without any risk of them being written into a level file on save.
+- **A timer that exists for gameplay also runs in the editor.** The wall lighting mask
+  samples the level ten times a second, and each sample rebuilds every wall's fill mesh and
+  outline. At runtime that is the point; in the editor nothing moves on its own, so it was
+  pure waste, and it grew with the level: 200 walls cost **71 ms per editor frame** while
+  authoring, and the mask node outlived the walls that created it, so deleting them did not
+  bring the editor back until a restart. Measured with a temporary in-editor benchmark (the
+  frame time is the wall-clock between main-loop frames): idle 16 ms, 200 walls 71 ms, and
+  **19 ms with the timer guarded off** — the guard is the whole fix. Editor work is now
+  event-driven: `RevealMask.request_sample()` takes one photograph per edit, requested by
+  `Level` when the wall hash, a lamp position or a level bound changes. The same lesson
+  applies to anything `@tool` that polls: ask what it is polling for, and whether the editor
+  can ever change it without an edit.
 - **A rasterised reachability check needs cell centres, not overlap.** Marking a cell
   blocked whenever a wall rectangle overlaps it seals every doorway whose free space
   does not line up with the grid — which is what made a good 64px doorway read as an

@@ -291,6 +291,10 @@ func _setup_wall_decor() -> void:
 	# outline from the decoration to know where "outside the wall" is.
 	_ensure_wall_fill()
 	_wall_fill.setup(walls, style, _wall_decor)
+	if reveal != null:
+		# The mask's timer does not run in the editor, so an edit is what asks for a fresh photograph of
+		# the lighting. In game the ten-a-second timer in `RevealMask` takes care of it.
+		reveal.request_sample()
 
 
 ## The lighting mask walls are multiplied by. Created lazily and told the level's bounds, so it always
@@ -569,6 +573,10 @@ func _process(delta: float) -> void:
 	if current != _gizmo_hash:
 		_gizmo_hash = current
 		queue_redraw()
+		# Something the lighting preview depends on moved (a wall, a lamp, a level bound): re-photograph
+		# it. Cheap, because it only happens on an edit -- the mask has no timer in the editor.
+		if _reveal != null and is_instance_valid(_reveal):
+			_reveal.request_sample()
 	_follow_wall_edits(delta)
 
 
@@ -600,6 +608,12 @@ func _editor_state() -> int:
 	parts.append(exits.size())
 	var marker := find_child("PlayerSpawn", true, false) as Marker2D
 	parts.append(marker.global_position if marker != null else Vector2.ZERO)
+	# Lit positions are here because the wall lighting preview is a photograph of them: it is only
+	# re-taken when something in this hash moved.
+	for node: Node in get_tree().get_nodes_in_group(&"lamp"):
+		var lamp := node as Node2D
+		if lamp != null and is_ancestor_of(lamp):
+			parts.append(lamp.global_position)
 	return hash(parts)
 
 
