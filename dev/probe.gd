@@ -572,6 +572,17 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.2,
 		},
 	],
+	## Reload a weapon, pick up another mid-reload: the bar must stop and the new gun must not be filled.
+	"reload_switch": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"reload_switch_test": true,
+			"wait": 0.2,
+		},
+	],
 	## A door's hinge must sit on a corner of its footprint, so an open leaf lies against the wall face.
 	## Run this against `dev/surface_lab.tscn`, where the wood is textured and lit.
 	"door_hinge": [
@@ -2106,6 +2117,46 @@ func _sight_clear_through(door: Door) -> bool:
 	return space.intersect_ray(query).is_empty()
 
 
+## Picking up a weapon while reloading has to abandon the reload *and* its timer. The visible bug was a
+## progress bar that kept filling for the new gun; the underlying one was `_finish_reload` filling that
+## new gun with rounds it never loaded. This drives both.
+func _reload_switch_test() -> void:
+	var player := GameDirector.valid_player()
+	if player == null or player.weapons == null:
+		print("[probe] reload switch: no player")
+		return
+	var holder := player.weapons as WeaponHolder
+	var before: WeaponSlot = holder.slot()
+	if before == null:
+		print("[probe] reload switch: unarmed")
+		return
+	before.mag = 1
+	before.reserve = maxi(1, before.reserve)
+	holder.reload()
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var progress: float = holder.reload_progress()
+	var reloading_before: bool = holder.is_reloading()
+	# A weapon not already carried, so this pickup really does take the hand.
+	var new_id: String = "shotgun" if String(before.data.id) != "shotgun" else "pistol"
+	holder.add_weapon(new_id)
+	var after: WeaponSlot = holder.slot()
+	var untouched: bool = after != null and after.mag == after.mag_size()
+	var abandoned: bool = reloading_before and progress > 0.0 and not holder.is_reloading() \
+		and untouched and before.mag == 1
+	# ...and a reload nobody interrupts still finishes, on the weapon that asked for it.
+	var finished: bool = false
+	if after != null:
+		after.mag = 1
+		after.reserve = maxi(1, after.reserve)
+		holder.reload()
+		await _wait_seconds(after.reload_time() + 0.3)
+		finished = not holder.is_reloading() and holder.slot() == after and after.mag > 1
+	print("[probe] reload switch: reloading %s at %.0f%% -> after pickup reloading=%s, new mag kept %s, old mag %d; an uninterrupted reload finishes %s -> %s" % [
+		reloading_before, progress * 100.0, holder.is_reloading(), untouched, before.mag, finished,
+		"PASS" if abandoned and finished else "FAIL"])
+
+
 ## Whether the leaf's origin sits on a corner of the door's footprint. A hinge in the middle of an end
 ## edge is the bug this reports: the leaf then swings out of the centre of the wall instead of lying
 ## against its face.
@@ -2658,6 +2709,8 @@ func _run(scenario: String) -> void:
 			await _enemy_open_test()
 		if step.has("door_freed_actor_test"):
 			await _door_freed_actor_test()
+		if step.has("reload_switch_test"):
+			await _reload_switch_test()
 		if step.has("clear_progress"):
 			Progress.clear()
 			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())

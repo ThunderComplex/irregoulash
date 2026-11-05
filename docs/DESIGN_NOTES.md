@@ -111,6 +111,13 @@ Also worth knowing:
   reason the level loader defers `change_scene_to_file`.
 - `LightOccluder2D` shadows work with all-default masks, but **only if the
   occluder exists**, which is exactly why `Wall` generates it.
+- **A reload timer belongs to the weapon in hand, not to the holder.** `WeaponHolder` keeps one
+  `_reload_left`, but a weapon pickup swaps the weapon under it (`add_weapon` → auto-equip), which
+  left the timer running: the HUD drew a reload bar for the *new* gun (its `reload_progress()` even
+  divided by the new weapon's reload time), and `_finish_reload` then filled that new gun with rounds
+  it never loaded. Anything that changes the held weapon now clears the timer — `select`,
+  `add_weapon`, `set_loadout`, `deserialize`. `--probe=reload_switch` reloads, picks up a weapon
+  mid-reload, and checks both that the bar stops and that an uninterrupted reload still finishes.
 - Synthetic input cannot reliably fake a "just pressed" across the physics-frame
   boundary, so scripted semi-auto fire drives the weapon directly. Real input is
   unaffected.

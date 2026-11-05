@@ -1,0 +1,165 @@
+[gd_scene format=3 uid="uid://cccf6mus3fwso"]
+
+[ext_resource type="Script" uid="uid://cm18cddlcskw1" path="res://src/levels/level.gd" id="1_mpawk"]
+[ext_resource type="Shader" uid="uid://pygep2sn14nj" path="res://src/levels/surface.gdshader" id="2_ouuhi"]
+[ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_pay1d"]
+[ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="4_3cmly"]
+[ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="6_7yagx"]
+[ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="8_d6smo"]
+[ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="9_7rdmg"]
+[ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="10_e1ttf"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_kd48u"]
+shader = ExtResource("2_ouuhi")
+shader_parameter/albedo = ExtResource("3_pay1d")
+shader_parameter/tile_world = Vector2(96, 96)
+shader_parameter/tint = Color(0.5, 0.5, 0.5, 1)
+shader_parameter/breakup_amount = 0.0
+shader_parameter/breakup_scale = 0.0
+shader_parameter/breakup_mask_scale = 6.0
+shader_parameter/size_world = Vector2(9562.053, 9242.053)
+shader_parameter/rim_width = 0.0
+shader_parameter/rim_boost = 0.0
+shader_parameter/rim_ao_width = 0.0
+shader_parameter/rim_ao_strength = 0.0
+shader_parameter/base_band = 0.0
+shader_parameter/base_strength = 0.0
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_pay1d"]
+vertices = PackedVector2Array(2510, -1006, 2510, 1262, 2450, 1202, 2450, -946, -78, 1262, 398, 1202, -78, -1006, 1102, -946, 1102, -338, -18, -338, -18, 402, 398, 402, 2066, -338, 1966, -338, 1586, -462, 1586, -722, 2350, -846, 1938, 302, 718, 302, 1138, 50, 1454, 50, 2066, 50, 2350, 1102, 1938, 914, 498, 1102, 1838, 914, 718, 50, 498, 302, 1966, 50, 1586, 50, 1586, -338, 1454, -338, 1326, -462, 718, 402, 1358, 402, 1358, 814, 818, 494, 818, 814, 718, 494, 1778, 846, 1458, 846, 1458, 402, 1838, 402, 1778, 914, 718, 914, 82, 302, 82, 50, 498, 50, 718, -50, 498, -50, 82, -50, 82, -238, 1202, -238, 1138, -50, 1202, -846, 1326, -722)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(2, 1, 4, 5), PackedInt32Array(6, 0, 3, 7), PackedInt32Array(7, 8, 9, 6), PackedInt32Array(4, 6, 9, 10), PackedInt32Array(5, 4, 10, 11), PackedInt32Array(12, 13, 14, 15, 16), PackedInt32Array(17, 18, 19, 20), PackedInt32Array(21, 12, 16, 22), PackedInt32Array(23, 22, 24, 25), PackedInt32Array(26, 19, 18, 27), PackedInt32Array(21, 22, 23, 17, 28), PackedInt32Array(28, 17, 29, 30, 13), PackedInt32Array(14, 13, 30), PackedInt32Array(14, 30, 31, 32), PackedInt32Array(33, 34, 35, 36), PackedInt32Array(35, 37, 36), PackedInt32Array(33, 36, 38, 27), PackedInt32Array(39, 40, 41, 42), PackedInt32Array(39, 42, 25, 43), PackedInt32Array(43, 25, 24), PackedInt32Array(44, 43, 24), PackedInt32Array(44, 24, 27, 38), PackedInt32Array(18, 33, 27), PackedInt32Array(27, 45, 46, 47), PackedInt32Array(26, 27, 47, 48), PackedInt32Array(48, 47, 49), PackedInt32Array(49, 50, 51, 52), PackedInt32Array(48, 49, 52), PackedInt32Array(53, 48, 52), PackedInt32Array(54, 16, 15, 55), PackedInt32Array(52, 54, 55, 32), PackedInt32Array(53, 52, 32, 31, 20, 19), PackedInt32Array(17, 20, 29)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(-96, -1024, 2528, -1024, 2528, 1280, -96, 1280)])
+parsed_geometry_type = 1
+source_geometry_mode = 1
+source_geometry_group_name = &"wall"
+agent_radius = 18.0
+
+[node name="LevelCampaign1" type="Node2D" unique_id=60981112]
+script = ExtResource("1_mpawk")
+level_title = "Campaign 2"
+objective = "Get to the exit"
+bounds_rect = Rect2(-900, -600, 2000, 2000)
+wall_surface_id = "wood"
+floor_surface_id = "stone_tile_floor"
+
+[node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
+z_index = -20
+material = SubResource("ShaderMaterial_kd48u")
+position = Vector2(1216, 128)
+color = Color(0.5, 0.5, 0.5, 1)
+polygon = PackedVector2Array(-4781.0264, -4621.0264, 4781.0264, -4621.0264, 4781.0264, 4621.0264, -4781.0264, 4621.0264)
+metadata/_edit_lock_ = true
+
+[node name="Walls" type="Node2D" parent="." unique_id=325946596]
+
+[node name="DrawnWall1" parent="Walls" unique_id=1452360962 instance=ExtResource("4_3cmly")]
+position = Vector2(560, -288)
+size = Vector2(1120, 64)
+
+[node name="DrawnWall2" parent="Walls" unique_id=2037677799 instance=ExtResource("4_3cmly")]
+position = Vector2(32, 32)
+size = Vector2(64, 576)
+
+[node name="DrawnWall3" parent="Walls" unique_id=493735537 instance=ExtResource("4_3cmly")]
+position = Vector2(272, 0)
+size = Vector2(416, 64)
+
+[node name="DrawnWall4" parent="Walls" unique_id=1547114819 instance=ExtResource("4_3cmly")]
+position = Vector2(928, 0)
+size = Vector2(384, 64)
+
+[node name="DrawnWall5" parent="Walls" unique_id=1233021315 instance=ExtResource("4_3cmly")]
+position = Vector2(240, 352)
+size = Vector2(480, 64)
+
+[node name="DrawnWall6" parent="Walls" unique_id=379106686 instance=ExtResource("4_3cmly")]
+position = Vector2(1296, 352)
+size = Vector2(1120, 64)
+
+[node name="DrawnWall7" parent="Walls" unique_id=1215575244 instance=ExtResource("4_3cmly")]
+position = Vector2(448, 752)
+size = Vector2(64, 736)
+
+[node name="DrawnWall8" parent="Walls" unique_id=1602661254 instance=ExtResource("4_3cmly")]
+position = Vector2(768, 672)
+size = Vector2(64, 320)
+
+[node name="DrawnWall9" parent="Walls" unique_id=506848039 instance=ExtResource("4_3cmly")]
+position = Vector2(1152, -560)
+size = Vector2(64, 608)
+
+[node name="DrawnWall10" parent="Walls" unique_id=1912684828 instance=ExtResource("4_3cmly")]
+position = Vector2(1744, -896)
+size = Vector2(1248, 64)
+
+[node name="DrawnWall11" parent="Walls" unique_id=1662022080 instance=ExtResource("4_3cmly")]
+position = Vector2(1456, -592)
+size = Vector2(224, 224)
+
+[node name="DrawnWall12" parent="Walls" unique_id=212257105 instance=ExtResource("4_3cmly")]
+position = Vector2(1520, -144)
+size = Vector2(96, 352)
+
+[node name="DrawnWall13" parent="Walls" unique_id=1136266821 instance=ExtResource("4_3cmly")]
+position = Vector2(2016, -144)
+size = Vector2(64, 352)
+
+[node name="DrawnWall14" parent="Walls" unique_id=1396474165 instance=ExtResource("4_3cmly")]
+position = Vector2(1888, 608)
+size = Vector2(64, 576)
+
+[node name="DrawnWall15" parent="Walls" unique_id=329592051 instance=ExtResource("4_3cmly")]
+position = Vector2(1056, 864)
+size = Vector2(640, 64)
+
+[node name="DrawnWall16" parent="Walls" unique_id=37431899 instance=ExtResource("4_3cmly")]
+position = Vector2(1408, 640)
+size = Vector2(64, 512)
+
+[node name="DrawnWall17" parent="Walls" unique_id=1526776754 instance=ExtResource("4_3cmly")]
+position = Vector2(1392, 1152)
+size = Vector2(1952, 64)
+
+[node name="DrawnWall18" parent="Walls" unique_id=132362097 instance=ExtResource("4_3cmly")]
+position = Vector2(2400, 128)
+size = Vector2(64, 2112)
+
+[node name="DrawnWall19" parent="Walls" unique_id=1433327408 instance=ExtResource("4_3cmly")]
+position = Vector2(1598.6079, 880)
+size = Vector2(317.21582, 32)
+
+[node name="Routes" type="Node2D" parent="." unique_id=1220520183]
+
+[node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
+position = Vector2(504, 580)
+
+[node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
+
+[node name="Lamp0" parent="Lamps" unique_id=1065493755 instance=ExtResource("6_7yagx")]
+position = Vector2(166, 755)
+radius = 300.0
+
+[node name="Enemies" type="Node2D" parent="." unique_id=1203562756]
+
+[node name="Pickups" type="Node2D" parent="." unique_id=330227706]
+
+[node name="Pickup0" parent="Pickups" unique_id=134755550 instance=ExtResource("8_d6smo")]
+position = Vector2(953, 654)
+kind = "upgrade"
+weapon_id = "pistol"
+amount = 1
+
+[node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("9_7rdmg")]
+position = Vector2(1700, 574)
+is_final = true
+
+[node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]
+visible = false
+navigation_polygon = SubResource("NavigationPolygon_pay1d")
+metadata/navmesh_hash = 223786341
+
+[node name="Doors" type="Node2D" parent="." unique_id=789437148]
+
+[node name="Door1" parent="Doors" unique_id=585273270 instance=ExtResource("10_e1ttf")]
+position = Vector2(1806, 881)
+rotation = 3.1415927

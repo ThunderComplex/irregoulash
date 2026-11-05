@@ -211,6 +211,8 @@ func _finish_reload() -> void:
 ## Adds a weapon (or ammo for one already carried). Returns true if it was new.
 func add_weapon(id: String, ammo: int = -1, auto_equip: bool = true) -> bool:
 	var data: WeaponResource = WeaponLibrary.by_id(id)
+	# What is in hand now, so that if this pickup takes its place the reload can be abandoned with it.
+	var was_held: WeaponSlot = slot()
 	for i: int in slots.size():
 		if slots[i].data.id == data.id:
 			var held: WeaponSlot = slots[i]
@@ -239,6 +241,11 @@ func add_weapon(id: String, ammo: int = -1, auto_equip: bool = true) -> bool:
 		current = slots.find(fresh)
 	if current < 0 or current >= slots.size():
 		current = 0
+	if slot() != was_held:
+		# A reload belongs to the weapon that was in hand. Switching abandons it -- and the timer has to
+		# go with the weapon, or the HUD keeps drawing a reload bar for the new gun and `_finish_reload`
+		# fills it with rounds it never loaded.
+		_reload_left = 0.0
 	ammo_changed.emit()
 	weapon_changed.emit(slot(), current)
 	return true
@@ -246,6 +253,7 @@ func add_weapon(id: String, ammo: int = -1, auto_equip: bool = true) -> bool:
 
 ## Replaces everything the player is carrying (used by a level's start loadout).
 func set_loadout(ids: Array) -> void:
+	_reload_left = 0.0
 	slots.clear()
 	current = -1
 	for id: Variant in ids:
@@ -315,6 +323,9 @@ func serialize() -> Array:
 
 
 func deserialize(data: Array) -> void:
+	# The loadout is being replaced outright, so a reload in flight belongs to a weapon that is about to
+	# stop existing. Same rule as a switch: the timer goes with it.
+	_reload_left = 0.0
 	slots.clear()
 	current = -1
 	for entry: Variant in data:

@@ -10,8 +10,9 @@
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="8_cr2ci"]
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="9_bnbio"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="9_nfir1"]
+[ext_resource type="PackedScene" uid="uid://cccf6mus3fwso" path="res://src/levels/level_campaign_03.tscn" id="10_bnbio"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_bvryq"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bbfix"]
 shader = ExtResource("2_bvryq")
 shader_parameter/albedo = ExtResource("3_bnbio")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -46,7 +47,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_bvryq")
+material = SubResource("ShaderMaterial_bbfix")
 position = Vector2(232.5, 832)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-3335.8892, -3167.3892, 3335.8892, -3167.3892, 3335.8892, 3167.3892, -3335.8892, 3167.3892)
@@ -150,10 +151,10 @@ position = Vector2(995, 817)
 script = ExtResource("6_bbfix")
 
 [node name="P0" type="Marker2D" parent="Routes/Scout1Route" unique_id=270893929]
-position = Vector2(817, 1216)
+position = Vector2(1006, 1254)
 
 [node name="P1" type="Marker2D" parent="Routes/Scout1Route" unique_id=518190079]
-position = Vector2(882, 1437)
+position = Vector2(1010, 1442)
 
 [node name="Guard2Route" type="Node2D" parent="Routes" unique_id=615605275]
 script = ExtResource("6_bbfix")
@@ -208,7 +209,7 @@ position = Vector2(849, 864)
 patrol_route = NodePath("../../Routes/Guard1Route")
 
 [node name="Scout1" parent="Enemies" unique_id=1641329701 instance=ExtResource("7_bnbio")]
-position = Vector2(753, 1216)
+position = Vector2(936, 1250)
 archetype_id = "scout"
 patrol_route = NodePath("../../Routes/Scout1Route")
 
@@ -254,6 +255,7 @@ amount = 50
 [node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("9_nfir1")]
 position = Vector2(-528, 364)
 is_final = true
+next_level = ExtResource("10_bnbio")
 
 [node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]
 visible = false
