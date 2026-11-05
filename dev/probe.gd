@@ -886,6 +886,31 @@ const SCENARIOS: Dictionary = {
 			"shot": "door_reveal_03_opened",
 		},
 	],
+	## How enemies react to each kind of noise, made by the player but heard everywhere (a radius
+	## that covers the whole level), so no enemy has to be lured into position: a door only makes
+	## them look, a gunshot puts every one of them on alert. Run against level_01.
+	"noise_reactions": [
+		{
+			"god": true,
+			"wait": 0.5,
+			"track_enemies": true,
+		},
+		{
+			"emit_noise": {"type": "DOOR", "radius": 6000.0},
+			"wait": 0.4,
+			"track_enemies": true,
+		},
+		{
+			# Long enough for the suspicion to run out: a door must never escalate on its own.
+			"wait": 4.0,
+			"track_enemies": true,
+		},
+		{
+			"emit_noise": {"type": "GUNSHOT", "radius": 6000.0},
+			"wait": 0.4,
+			"track_enemies": true,
+		},
+	],
 	## Bake a navmesh at runtime and verify it: that the server knows about it, that
 	## enemies pick it up, and that its paths never cross walls.
 	"navmesh": [
@@ -2136,8 +2161,8 @@ func _connect_noise_log() -> void:
 	_noise_connected = true
 
 
-func _on_noise_made(position: Vector2, radius: float, _source: Node) -> void:
-	_noise_log.append({"position": position, "radius": radius})
+func _on_noise_made(position: Vector2, radius: float, _source: Node, type: NoiseKind.Type) -> void:
+	_noise_log.append({"position": position, "radius": radius, "type": type})
 	if _noise_log.size() > 40:
 		_noise_log.remove_at(0)
 
@@ -2169,8 +2194,8 @@ func _report_noise(tail: int = 8) -> void:
 	var start: int = maxi(0, _noise_log.size() - tail)
 	for i: int in range(start, _noise_log.size()):
 		var entry: Dictionary = _noise_log[i]
-		print("[probe]   noise #%d radius %.0f at %s" % [
-			i, entry["radius"], str(Vector2i(entry["position"])),
+		print("[probe]   noise #%d %s radius %.0f at %s" % [
+			i, NoiseKind.type_name(entry["type"]), entry["radius"], str(Vector2i(entry["position"])),
 		])
 
 #endregion
@@ -2535,6 +2560,14 @@ func _run(scenario: String) -> void:
 		# "bake the mesh, wait, then report" has to bake first.
 		if step.has("bake_navmesh"):
 			_bake_navmesh_runtime()
+		if step.has("emit_noise"):
+			# A noise of a given type, made by the player at the player's position.
+			var spec: Dictionary = step["emit_noise"]
+			var maker: Player = GameDirector.valid_player()
+			if maker != null:
+				GameDirector.make_noise(maker.global_position, float(spec["radius"]),
+					NoiseKind.Type[String(spec["type"])], maker)
+				print("[probe] noise %s, radius %.0f" % [spec["type"], float(spec["radius"])])
 		if step.has("enemy_into_fire"):
 			_fire_enemy = (load("res://src/enemies/enemy.tscn") as PackedScene).instantiate() as Enemy
 			GameDirector.spawn_parent().add_child(_fire_enemy)

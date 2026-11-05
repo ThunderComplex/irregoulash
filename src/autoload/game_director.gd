@@ -11,8 +11,9 @@ signal game_over(reason: String)
 signal game_won()
 signal announce(text: String, color: Color)
 signal reveal_changed(revealed: bool)
-## Anything that makes a sound the AI could hear (gunshots, dashes, footsteps).
-signal noise_made(position: Vector2, radius: float, source: Node)
+## Anything that makes a sound the AI could hear (gunshots, dashes, footsteps). `type` is a
+## `NoiseKind.Type`: what the sound means, which is what decides how enemies react to it.
+signal noise_made(position: Vector2, radius: float, source: Node, type: NoiseKind.Type)
 
 const TITLE_SCENE: String = "res://src/ui/title_screen.tscn"
 const FIRST_LEVEL: String = "res://src/levels/level_campaign_01.tscn"
@@ -238,9 +239,10 @@ func announce_message(text: String, color: Color = Color.WHITE) -> void:
 	announce.emit(text, color)
 
 
-## Broadcast a noise the AI can hear at `position` within `radius`.
-func make_noise(position: Vector2, radius: float, source: Node = null) -> void:
-	noise_made.emit(position, radius, source)
+## Broadcast a noise the AI can hear at `position` within `radius`. The type is required, not
+## defaulted, so a new sound cannot be added without deciding what it means.
+func make_noise(position: Vector2, radius: float, type: NoiseKind.Type, source: Node = null) -> void:
+	noise_made.emit(position, radius, source, type)
 
 
 ## Where world objects spawned during play (bullets, corpses, effects) should be

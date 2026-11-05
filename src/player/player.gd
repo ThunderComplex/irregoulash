@@ -134,7 +134,7 @@ func _start_dash(input: Vector2) -> void:
 	_dashed_doors.clear()
 	velocity = _dash_direction * Tuning.player_dash_speed
 	AudioDirector.play(&"dash", -3.0)
-	GameDirector.make_noise(global_position, Tuning.noise_dash, self)
+	GameDirector.make_noise(global_position, Tuning.noise_dash, NoiseKind.Type.FOOTSTEP, self)
 	FxDirector.spark_burst(global_position - _dash_direction * 10.0, -_dash_direction, 6,
 		Color(0.72, 0.82, 1.0), 130.0, 0.22)
 
@@ -212,7 +212,7 @@ func _update_footsteps(delta: float) -> void:
 		return
 	_footstep_accum = 0.0
 	AudioDirector.play_at(&"footstep", global_position, -14.0, randf_range(0.9, 1.1))
-	GameDirector.make_noise(global_position, Tuning.noise_footstep, self)
+	GameDirector.make_noise(global_position, Tuning.noise_footstep, NoiseKind.Type.FOOTSTEP, self)
 
 
 func _update_camera_offset() -> void:

@@ -153,7 +153,7 @@ func smash(by: Node) -> void:
 	# the door is gone from the level rather than lying in it.
 	FxDirector.spark_burst(global_position, Vector2.UP, 14, Color(0.78, 0.6, 0.38), 190.0, 0.45)
 	FxDirector.flash_light(global_position, Color(0.95, 0.8, 0.5), 0.7, 130.0, 0.18)
-	GameDirector.make_noise(global_position, Tuning.noise_door_smash, by)
+	GameDirector.make_noise(global_position, Tuning.noise_door_smash, NoiseKind.Type.DOOR_SMASH, by)
 	changed.emit()
 	queue_free()
 
@@ -173,7 +173,7 @@ func open_for_enemy(by: Node) -> bool:
 ## the feedback and no text is needed. The door's state, collider and occluder are untouched.
 func bounce() -> void:
 	AudioDirector.play_at(&"door_close", global_position, -12.0)
-	GameDirector.make_noise(global_position, Tuning.noise_door_bump, null)
+	GameDirector.make_noise(global_position, Tuning.noise_door_bump, NoiseKind.Type.DOOR, null)
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
 	var open_angle: float = PI * 0.5
@@ -563,7 +563,7 @@ func _leaf_covers(point: Vector2) -> bool:
 ## Someone tried a locked door. Quiet, but not silent: a rattling handle is a sound.
 func rattle(by: Node) -> void:
 	AudioDirector.play_at(&"door_locked", global_position, -7.0)
-	GameDirector.make_noise(global_position, Tuning.noise_door_locked, by)
+	GameDirector.make_noise(global_position, Tuning.noise_door_locked, NoiseKind.Type.DOOR_LOCKED, by)
 
 
 func _exit_tree() -> void:
@@ -586,7 +586,7 @@ func _set_shut(shut: bool, by: Node, quiet_sound: bool = false) -> void:
 	_hinge(Tween.TRANS_CUBIC, 0.0 if shut else PI * 0.5)
 	var sound: StringName = &"door_close" if shut else &"door_open"
 	AudioDirector.play_at(sound, global_position, -9.0 if quiet_sound else -5.0)
-	GameDirector.make_noise(global_position, Tuning.noise_door, by)
+	GameDirector.make_noise(global_position, Tuning.noise_door, NoiseKind.Type.DOOR, by)
 	changed.emit()
 
 
@@ -608,7 +608,7 @@ func _refused(by: Node, bump: bool = false) -> void:
 		FxDirector.shake(0.12)
 	else:
 		GameDirector.announce_message("LOCKED - you need a key", Color(0.95, 0.85, 0.5))
-	GameDirector.make_noise(global_position, radius, by)
+	GameDirector.make_noise(global_position, radius, NoiseKind.Type.DOOR_LOCKED, by)
 
 #endregion
 

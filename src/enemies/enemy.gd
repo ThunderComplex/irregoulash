@@ -481,30 +481,41 @@ func alert_from(where: Vector2) -> void:
 
 
 ## A loud noise: gunfire, a dash, footsteps nearby.
-func _on_noise(where: Vector2, radius: float, source: Node) -> void:
+## A noise was made. How this enemy reacts depends on what kind of sound it was (`NoiseKind.reaction`)
+## and on who made it.
+func _on_noise(where: Vector2, radius: float, source: Node, type: NoiseKind.Type) -> void:
 	if _dead or source == self:
 		return
 	var distance: float = global_position.distance_to(where)
 	if distance > radius:
 		return
 
-	var heard: float = 1.0 - clampf(distance / maxf(1.0, radius), 0.0, 1.0)
-	if source is Player:
-		if _can_see(where):
+	if source is Enemy:
+		# Another guard's footsteps and doors are just the building being lived in; only its gunfire
+		# means there is a fight to join. Never while already alert, though: that enemy is tracking the
+		# player, and the ally's position would only drag it off the trail.
+		if type == NoiseKind.Type.GUNSHOT and state != State.ALERT:
 			_enter_alert(where)
-		elif state != State.ALERT and heard > 0.15:
-			awareness = minf(1.0, awareness + 0.45 * heard)
-			if awareness == 1.0:
-				_enter_alert(where)
-			if state == State.PATROL or state == State.RETURN:
-				_enter_suspicious(where)
 		return
 
-	# Noise from something that is not the player (gunfire of allies, ricochets).
-	if state != State.ALERT and heard > 0.4:
-		awareness = minf(1.0, awareness + 0.2)
-		if state == State.PATROL or state == State.RETURN:
-			_enter_suspicious(where)
+	# From the player, or from no one in particular (a door bouncing off someone in the doorway).
+	match NoiseKind.reaction(type):
+		NoiseKind.Reaction.ALERT:
+			_enter_alert(where)
+		NoiseKind.Reaction.SUSPICIOUS:
+			# Look, but do not escalate: a door is worth turning towards, not worth a firefight.
+			if state == State.PATROL or state == State.RETURN:
+				_enter_suspicious(where)
+		NoiseKind.Reaction.BUILD_AWARENESS:
+			var heard: float = 1.0 - clampf(distance / maxf(1.0, radius), 0.0, 1.0)
+			if _can_see(where):
+				_enter_alert(where)
+			elif state != State.ALERT and heard > 0.15:
+				awareness = minf(1.0, awareness + 0.45 * heard)
+				if awareness == 1.0:
+					_enter_alert(where)
+				if state == State.PATROL or state == State.RETURN:
+					_enter_suspicious(where)
 
 #endregion
 
@@ -542,7 +553,7 @@ func _shoot_at(point: Vector2) -> void:
 
 	FxDirector.muzzle_flash(origin, direction, Color(1.0, 0.6, 0.35), 120.0)
 	AudioDirector.play_at(&"shot_enemy", origin, -7.0)
-	GameDirector.make_noise(origin, 620.0, self)
+	GameDirector.make_noise(origin, 620.0, NoiseKind.Type.GUNSHOT, self)
 
 	_fire_cd = archetype.fire_interval
 	_burst_left -= 1
@@ -886,7 +897,7 @@ func _update_footsteps(delta: float) -> void:
 		return
 	_footstep_accum = 0.0
 	AudioDirector.play_at(&"footstep", global_position, -15.0, randf_range(0.85, 1.05))
-	GameDirector.make_noise(global_position, archetype.footstep_audible_range, self)
+	GameDirector.make_noise(global_position, archetype.footstep_audible_range, NoiseKind.Type.FOOTSTEP, self)
 
 #endregion
 

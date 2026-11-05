@@ -4,16 +4,14 @@
 [ext_resource type="Shader" uid="uid://pygep2sn14nj" path="res://src/levels/surface.gdshader" id="2_bvryq"]
 [ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_bnbio"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="4_bbfix"]
-[ext_resource type="Script" uid="uid://42vdeppvwt1a" path="res://src/levels/wall.gd" id="5_bvryq"]
 [ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="6_32ptk"]
 [ext_resource type="Script" uid="uid://tdmd7rqbsvoa" path="res://src/levels/patrol_route.gd" id="6_bbfix"]
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="7_bnbio"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="8_cr2ci"]
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="9_bnbio"]
-[ext_resource type="Script" uid="uid://c1femwp0kyllt" path="res://src/enemies/enemy.gd" id="9_jbi8j"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="9_nfir1"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_bbfix"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bvryq"]
 shader = ExtResource("2_bvryq")
 shader_parameter/albedo = ExtResource("3_bnbio")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -48,7 +46,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_bbfix")
+material = SubResource("ShaderMaterial_bvryq")
 position = Vector2(232.5, 832)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-3335.8892, -3167.3892, 3335.8892, -3167.3892, 3335.8892, 3167.3892, -3335.8892, 3167.3892)
@@ -92,88 +90,60 @@ size = Vector2(384, 32)
 position = Vector2(1057, 752)
 size = Vector2(32, 352)
 
-[node name="DrawnWall8" type="StaticBody2D" parent="Walls" unique_id=1969108295 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall8" parent="Walls" unique_id=1969108295 instance=ExtResource("4_bbfix")]
 position = Vector2(865, 1168)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(416, 32)
 
-[node name="DrawnWall9" type="StaticBody2D" parent="Walls" unique_id=758903857 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall9" parent="Walls" unique_id=758903857 instance=ExtResource("4_bbfix")]
 position = Vector2(1057, 1040)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(32, 224)
 
-[node name="DrawnWall10" type="StaticBody2D" parent="Walls" unique_id=1281522339 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall10" parent="Walls" unique_id=1281522339 instance=ExtResource("4_bbfix")]
 position = Vector2(865, 1488)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(416, 32)
 
-[node name="DrawnWall11" type="StaticBody2D" parent="Walls" unique_id=341860722 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall11" parent="Walls" unique_id=341860722 instance=ExtResource("4_bbfix")]
 position = Vector2(1057, 1328)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(32, 288)
 
-[node name="DrawnWall14" type="StaticBody2D" parent="Walls" unique_id=863710390 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall14" parent="Walls" unique_id=863710390 instance=ExtResource("4_bbfix")]
 position = Vector2(-176, 176)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(800, 32)
 
-[node name="DrawnWall15" type="StaticBody2D" parent="Walls" unique_id=923939877 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall15" parent="Walls" unique_id=923939877 instance=ExtResource("4_bbfix")]
 position = Vector2(-176, 560)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(800, 32)
 
-[node name="DrawnWall16" type="StaticBody2D" parent="Walls" unique_id=911934511 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall16" parent="Walls" unique_id=911934511 instance=ExtResource("4_bbfix")]
 position = Vector2(-48, 320)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(32, 256)
 
-[node name="DrawnWall17" type="StaticBody2D" parent="Walls" unique_id=1495302177 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall17" parent="Walls" unique_id=1495302177 instance=ExtResource("4_bbfix")]
 position = Vector2(-272, 416)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(32, 256)
 
-[node name="DrawnWall18" type="StaticBody2D" parent="Walls" unique_id=226923512 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall18" parent="Walls" unique_id=226923512 instance=ExtResource("4_bbfix")]
 position = Vector2(-448, 368)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(64, 96)
 
-[node name="DrawnWall19" type="StaticBody2D" parent="Walls" unique_id=2006182880 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall19" parent="Walls" unique_id=2006182880 instance=ExtResource("4_bbfix")]
 position = Vector2(-592, 368)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(32, 416)
 
-[node name="DrawnWall20" type="StaticBody2D" parent="Walls" unique_id=387609373 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall20" parent="Walls" unique_id=387609373 instance=ExtResource("4_bbfix")]
 position = Vector2(432, 176)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(416, 32)
 
-[node name="DrawnWall21" type="StaticBody2D" parent="Walls" unique_id=979126841 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall21" parent="Walls" unique_id=979126841 instance=ExtResource("4_bbfix")]
 position = Vector2(656, 368)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(32, 416)
 
-[node name="DrawnWall22" type="StaticBody2D" parent="Walls" unique_id=1765892191 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall22" parent="Walls" unique_id=1765892191 instance=ExtResource("4_bbfix")]
 position = Vector2(224, 1040)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(64, 928)
 
-[node name="DrawnWall23" type="StaticBody2D" parent="Walls" unique_id=1601274893 instance=ExtResource("4_bbfix")]
+[node name="DrawnWall23" parent="Walls" unique_id=1601274893 instance=ExtResource("4_bbfix")]
 position = Vector2(448, 1488)
-collision_mask = 0
-script = ExtResource("5_bvryq")
 size = Vector2(384, 32)
 
 [node name="Routes" type="Node2D" parent="." unique_id=1220520183]
@@ -238,26 +208,17 @@ energy = 0.7
 position = Vector2(849, 864)
 patrol_route = NodePath("../../Routes/Guard1Route")
 
-[node name="Scout1" type="CharacterBody2D" parent="Enemies" unique_id=1641329701 instance=ExtResource("7_bnbio")]
+[node name="Scout1" parent="Enemies" unique_id=1641329701 instance=ExtResource("7_bnbio")]
 position = Vector2(753, 1216)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("9_jbi8j")
 archetype_id = "scout"
 patrol_route = NodePath("../../Routes/Scout1Route")
 
-[node name="Guard2" type="CharacterBody2D" parent="Enemies" unique_id=1639127834 instance=ExtResource("7_bnbio")]
+[node name="Guard2" parent="Enemies" unique_id=1639127834 instance=ExtResource("7_bnbio")]
 position = Vector2(-544, 224)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("9_jbi8j")
 patrol_route = NodePath("../../Routes/Guard2Route")
 
-[node name="Guard3" type="CharacterBody2D" parent="Enemies" unique_id=668611374 instance=ExtResource("7_bnbio")]
+[node name="Guard3" parent="Enemies" unique_id=668611374 instance=ExtResource("7_bnbio")]
 position = Vector2(0, 352)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("9_jbi8j")
 patrol_route = NodePath("../../Routes/Guard3Route")
 
 [node name="Pickups" type="Node2D" parent="." unique_id=330227706]

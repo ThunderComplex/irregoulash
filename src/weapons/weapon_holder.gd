@@ -160,7 +160,7 @@ func try_fire() -> void:
 	FxDirector.muzzle_flash(origin, aim, w.color, 160.0)
 	FxDirector.shake(w.shake)
 	AudioDirector.play_at(w.sfx, origin, -3.0)
-	GameDirector.make_noise(origin, w.noise(), _player)
+	GameDirector.make_noise(origin, w.noise(), NoiseKind.Type.GUNSHOT, _player)
 	GameDirector.notify_shot_fired()
 
 	_recoil = minf(_recoil + w.recoil_kick, 14.0)

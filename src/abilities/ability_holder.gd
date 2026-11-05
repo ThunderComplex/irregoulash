@@ -92,7 +92,7 @@ func use_ability(index: int) -> bool:
 	FxDirector.shake(data.shake)
 	# Noisy, like everything else that hurts people here: abilities must not be a silent
 	# way to fight, and enemies already investigate noise.
-	GameDirector.make_noise(target, data.noise_radius, _player)
+	GameDirector.make_noise(target, data.noise_radius, NoiseKind.Type.ABILITY, _player)
 	return true
 
 
