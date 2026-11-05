@@ -46,8 +46,8 @@ static func _build_pistol() -> WeaponResource:
 	w.recoil_kick = 0.7
 	w.projectile_speed = 1600.0
 	w.mag_size = 5
-	w.reload_time = 1.7
-	w.reserve_max = 180
+	w.reload_time = 1.3
+	w.reserve_max = 40
 	w.shake = 0.15
 	w.knockback = 60.0
 	w.color = Color(1.0, 0.94, 0.68)
@@ -72,9 +72,9 @@ static func _build_smg() -> WeaponResource:
 	w.spread_deg = 4.6
 	w.recoil_kick = 0.55
 	w.projectile_speed = 1500.0
-	w.mag_size = 32
-	w.reload_time = 1.5
-	w.reserve_max = 300
+	w.mag_size = 16
+	w.reload_time = 1.7
+	w.reserve_max = 96
 	w.shake = 0.09
 	w.knockback = 26.0
 	w.color = Color(1.0, 0.86, 0.5)

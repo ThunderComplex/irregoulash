@@ -57,7 +57,7 @@ static func _build_scout() -> EnemyArchetype:
 	var a := EnemyArchetype.new()
 	a.id = &"scout"
 	a.display_name = "Scout"
-	a.max_health = 34.0
+	a.max_health = 40.0
 	a.radius = 11.0
 	a.speed_patrol = 84.0
 	a.speed_alert = 168.0
@@ -65,16 +65,16 @@ static func _build_scout() -> EnemyArchetype:
 	a.sight_range = 520.0
 	a.sight_fov = 120.0
 	a.detect_multiplier = 1.5
-	a.damage = 7.0
+	a.damage = 12.0
 	a.pellets = 1
 	a.fire_interval = 0.16
-	a.burst = 4
+	a.burst = 5
 	a.burst_pause = 0.6
 	a.spread_deg = 7.0
 	a.fire_range = 480.0
 	a.reaction_time = 0.3
 	a.preferred_range = 220.0
-	a.drop_weapon = ""
+	a.drop_weapon = "smg"
 	return a
 
 
