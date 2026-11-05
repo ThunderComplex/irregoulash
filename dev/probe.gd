@@ -153,6 +153,33 @@ const SCENARIOS: Dictionary = {
 			"shot": "death_overlay",
 		},
 	],
+	## Dying, retrying, and dying again: every death must bring up the game-over screen, and nothing
+	## left over from the first life may error once the level has been reloaded (blood stains fade on
+	## a 12 s timer, so the run waits that long after the first death).
+	"double_death": [
+		{
+			"wait": 0.8,
+			"kill_player": true,
+		},
+		{
+			"wait": 1.0,
+			"death_report": true,
+			"retry_level": true,
+		},
+		{
+			"wait": 1.5,
+			"kill_player": true,
+		},
+		{
+			"wait": 1.0,
+			"death_report": true,
+		},
+		{
+			# Past the first death's blood-stain timer.
+			"wait": 12.0,
+			"death_report": true,
+		},
+	],
 	## Level chaining: walk into the exit, land in the next level with the gear
 	## you were carrying, then win.
 	"flow": [
@@ -542,6 +569,45 @@ const SCENARIOS: Dictionary = {
 		},
 		{
 			"door_avoid_test": true,
+			"wait": 0.2,
+		},
+	],
+	## A door's hinge must sit on a corner of its footprint, so an open leaf lies against the wall face.
+	## Run this against `dev/surface_lab.tscn`, where the wood is textured and lit.
+	"door_hinge": [
+		{
+			"god": true,
+			"wait": 0.8,
+		},
+		{
+			"spawn_door": {"at": Vector2(820.0, 700.0), "locked": false, "rotation": 0.0},
+			"teleport": Vector2(820.0, 650.0),
+			"aim": Vector2(0.0, 1.0),
+			"wait": 1.2,
+			"door_report": true,
+		},
+		{
+			"shot": "door_hinge_closed",
+			"wait": 0.1,
+		},
+		{
+			"interact_door": true,
+			"wait": 0.9,
+			"door_report": true,
+		},
+		{
+			"shot": "door_hinge_open",
+			"wait": 0.1,
+		},
+	],
+	## An enemy killed in a doorway while the leaf is swinging: the door must not keep a dead actor.
+	"door_freed_actor": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"door_freed_actor_test": true,
 			"wait": 0.2,
 		},
 	],
@@ -1977,7 +2043,8 @@ func _report_doors() -> void:
 		# swinging from its edge, which is exactly the bug this line exists to catch.
 		var leaf := door.get_node_or_null("Leaf") as Node2D
 		var hinge: Vector2 = leaf.global_position if leaf != null else door.global_position
-		var free: Vector2 = leaf.to_global(Vector2(door.size.x, 0.0)) if leaf != null else hinge
+		var free: Vector2 = leaf.to_global(Vector2(door.size.x, -door.size.y * 0.5)) \
+			if leaf != null else hinge
 		# Exempt actors are the ones this leaf may swing over instead of shoving. Naming the player
 		# separately keeps the "no nudge" assertion readable.
 		var exempt_list: Variant = door.get("_exempt")
@@ -1990,9 +2057,9 @@ func _report_doors() -> void:
 			exempt_count, player_exempt,
 			int(door.global_position.distance_to(player.global_position)) if player != null else -1,
 		])
-		print("[probe]     hinge %s (%.0f px from centre)  free edge %s  leaf sight=%s" % [
-			str(Vector2i(hinge)), hinge.distance_to(door.global_position), str(Vector2i(free)),
-			leaf_sight,
+		print("[probe]     hinge %s (%.0f px from centre, %s)  free edge %s  leaf sight=%s" % [
+			str(Vector2i(hinge)), hinge.distance_to(door.global_position), _hinge_place(door, hinge),
+			str(Vector2i(free)), leaf_sight,
 		])
 	if found == 0:
 		print("[probe]   no doors in the level")
@@ -2039,6 +2106,16 @@ func _sight_clear_through(door: Door) -> bool:
 	return space.intersect_ray(query).is_empty()
 
 
+## Whether the leaf's origin sits on a corner of the door's footprint. A hinge in the middle of an end
+## edge is the bug this reports: the leaf then swings out of the centre of the wall instead of lying
+## against its face.
+func _hinge_place(door: Door, hinge: Vector2) -> String:
+	var local: Vector2 = door.to_local(hinge)
+	var on_corner: bool = absf(absf(local.x) - door.size.x * 0.5) < 1.0 \
+		and absf(absf(local.y) - door.size.y * 0.5) < 1.0
+	return "corner" if on_corner else "MIDDLE OF EDGE"
+
+
 ## Whether the leaf itself still blocks sight where it currently is. Cast across the panel's
 ## thickness, so it is the same test whether the door is shut (leaf in the doorway) or open (leaf in
 ## the room). This is the "you can hide behind an open door" property.
@@ -2049,8 +2126,9 @@ func _sight_clear_across_leaf(door: Door) -> bool:
 	var space: PhysicsDirectSpaceState2D = door.get_world_2d().direct_space_state
 	if space == null:
 		return true
-	# Middle of the panel, and the leaf's own up axis is its thickness when shut.
-	var centre: Vector2 = leaf.to_global(Vector2(door.size.x * 0.5, 0.0))
+	# Middle of the panel, and the leaf's own up axis is its thickness when shut. The panel's centre is a
+	# full thickness away from the hinge corner, not on the leaf's origin.
+	var centre: Vector2 = leaf.to_global(Vector2(door.size.x * 0.5, -door.size.y * 0.5))
 	var normal: Vector2 = Vector2.DOWN.rotated(leaf.global_rotation)
 	# Sight blockers, not movement blockers: an open leaf is see-through-proof but not walk-proof, which
 	# is exactly the asymmetry `Layers.DOOR` exists for.
@@ -2097,6 +2175,52 @@ func _enemy_open_test() -> void:
 	door.close_if_enemy_clear(enemy)
 	print("[probe] enemy moved on: state=%s (expected CLOSED)" % _door_state_name(door.state))
 	enemy.queue_free()
+	door.queue_free()
+
+
+## A fight in a doorway can kill an enemy while it is standing inside a swinging leaf. The door keeps actors
+## in two typed `Array[Node]`s (`_swung_into`, `_exempt`), and a typed array rejects a freed instance even
+## for `erase` -- passing one back is an error, not a no-op, which is what a report of "Attempted to erase an
+## invalid (previously freed?) object instance into a 'TypedArray'" was.
+##
+## This kills an enemy mid-swing and then asks the door whether it still holds a dead instance. It does not
+## look at the log: the assertion is that neither list still contains something freed.
+func _door_freed_actor_test() -> void:
+	var player := GameDirector.valid_player()
+	if player == null:
+		print("[probe] door freed actor: no player")
+		return
+	var door := _spawn_test_door(player.global_position + Vector2(0.0, -170.0), false, 0.0)
+	if door == null:
+		return
+	await get_tree().physics_frame
+	var level: Node = GameDirector.current_level
+	var enemy := (load("res://src/enemies/enemy.tscn") as PackedScene).instantiate() as Enemy
+	level.add_child(enemy)
+	# Standing in the leaf, so the swing takes it into both lists.
+	enemy.global_position = door.global_position
+	await get_tree().physics_frame
+	door.interact(player)
+	await get_tree().physics_frame
+	var swung: Array = door.get("_swung_into")
+	var exempt: Array = door.get("_exempt")
+	print("[probe] door freed actor: mid-swing swinging=%s exempt=%d swung=%d" % [
+		door.get("_swinging"), exempt.size(), swung.size()])
+	# Killed mid-swing: exactly the case from the report. The deferred delete lands at the end of this frame.
+	enemy.queue_free()
+	await get_tree().process_frame
+	# ...and now the door's physics tick runs with a dead actor in its lists.
+	for frame: int in 3:
+		await get_tree().physics_frame
+	var stale: int = 0
+	for actor: Variant in door.get("_exempt"):
+		if not is_instance_valid(actor):
+			stale += 1
+	for actor: Variant in door.get("_swung_into"):
+		if not is_instance_valid(actor):
+			stale += 1
+	print("[probe] door freed actor: %d dead instance(s) left behind (expected 0) -> %s" % [
+		stale, "PASS" if stale == 0 else "FAIL"])
 	door.queue_free()
 
 
@@ -2149,9 +2273,19 @@ var _dashed_door_name: String = ""
 ## Announcements, so a test can assert that an action is *silent* rather than merely harmless.
 var _announce_log: Array[String] = []
 var _announce_connected: bool = false
+## How many times the game-over screen has been asked for.
+var _game_overs: int = 0
+var _game_over_connected: bool = false
 ## The enemy the fire wall rules scenario drops into the fire, and its health when it landed.
 var _fire_enemy: Enemy = null
 var _fire_enemy_start_hp: float = 0.0
+
+
+func _connect_game_over_log() -> void:
+	if _game_over_connected:
+		return
+	GameDirector.game_over.connect(func(_reason: String) -> void: _game_overs += 1)
+	_game_over_connected = true
 
 
 func _connect_noise_log() -> void:
@@ -2522,6 +2656,8 @@ func _run(scenario: String) -> void:
 			_dash_at_newest_door()
 		if step.has("enemy_door_test"):
 			await _enemy_open_test()
+		if step.has("door_freed_actor_test"):
+			await _door_freed_actor_test()
 		if step.has("clear_progress"):
 			Progress.clear()
 			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())
@@ -2560,6 +2696,15 @@ func _run(scenario: String) -> void:
 		# "bake the mesh, wait, then report" has to bake first.
 		if step.has("bake_navmesh"):
 			_bake_navmesh_runtime()
+		if step.has("kill_player"):
+			_connect_game_over_log()
+			var victim: Player = GameDirector.valid_player()
+			if victim != null:
+				victim.take_hit(9999.0, null, victim.global_position, Vector2.RIGHT, 0.0)
+				print("[probe] killed the player")
+		if step.has("retry_level"):
+			print("[probe] retry level")
+			GameDirector.retry_level()
 		if step.has("emit_noise"):
 			# A noise of a given type, made by the player at the player's position.
 			var spec: Dictionary = step["emit_noise"]
@@ -2626,6 +2771,9 @@ func _run(scenario: String) -> void:
 			_report_ability_effects()
 		if step.has("fire_wall_report"):
 			_report_fire_wall()
+		if step.has("death_report"):
+			print("[probe]   game over shown %d time(s); player alive=%s" % [_game_overs,
+				GameDirector.valid_player() != null and not GameDirector.valid_player().is_dead()])
 		if step.has("track_enemies"):
 			# Every enemy's state and what it is heading for: the quickest way to see why a guard
 			# went somewhere unexpected.

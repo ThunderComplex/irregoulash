@@ -341,13 +341,17 @@ func _update_effects(delta: float) -> void:
 func _decay_decal(stain: Polygon2D) -> void:
 	if not is_inside_tree():
 		return
+	# By id, like `_free_after`: a restart frees the stain long before its timer fires, and a lambda that
+	# captured a freed node errors on every call.
+	var id: int = stain.get_instance_id()
 	var timer: SceneTreeTimer = get_tree().create_timer(Tuning.decal_lifetime, false)
 	timer.timeout.connect(func() -> void:
-		if not is_instance_valid(stain):
+		var stain_left := instance_from_id(id) as Polygon2D
+		if stain_left == null:
 			return
 		var tween: Tween = create_tween()
-		tween.tween_property(stain, "modulate:a", 0.0, 3.0)
-		tween.tween_callback(stain.queue_free)
+		tween.tween_property(stain_left, "modulate:a", 0.0, 3.0)
+		tween.tween_callback(stain_left.queue_free)
 	)
 
 

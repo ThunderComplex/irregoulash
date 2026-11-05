@@ -39,7 +39,7 @@ static func _build_guard() -> EnemyArchetype:
 	a.sight_range = 430.0
 	a.sight_fov = 105.0
 	a.detect_multiplier = 1.0
-	a.damage = 16.0
+	a.damage = 15.0
 	a.pellets = 1
 	a.fire_interval = 0.22
 	a.burst = 3
@@ -65,7 +65,7 @@ static func _build_scout() -> EnemyArchetype:
 	a.sight_range = 520.0
 	a.sight_fov = 120.0
 	a.detect_multiplier = 1.5
-	a.damage = 12.0
+	a.damage = 11.0
 	a.pellets = 1
 	a.fire_interval = 0.16
 	a.burst = 5

@@ -45,7 +45,7 @@ static func _build_pistol() -> WeaponResource:
 	w.spread_deg = 1.4
 	w.recoil_kick = 0.7
 	w.projectile_speed = 1600.0
-	w.mag_size = 5
+	w.mag_size = 7
 	w.reload_time = 1.3
 	w.reserve_max = 40
 	w.shake = 0.15

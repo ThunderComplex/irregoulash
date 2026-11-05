@@ -263,6 +263,20 @@ func can_close() -> bool:
 
 #region geometry
 
+## Where the leaf's origin sits in the door's own space: the *corner* of the opening, on the face the
+## leaf swings away from. A leaf hinged at the middle of its end edge swings out of the centre of the
+## wall and hangs half in the doorway; one hinged at the corner lies flat against the wall face when it
+## is open, the way a real door hangs on a jamb.
+func _hinge_offset() -> Vector2:
+	return Vector2(-size.x * 0.5, size.y * 0.5)
+
+
+## Where the middle of the panel sits in the leaf's own space. The hinge is a corner, so the panel is a
+## full length and a full thickness away from it, on the far side.
+func _panel_centre() -> Vector2:
+	return Vector2(size.x * 0.5, -size.y * 0.5)
+
+
 ## (Re)builds the leaf, its collider and its occluder. Idempotent, so a door resized in the editor
 ## or created in code ends up identical to one authored in a scene.
 ##
@@ -279,8 +293,7 @@ func _rebuild_geometry() -> void:
 		_art = Node2D.new()
 		_art.name = "Art"
 		_leaf.add_child(_art)
-	# Where the middle of the panel sits in the leaf's own space.
-	var centre := Vector2(size.x * 0.5, 0.0)
+	var centre: Vector2 = _panel_centre()
 
 	if _solid == null:
 		_solid = StaticBody2D.new()
@@ -312,12 +325,12 @@ func _rebuild_geometry() -> void:
 	_build_leaf_art()
 
 
-## The leaf: a panel hinged at the door's left edge.
+## The leaf: a panel hinged at the *corner* of the doorway, on the face it swings away from.
 ##
-## The hinge is the *leaf node's own origin*, moved to the edge, with the panel drawn from 0 to
-## `size.x` in the leaf's space. Offsetting the panel inside a leaf left at the door's centre --
-## which is what the first version did -- makes it spin like a turnstile about the middle instead
-## of swinging from its edge.
+## The hinge is the leaf node's own origin, moved to that corner, with the panel drawn a full length and
+## a full thickness away from it. Two mistakes this has already had: offsetting the panel inside a leaf
+## left at the door's centre makes it spin like a turnstile about the middle, and hinging at the middle
+## of the end edge makes it swing out of the centre of the wall instead of lying against its face.
 func _build_leaf_art() -> void:
 	if _leaf == null or _art == null:
 		return
@@ -326,21 +339,21 @@ func _build_leaf_art() -> void:
 	for child: Node in _art.get_children():
 		child.free()
 
-	_leaf.position = Vector2(-size.x * 0.5, 0.0)
+	_leaf.position = _hinge_offset()
 
 	var corners := PackedVector2Array([
-		Vector2(0.0, -size.y * 0.5),
-		Vector2(size.x, -size.y * 0.5),
-		Vector2(size.x, size.y * 0.5),
-		Vector2(0.0, size.y * 0.5),
+		Vector2(0.0, -size.y),
+		Vector2(size.x, -size.y),
+		Vector2(size.x, 0.0),
+		Vector2(0.0, 0.0),
 	])
 
 	var panel := Polygon2D.new()
 	panel.name = "Panel"
 	# The long edges have a midpoint each, so the reveal can shade a door lit at one end only.
 	panel.polygon = PackedVector2Array([
-		corners[0], Vector2(size.x * 0.5, -size.y * 0.5), corners[1],
-		corners[2], Vector2(size.x * 0.5, size.y * 0.5), corners[3],
+		corners[0], Vector2(size.x * 0.5, -size.y), corners[1],
+		corners[2], Vector2(size.x * 0.5, 0.0), corners[3],
 	])
 	panel.color = Color(0.44, 0.30, 0.34) if locked else Color(0.52, 0.36, 0.22)
 	panel.z_index = Layers.Z_WALL
@@ -362,7 +375,7 @@ func _build_leaf_art() -> void:
 		plate.name = "Lock"
 		plate.polygon = Shapes.rect(Vector2(10.0, 10.0))
 		# Middle of the leaf, not the hinge.
-		plate.position = Vector2(size.x * 0.5, 0.0)
+		plate.position = _panel_centre()
 		plate.color = Color(1.0, 0.78, 0.3)
 		plate.z_index = Layers.Z_WALL_EDGE
 		# Under the art node, so the rebuild on unlock clears it with everything else. It used to hang
@@ -416,6 +429,7 @@ func _apply_reveal() -> void:
 	if _panel.material == null:
 		# A fresh panel (first time, or rebuilt on unlock) still has the default lit material.
 		_apply_reveal_materials()
+	var centre: Vector2 = _panel_centre()
 	var half: float = size.y * 0.5 + REVEAL_PROBE
 	var side: float = _player_side()
 	var lit := PackedFloat32Array()
@@ -423,10 +437,10 @@ func _apply_reveal() -> void:
 		var value: float
 		if side == 0.0:
 			# Nobody to see it from: whichever face is brighter.
-			value = maxf(_reveal.lighting_at(_leaf.to_global(Vector2(x, half))),
-				_reveal.lighting_at(_leaf.to_global(Vector2(x, -half))))
+			value = maxf(_reveal.lighting_at(_leaf.to_global(Vector2(x, centre.y + half))),
+				_reveal.lighting_at(_leaf.to_global(Vector2(x, centre.y - half))))
 		else:
-			value = _reveal.lighting_at(_leaf.to_global(Vector2(x, side * half)))
+			value = _reveal.lighting_at(_leaf.to_global(Vector2(x, centre.y + side * half)))
 		lit.append(value * 0.6)
 	# `vertex_colors` replace a polygon's `color` rather than tinting it, so the door's own colour has to
 	# be carried into each one.
@@ -443,13 +457,14 @@ func _apply_reveal() -> void:
 		_lock_plate.self_modulate = Color(average, average, average)
 
 
-## Which long face of the leaf the player is on, in the leaf's space: 1 for +y, -1 for -y, 0 with no
-## player.
+## Which long face of the leaf the player is on, in the leaf's space: 1 for the +y face, -1 for -y, 0
+## with no player. The panel sits entirely on the -y side of the hinge, so the dividing line is its
+## centre, not the leaf's origin.
 func _player_side() -> float:
 	var player: Player = GameDirector.valid_player()
 	if player == null:
 		return 0.0
-	return 1.0 if _leaf.to_local(player.global_position).y >= 0.0 else -1.0
+	return 1.0 if _leaf.to_local(player.global_position).y >= _panel_centre().y else -1.0
 
 #endregion
 
@@ -481,7 +496,7 @@ func _on_swing_finished() -> void:
 func _physics_process(_delta: float) -> void:
 	if Engine.is_editor_hint() or _solid == null or _leaf == null:
 		return
-	_prune_swung_into()
+	_prune_freed_actors()
 	var wanted: Array[Node] = []
 	for actor: Node in _nearby_actors():
 		var body := actor as Node2D
@@ -531,12 +546,16 @@ func _nearby_actors() -> Array[Node]:
 	return out
 
 
-func _prune_swung_into() -> void:
+func _prune_freed_actors() -> void:
+	# Both lists are typed `Array[Node]`, and a typed array refuses a freed instance even for `erase`:
+	# handing one back is an error, not a no-op. So they are pruned by index, and the dead object is never
+	# read into a typed variable. An enemy dying against a door is exactly when this happens.
 	for i: int in range(_swung_into.size() - 1, -1, -1):
-		var actor: Node = _swung_into[i]
-		if not is_instance_valid(actor):
+		if not is_instance_valid(_swung_into[i]):
 			_swung_into.remove_at(i)
-			_exempt.erase(actor)
+	for i: int in range(_exempt.size() - 1, -1, -1):
+		if not is_instance_valid(_exempt[i]):
+			_exempt.remove_at(i)
 
 
 ## Moves the leaf between the layer that stops everything and the layer that stops everything except
@@ -556,7 +575,7 @@ func _update_solid_layer() -> void:
 ## Whether a body would be touching or inside the leaf where it is now. The margin beyond the
 ## player's radius keeps the exemption from being dropped a pixel early and handing back a nudge.
 func _leaf_covers(point: Vector2) -> bool:
-	var panel := Rect2(Vector2(0.0, -size.y * 0.5), size)
+	var panel := Rect2(Vector2(0.0, -size.y), size)
 	return panel.grow(Tuning.player_radius + 4.0).has_point(_leaf.to_local(point))
 
 
@@ -567,9 +586,14 @@ func rattle(by: Node) -> void:
 
 
 func _exit_tree() -> void:
-	# Never leave an exception pointing at a door that is about to stop existing.
-	for actor: Node in _exempt:
-		if is_instance_valid(actor) and _solid != null:
+	# Never leave an exception pointing at a door that is about to stop existing. Freed actors are skipped
+	# by index for the same reason `_prune_freed_actors` prunes by index: a typed array will not accept
+	# one, and reading it into a typed variable is an error.
+	for i: int in range(_exempt.size() - 1, -1, -1):
+		if not is_instance_valid(_exempt[i]):
+			continue
+		var actor: Node = _exempt[i]
+		if _solid != null:
 			actor.remove_collision_exception_with(_solid)
 	_exempt.clear()
 	_swung_into.clear()
@@ -622,8 +646,9 @@ func _draw() -> void:
 	var rect := Rect2(-size * 0.5, size)
 	draw_rect(rect, Color(tint, 0.18))
 	draw_rect(rect, Color(tint, 0.85), false, 2.0)
-	# The hinge end, so the direction the leaf swings is obvious before running the level.
-	draw_circle(Vector2(-size.x * 0.5, 0.0), 3.0, Color(tint, 0.95))
+	# The hinge corner, so the direction the leaf swings is obvious before running the level, and the
+	# middle of the free edge it swings to.
+	draw_circle(_hinge_offset(), 3.0, Color(tint, 0.95))
 	draw_circle(Vector2(size.x * 0.5, 0.0), 2.0, Color(tint, 0.55))
 	if starts_locked:
 		var font: Font = ThemeDB.fallback_font

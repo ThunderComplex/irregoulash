@@ -200,12 +200,28 @@ Also worth knowing:
   edge and drawing the panel from 0 to `size.x` in its space gives a hinge. The rule generalises:
   put the pivot on the node that rotates, not on its child. The probe reports the hinge position
   and the free edge every time it reports a door, so this cannot regress unnoticed.
+  The hinge is on a *corner* of the footprint, not the middle of the end edge: a leaf hinged at the
+  middle swings out of the centre of the wall and hangs half in the doorway, while one hinged at a
+  corner lies flat against the wall face when open, the way a real door hangs on a jamb. Everything
+  that depends on the panel's position derives it from `_hinge_offset()` / `_panel_centre()` rather
+  than assuming the leaf's origin is the panel's middle -- that includes the collider, the occluder,
+  the reveal samples and `_leaf_covers`. The probe's door report now prints `corner` or
+  `MIDDLE OF EDGE` for the hinge, so the old geometry would be visible in one line.
 - **A physics query also lags behind a body that *moved* this frame.** The door's close guard used
   only `intersect_shape`, so a player who entered the doorway and pressed interact in the same frame
   was invisible to it and the door shut on them -- the probe caught it as "door closed and pushed
   the player to exactly the resting distance". Anything that must never happen to the player is now
   also checked against their position directly (`Door.contains_point`), which is exact and instant;
   the shape query still covers enemies.
+- **A typed `Array[Node]` rejects a freed instance even for `erase`.** Fighting an enemy in a doorway
+  killed it mid-swing, and the door's cleanup loop did `_exempt.erase(actor)` with the dead actor: the
+  array's type validator cannot type-check a freed object, so it logs "Attempted to erase an invalid
+  (previously freed?) object instance into a 'TypedArray'" and does nothing -- leaving the dead actor in
+  the list, where the next iteration that reads it into a typed variable fails too. Lists of actors are
+  therefore checked and pruned **by index** (`is_instance_valid(list[i])` then `remove_at`), never by
+  handing the object back to the array or into a typed local. `_exit_tree` had the same shape.
+  `--probe=door_freed_actor` kills an enemy mid-swing and asserts no dead instance is left behind; on the
+  old code it reproduces the three reported errors.
 - **A physics query cannot see a body created in the same frame.** The door test's first version
   spawned a door and immediately asked `intersect_point` whether an enemy was at it; the door did
   not exist to the physics server yet, so the answer was always "nothing there" and the test read

@@ -160,6 +160,10 @@ func retry_level() -> void:
 func on_level_ready(level: Node) -> void:
 	current_level = level
 	player = null
+	# A fresh level has reported nothing yet. Every way into a level used to reset this itself, and
+	# `restart_level` did not: after one retry the next death was swallowed as "already reported", so
+	# no game-over screen came up and the game sat there with a dead player. Here, no route can miss it.
+	_outcome_reported = false
 	# Where the checkpoint starts from. `record()` ignores levels that were launched directly
 	# from the editor, because those are not part of a run.
 	Progress.record()
