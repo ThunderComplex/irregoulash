@@ -157,6 +157,9 @@ var _overrides: Dictionary = {}
 ## True when the last input came from a gamepad. Everything that shows a prompt reads this, so the HUD
 ## says "LB" on a pad and "Q" on a keyboard without either side needing to know the other exists.
 var _gamepad_in_use: bool = false
+## The last pad press or stick push, for the debug readout: the fastest way to answer "can Godot see
+## this controller at all, and what does it call its buttons".
+var _last_pad_input: String = ""
 
 
 func _ready() -> void:
@@ -187,7 +190,16 @@ func using_gamepad() -> bool:
 ## *motion* switches too, with a small threshold, because a player who reaches for the mouse to aim has
 ## not pressed anything yet.
 func _input(event: InputEvent) -> void:
-	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+	if event is InputEventJoypadButton:
+		if (event as InputEventJoypadButton).pressed:
+			_last_pad_input = describe(event)
+		_set_device(true)
+	elif event is InputEventJoypadMotion:
+		# Only a deliberate push: a resting stick emits motion constantly and would fill the readout
+		# with noise.
+		var motion: InputEventJoypadMotion = event
+		if absf(motion.axis_value) > 0.5:
+			_last_pad_input = describe(motion)
 		_set_device(true)
 	elif event is InputEventKey and (event as InputEventKey).pressed:
 		_set_device(false)
@@ -195,6 +207,20 @@ func _input(event: InputEvent) -> void:
 		_set_device(false)
 	elif event is InputEventMouseMotion and (event as InputEventMouseMotion).relative.length() > 1.0:
 		_set_device(false)
+
+
+## What the engine currently sees of gamepads, for the debug readout. With no pad it says so; with one
+## it names each device and the last button or stick pushed, which is what makes a mapping problem
+## visible instead of guesswork.
+func pad_summary() -> String:
+	var pads: Array[int] = Input.get_connected_joypads()
+	if pads.is_empty():
+		return "gamepad: none connected"
+	var names: Array[String] = []
+	for id: int in pads:
+		names.append("%s #%d" % [Input.get_joy_name(id), id])
+	var last: String = _last_pad_input if not _last_pad_input.is_empty() else "-"
+	return "gamepad: %s   last: %s" % [", ".join(names), last]
 
 
 func _set_device(gamepad: bool) -> void:

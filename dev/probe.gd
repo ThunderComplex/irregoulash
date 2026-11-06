@@ -1230,6 +1230,7 @@ func _report_environment() -> void:
 	await get_tree().process_frame
 	print("[probe] audio %s" % AudioDirector.debug_summary())
 	print("[probe] input %s" % _input_summary())
+	print("[probe] %s" % GameInput.pad_summary())
 	var lights: int = 0
 	var occluders: int = 0
 	var modulate_colors: Array[String] = []

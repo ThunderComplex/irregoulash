@@ -247,6 +247,7 @@ func _update_debug() -> void:
 	lines.append("god %s   noclip %s   reveal %s" % [
 		GameDirector.god_mode, GameDirector.noclip, GameDirector.reveal,
 	])
+	lines.append(GameInput.pad_summary())
 	lines.append("hp %.0f   kills %d   shots %d   alerts %d" % [
 		_player.health.current if _player != null else 0.0,
 		GameDirector.kills, GameDirector.shots_fired, GameDirector.enemies_alerted,
