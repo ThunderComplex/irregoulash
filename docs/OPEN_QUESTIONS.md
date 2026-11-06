@@ -12,9 +12,9 @@ the decisions they produced live in `docs/DESIGN_NOTES.md`, and the work they cr
 - **What does Continue mean after the campaign is finished?** The checkpoint is cleared on a win, so a
   finished game offers New Game only. A level select (task 6) needs to answer whether replaying a
   level restores the progression you had, or starts that level from a fixed loadout.
-- **Upgrade caps.** Task 2 proposes 3 for both weapons and abilities, so a late crate is not wasted and
-  damage does not run away. It is a balance number to settle in playtesting, not a design question --
-  but it has to exist before upgrade crates are placed.
+- **Is level 3 the right upgrade cap?** Both weapons and abilities now stop at 3
+  (`WeaponSlot.MAX_LEVEL`, `AbilitySlot.MAX_LEVEL`), which keeps a late crate from being wasted and stops
+  damage running away. The number is a balance value to revisit in playtesting, not a design question.
 - **What happens to an ability pickup when both slots are full?** It currently stays on the ground.
   That is fine with three abilities and two slots; it stops being obvious if the roster grows.
 

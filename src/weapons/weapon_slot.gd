@@ -6,6 +6,10 @@ extends RefCounted
 ## The `WeaponResource` itself is a shared, read-only template -- upgrades never
 ## mutate it, so every enemy or pickup can safely point at the same instance.
 
+## How many times a weapon may be upgraded. The cap keeps a long campaign from turning one gun into a
+## different game, and lets an upgrade crate be left on the ground instead of being consumed at the cap.
+const MAX_LEVEL: int = 3
+
 var data: WeaponResource
 var mag: int = 0
 var reserve: int = 0
@@ -39,8 +43,13 @@ func reload_time() -> float:
 	return maxf(0.15, data.reload_time * (1.0 - 0.08 * float(level)))
 
 
-func upgrade() -> void:
+## Raises the level by one. Returns false at the cap, so a pickup can be left where it is rather than
+## being spent for nothing.
+func upgrade() -> bool:
+	if level >= MAX_LEVEL:
+		return false
 	level += 1
+	return true
 
 
 func total_ammo() -> int:

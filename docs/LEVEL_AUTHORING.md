@@ -448,11 +448,15 @@ one-field edit in the editor afterwards.
 ### `Pickup` — `src/items/pickup.tscn`
 | Property | Meaning |
 |---|---|
-| `kind` | `weapon`, `ammo`, `upgrade`, `health`, `ability` or `key` |
+| `kind` | `weapon`, `ammo`, `upgrade`, `health`, `ability`, `ability_upgrade` or `key` |
 | `ability_id` | `fire_wall`, `fire_tempest`, `lightning_bolt` (for `kind = ability`) |
 | (`key` pickups) | always give exactly one key; there is nothing to configure |
 | `weapon_id` | `pistol`, `smg`, `shotgun` (for `kind = weapon`). Picking up a weapon you already carry gives it ammo instead, and leaves the weapon in hand alone; only a weapon picked up for the first time takes the hand |
 | `amount` | ammo rounds, or health restored |
+
+`kind = upgrade` raises **the weapon in hand**; `kind = ability_upgrade` raises **both ability
+slots**. Both stop at level 3, and both are left on the ground when they cannot help, so an
+upgrade crate is never spent for nothing. The HUD shows levels as `+` marks next to the name.
 
 ### `ExitZone` — `src/levels/exit_zone.tscn`
 | Property | Meaning |

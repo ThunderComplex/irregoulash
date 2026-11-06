@@ -5,6 +5,11 @@ extends RefCounted
 ## The cooldown lives per slot, unlike weapons where one gun is equipped and the holder
 ## tracks a single timer. Without that, casting one ability would lock out the other.
 
+## How many times an ability may be upgraded. Damage grows linearly and cooldown falls to a floor, so a
+## cap is what stops a long run from trivialising the game -- and it is why a late crate can be left on
+## the floor instead of being spent for nothing.
+const MAX_LEVEL: int = 3
+
 var data: AbilityResource
 var level: int = 0
 ## Seconds until this ability may be cast again.
@@ -49,5 +54,8 @@ func area_scale() -> float:
 	return 1.0 + data.area_per_level * float(level)
 
 
-func upgrade() -> void:
+func upgrade() -> bool:
+	if level >= MAX_LEVEL:
+		return false
 	level += 1
+	return true

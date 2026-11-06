@@ -298,7 +298,9 @@ func upgrade_current() -> bool:
 	var s: WeaponSlot = slot()
 	if s == null:
 		return false
-	s.upgrade()
+	# `upgrade()` refuses at the cap, and refusing here is what leaves the crate on the ground.
+	if not s.upgrade():
+		return false
 	weapon_changed.emit(s, current)
 	return true
 

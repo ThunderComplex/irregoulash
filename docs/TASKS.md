@@ -11,7 +11,7 @@ Design reasoning lives in `docs/DESIGN_NOTES.md`; genuinely undecided questions 
 | # | Task | Depends on | Size | Status |
 |---|------|------------|------|--------|
 | 1 | Carry abilities between levels | -- | small | done |
-| 2 | Ability upgrade pickups (both slots +1) | 1 | small | queued |
+| 2 | Ability upgrade pickups (both slots +1) | 1 | small | done |
 | 3 | Campaign as one ordered table | -- | medium | done |
 | 4 | Rebindable input (keyboard and mouse) | -- | medium | queued |
 | 5 | Gamepad support, including Steam Deck | 4 | large | queued |
@@ -92,6 +92,12 @@ let the slot cap be an authoring concern, or clamp with a warning -- do not sile
 ---
 
 ## 2. Ability upgrade pickups
+
+**Status: done.** New `kind = "ability_upgrade"`; `AbilityHolder.upgrade_all()` raises both slots and
+returns false at the cap so the crate stays on the ground; both slot types cap at level 3; the HUD
+shows `+` marks for abilities as it already did for weapons. `--probe=ability_upgrade` checks the
+raise, the cap, the empty case and the HUD label. Crates placed in `level_campaign_02` and
+`level_campaign_04` (next to existing pickups) — move them if the rooms want them elsewhere.
 
 **Decision.** One crate upgrades **both** ability slots by one level. The player has two slots and no
 "current" one, so "which ability does it upgrade" has no good answer; upgrading both is explicit,

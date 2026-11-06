@@ -7,12 +7,11 @@
 [ext_resource type="Script" uid="uid://tdmd7rqbsvoa" path="res://src/levels/patrol_route.gd" id="6_kduoq"]
 [ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="6_mtdhp"]
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="8_d6vt1"]
-[ext_resource type="Script" uid="uid://c1femwp0kyllt" path="res://src/enemies/enemy.gd" id="9_d3owa"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="9_hdi75"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="10_met3y"]
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="12_mtdhp"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_kpsgy"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_31s8l"]
 shader = ExtResource("2_chwto")
 shader_parameter/albedo = ExtResource("3_kduoq")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -47,7 +46,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_kpsgy")
+material = SubResource("ShaderMaterial_31s8l")
 position = Vector2(-432, 768)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-6570.0576, -6234.0576, 6570.0576, -6234.0576, 6570.0576, 6234.0576, -6570.0576, 6234.0576)
@@ -200,7 +199,6 @@ position = Vector2(166, -46)
 position = Vector2(305, 368)
 radius = 300.0
 energy = 0.8
-flicker = true
 flicker_amount = 0.2
 
 [node name="Lamp1" parent="Lamps" unique_id=1901478582 instance=ExtResource("6_mtdhp")]
@@ -227,18 +225,12 @@ patrol_route = NodePath("../../Routes/Heavy1Route")
 position = Vector2(-576, -416)
 patrol_route = NodePath("../../Routes/Guard1Route")
 
-[node name="Guard2" type="CharacterBody2D" parent="Enemies" unique_id=1198455706 instance=ExtResource("8_d6vt1")]
+[node name="Guard2" parent="Enemies" unique_id=1198455706 instance=ExtResource("8_d6vt1")]
 position = Vector2(-1984, -320)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("9_d3owa")
 patrol_route = NodePath("../../Routes/Guard2Route")
 
-[node name="Scout1" type="CharacterBody2D" parent="Enemies" unique_id=484508088 instance=ExtResource("8_d6vt1")]
+[node name="Scout1" parent="Enemies" unique_id=484508088 instance=ExtResource("8_d6vt1")]
 position = Vector2(940, 214)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("9_d3owa")
 archetype_id = "scout"
 patrol_route = NodePath("../../Routes/Scout1Route")
 
@@ -280,6 +272,11 @@ amount = 50
 position = Vector2(-952, -414)
 kind = "health"
 amount = 50
+
+[node name="Pickup7" parent="Pickups" unique_id=525553011 instance=ExtResource("9_hdi75")]
+position = Vector2(-990, -516)
+kind = "ability_upgrade"
+amount = 1
 
 [node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("10_met3y")]
 position = Vector2(-790, 1999)

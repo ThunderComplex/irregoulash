@@ -1,7 +1,7 @@
 @tool
 class_name Pickup
 extends Area2D
-## World pickup: weapons, ammo, weapon upgrades and medkits.
+## World pickup: weapons, ammo, weapon and ability upgrades, medkits, abilities and keys.
 ##
 ## Pickups carry their own light and an unshaded marker, because a pickup you
 ## cannot see in pitch darkness is a pickup that does not exist. They pulse
@@ -10,7 +10,7 @@ extends Area2D
 ## In the editor each pickup draws a gizmo coloured by kind and labelled with what
 ## it gives you, so pickups can be read and placed without running the level.
 
-@export_enum("weapon", "ammo", "upgrade", "health", "ability", "key") var kind: String = "weapon":
+@export_enum("weapon", "ammo", "upgrade", "health", "ability", "ability_upgrade", "key") var kind: String = "weapon":
 	set(value):
 		kind = value
 		if Engine.is_editor_hint():
@@ -99,6 +99,11 @@ func _build_art() -> void:
 			Vector2(-8.0, -4.0), Vector2(-8.0, 4.0), Vector2(-2.0, 4.0), Vector2(-2.0, 1.5),
 			Vector2(8.0, 1.5), Vector2(8.0, -1.5), Vector2(-2.0, -1.5), Vector2(-2.0, -4.0),
 		])
+	elif kind == "ability_upgrade":
+		# A diamond: an upgrade to the build rather than to the gun in hand.
+		_marker.polygon = PackedVector2Array([
+			Vector2(0.0, -9.0), Vector2(9.0, 0.0), Vector2(0.0, 9.0), Vector2(-9.0, 0.0),
+		])
 	else:
 		_marker.polygon = Shapes.circle(9.0, 6)
 	_marker.color = color.lightened(0.2)
@@ -145,6 +150,10 @@ func _pickup_color() -> Color:
 			return Color(0.5, 1.0, 0.6)
 		"ability":
 			return Color(0.86, 0.35, 0.03)
+		"ability_upgrade":
+			# Between the ability's own orange and the weapon crate's pink: a crate you can read as
+			# "abilities" at a glance without mistaking it for a weapon upgrade.
+			return Color(1.0, 0.62, 0.18)
 		"key":
 			return Color(1.0, 0.82, 0.32)
 		_:
@@ -178,10 +187,27 @@ func _try_collect(player: Player) -> void:
 			AudioDirector.play_at(&"upgrade", global_position, -5.0)
 			GameDirector.announce_message("+%d health" % amount, _pickup_color())
 		"upgrade":
-			if holder == null or not holder.upgrade_current():
+			if holder == null:
+				return
+			if not holder.upgrade_current():
+				var held: WeaponSlot = holder.slot()
+				GameDirector.announce_message("%s: MAXED" % (
+					held.data.display_name.to_upper() if held != null else "WEAPON"),
+					_pickup_color())
 				return
 			AudioDirector.play_at(&"upgrade", global_position, -3.0)
 			GameDirector.announce_message("WEAPON UPGRADED", _pickup_color())
+		"ability_upgrade":
+			if ability_holder == null:
+				return
+			if not ability_holder.upgrade_all():
+				# Not consumed: either there is nothing to raise, or everything is already at the cap.
+				GameDirector.announce_message("ABILITIES: %s" % (
+					"NONE CARRIED" if ability_holder.slots.is_empty() else "MAXED"),
+					_pickup_color())
+				return
+			AudioDirector.play_at(&"upgrade", global_position, -3.0)
+			GameDirector.announce_message("ABILITIES UPGRADED", _pickup_color())
 		"weapon":
 			if holder == null:
 				return
@@ -240,6 +266,10 @@ func _draw() -> void:
 		draw_rect(Rect2(-thick, -arm, thick * 2.0, arm * 2.0), Color(tint, 0.9))
 	elif kind == "upgrade":
 		draw_rect(Rect2(-6.0, -6.0, 12.0, 12.0), Color(tint.lightened(0.2), 0.9))
+	elif kind == "ability_upgrade":
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(0.0, -8.0), Vector2(8.0, 0.0), Vector2(0.0, 8.0), Vector2(-8.0, 0.0),
+		]), Color(tint.lightened(0.2), 0.9))
 	elif kind == "key":
 		draw_rect(Rect2(-8.0, -2.0, 16.0, 4.0), Color(tint.lightened(0.2), 0.95))
 		draw_circle(Vector2(-7.0, 0.0), 3.0, Color(tint.lightened(0.2), 0.95))
@@ -259,6 +289,8 @@ func editor_label() -> String:
 			return "MEDKIT %d" % amount
 		"upgrade":
 			return "WEAPON UPGRADE"
+		"ability_upgrade":
+			return "ABILITY UPGRADE"
 		"weapon":
 			return WeaponLibrary.by_id(weapon_id).display_name
 		"ability":

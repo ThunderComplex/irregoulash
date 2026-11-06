@@ -156,6 +156,21 @@ func grant_all() -> void:
 		add_ability(id)
 
 
+## One crate raises every carried ability by a level. Returns false when there was nothing to raise --
+## no abilities, or all of them already at the cap -- so the pickup stays on the ground rather than
+## being spent for nothing.
+##
+## Both slots, rather than a chosen one: the player has two abilities and no "current" one, so "which
+## ability does this upgrade" has no good answer without a selection UI. Raising both is explicit and
+## wastes nothing.
+func upgrade_all() -> bool:
+	var raised: bool = false
+	for slot: AbilitySlot in slots:
+		if slot.upgrade():
+			raised = true
+	return raised
+
+
 ## Plain-data snapshot of the abilities, so they survive a level change and the checkpoint, the same
 ## way `WeaponHolder.serialize()` lets the guns do. Cooldowns are not carried: a new level starts with
 ## both abilities ready.

@@ -594,6 +594,17 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.2,
 		},
 	],
+	## One crate raises both ability slots, is not consumed when it cannot help, and shows on the HUD.
+	"ability_upgrade": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"ability_upgrade_test": true,
+			"wait": 0.2,
+		},
+	],
 	## Abilities are inventory: they, and their upgrade levels, must survive a level exit and Continue.
 	## Run this against `level_campaign_01.tscn`; it starts a real run and walks to the next level.
 	"carry": [
@@ -2188,6 +2199,86 @@ func _reload_switch_test() -> void:
 		"PASS" if abandoned and finished else "FAIL"])
 
 
+## One crate raises *both* ability slots by a level, refuses at the cap (so it stays on the ground), and
+## the HUD shows the level. The cap matters as much as the upgrade: a crate that is consumed for nothing
+## is worse than no crate.
+func _ability_upgrade_test() -> void:
+	var player := GameDirector.valid_player()
+	if player == null:
+		print("[probe] ability upgrade: no player")
+		return
+	var holder := player.abilities as AbilityHolder
+	if holder == null:
+		print("[probe] ability upgrade: no ability holder")
+		return
+
+	# A deterministic pair at level 0.
+	holder.slots.clear()
+	holder.add_ability("fire_wall")
+	holder.add_ability("lightning_bolt")
+	var before: String = _ability_signature(holder)
+	var raised: bool = holder.upgrade_all()
+	var after: String = _ability_signature(holder)
+	var both_raised: bool = raised and _all_levels(holder) == 1
+
+	# At the cap nothing may be spent.
+	for slot: AbilitySlot in holder.slots:
+		slot.level = AbilitySlot.MAX_LEVEL
+	var refused_at_cap: bool = not holder.upgrade_all()
+	print("[probe] ability upgrade: %s -> %s, at cap (%d) refused=%s" % [
+		before, after, AbilitySlot.MAX_LEVEL, refused_at_cap])
+
+	# An empty holder has nothing to raise either.
+	holder.slots.clear()
+	var refused_unarmed: bool = not holder.upgrade_all()
+
+	# The HUD has to show it, or the upgrade is invisible in play.
+	holder.add_ability("fire_wall")
+	holder.slots[0].level = 2
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var label: String = ""
+	var level: Node = GameDirector.current_level
+	var hud: Node = level.get_node_or_null("HUD") if level != null else null
+	if hud != null:
+		var labels: Array = hud.get("_ability_labels")
+		if labels != null and not labels.is_empty():
+			label = (labels[0] as Label).text
+	var hud_shows_plus: bool = label.contains("+")
+	print("[probe] ability upgrade: HUD ability label '%s'" % label)
+
+	# End to end: a *real* pickup has to reach `upgrade_all`. The checks above call the holder
+	# directly, so a typo in the pickup's kind string would slip past them.
+	holder.slots.clear()
+	holder.add_ability("fire_wall")
+	holder.add_ability("lightning_bolt")
+	var pickup := (load("res://src/items/pickup.tscn") as PackedScene).instantiate() as Pickup
+	pickup.kind = "ability_upgrade"
+	GameDirector.spawn_parent().add_child(pickup)
+	pickup.global_position = player.global_position
+	for frame: int in 4:
+		await get_tree().process_frame
+	var collected: bool = not is_instance_valid(pickup) or pickup.is_queued_for_deletion()
+	var pickup_raised: bool = _all_levels(holder) == 1
+	print("[probe] ability upgrade: walked over a crate -> %s, collected=%s" % [
+		_ability_signature(holder), collected])
+
+	print("[probe] ability upgrade: both raised=%s, cap refused=%s, unarmed refused=%s, HUD shows +%s, pickup works=%s -> %s" % [
+		both_raised, refused_at_cap, refused_unarmed, hud_shows_plus, collected and pickup_raised,
+		"PASS" if both_raised and refused_at_cap and refused_unarmed and hud_shows_plus \
+			and collected and pickup_raised else "FAIL"])
+
+
+## Every slot's level, used to prove `upgrade_all` moved all of them. -1 when there are no slots.
+func _all_levels(holder: AbilityHolder) -> int:
+	if holder.slots.is_empty():
+		return -1
+	for slot: AbilitySlot in holder.slots:
+		if slot.level != holder.slots[0].level:
+			return -1
+	return holder.slots[0].level
+
+
 ## A pickup for a weapon you already carry is ammo, and ammo must not change the weapon in hand. Only a
 ## weapon picked up for the first time does that. Both halves are asserted, so "fixing" this by never
 ## auto-equipping would fail too.
@@ -2882,6 +2973,8 @@ func _run(scenario: String) -> void:
 			await _carry_test()
 		if step.has("ammo_pickup_test"):
 			_ammo_pickup_test()
+		if step.has("ability_upgrade_test"):
+			await _ability_upgrade_test()
 		if step.has("clear_progress"):
 			Progress.clear()
 			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())

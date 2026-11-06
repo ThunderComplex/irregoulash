@@ -155,12 +155,15 @@ func _update_abilities() -> void:
 			label.text = "%s  -" % key_label
 			label.modulate = Color(0.5, 0.55, 0.62)
 			continue
+		var title: String = slot.data.display_name.to_upper()
+		# Upgrades read the same way weapons do, so a crate's effect is visible without a menu.
+		if slot.level > 0:
+			title += "  " + "+".repeat(slot.level)
 		if slot.is_ready():
-			label.text = "%s  %s" % [key_label, slot.data.display_name.to_upper()]
+			label.text = "%s  %s" % [key_label, title]
 			label.modulate = Color(0.85, 0.92, 1.0)
 		else:
-			label.text = "%s  %s  %0.1fs" % [key_label, slot.data.display_name.to_upper(),
-				slot.cooldown_left]
+			label.text = "%s  %s  %0.1fs" % [key_label, title, slot.cooldown_left]
 			label.modulate = Color(0.5, 0.55, 0.62)
 
 
