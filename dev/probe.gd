@@ -1158,6 +1158,63 @@ const SCENARIOS: Dictionary = {
 			"track_enemies": true,
 		},
 	],
+	## The character rig up close: standing, walking towards the aim, backing away from it (the legs
+	## should turn round and walk backwards), strafing, and an enemy. Run against
+	## `dev/surface_lab.tscn`; zoomed in and revealed so the art itself can be judged.
+	## The legs' heading and walk frame while backing away from the aim, sampled over a stride.
+	"rig_backpedal": [
+		{"god": true, "aim": Vector2(1.0, 0.0), "keys_press": ["move_left"], "wait": 0.3, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"keys_release": ["move_left"], "keys_press": ["move_right"], "wait": 0.3, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"wait": 0.06, "rig_report": true},
+		{"keys_release": ["move_right"], "wait": 0.4, "rig_report": true},
+	],
+	"character_rig": [
+		{
+			"god": true,
+			"reveal": true,
+			"zoom": 3.0,
+			"aim": Vector2(1.0, 0.0),
+			"wait": 0.6,
+			"shot": "rig_01_standing",
+		},
+		{
+			"keys_press": ["move_right"],
+			"hold": 0.37,
+			"shot": "rig_02_walk_towards_aim",
+		},
+		{
+			"keys_release": ["move_right"],
+			"keys_press": ["move_left"],
+			"hold": 0.45,
+			"shot": "rig_03_backpedal",
+		},
+		{
+			"keys_release": ["move_left"],
+			"keys_press": ["move_down"],
+			"hold": 0.45,
+			"shot": "rig_04_strafe",
+		},
+		{
+			# The spawn lands 240 px along the aim, so zoom out far enough to have both in frame.
+			"keys_release": ["move_down"],
+			"zoom": 1.6,
+			"aim": Vector2(1.0, 0.0),
+			"spawn_enemies": 1,
+			"wait": 0.8,
+			"shot": "rig_05_enemy",
+		},
+	],
 	## Bake a navmesh at runtime and verify it: that the server knows about it, that
 	## enemies pick it up, and that its paths never cross walls.
 	"navmesh": [
@@ -3798,6 +3855,14 @@ func _run(scenario: String) -> void:
 			_report_ability_effects()
 		if step.has("fire_wall_report"):
 			_report_fire_wall()
+		if step.has("rig_report"):
+			# Which way the legs face and which way the walk cycle is running.
+			var walker: Player = GameDirector.valid_player()
+			var rig := walker.get_node_or_null("Visual/Rig") as CharacterRig if walker != null else null
+			if rig != null:
+				print("[probe]   rig: moving %s, aim %.0f deg, legs %.0f deg, frame %d" % [
+					str(walker.velocity.round()), rad_to_deg(walker.aim_direction.angle()),
+					rad_to_deg(wrapf(rig.get("_legs_angle"), -PI, PI)), (rig.get("_legs") as Sprite2D).frame])
 		if step.has("death_report"):
 			print("[probe]   game over shown %d time(s); player alive=%s" % [_game_overs,
 				GameDirector.valid_player() != null and not GameDirector.valid_player().is_dead()])

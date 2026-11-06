@@ -66,6 +66,8 @@ const MESH_TOLERANCE: float = 4.0
 var archetype: EnemyArchetype
 var health: Health
 var visual: Node2D
+## Legs and torso, from the archetype's look file (or the shared `enemy.tres`) when there is one.
+var _rig: CharacterRig = null
 
 var state: int = State.PATROL
 var awareness: float = 0.0
@@ -222,6 +224,8 @@ func _physics_process(delta: float) -> void:
 	_handle_doors()
 	move_and_slide()
 	_update_facing(delta)
+	if _rig != null:
+		_rig.update(delta, velocity, _facing)
 	_update_footsteps(delta)
 
 
@@ -995,29 +999,14 @@ func _build_collision() -> void:
 func _build_art() -> void:
 	if visual == null:
 		return
-	var radius: float = archetype.radius
-
-	var body := Polygon2D.new()
-	body.polygon = Shapes.circle(radius)
-	body.color = archetype.body_color
-	body.z_index = Layers.Z_ACTOR
-	visual.add_child(body)
-
-	var outline := Line2D.new()
-	outline.points = Shapes.closed_outline(Shapes.circle(radius))
-	outline.width = 2.0
-	outline.default_color = archetype.body_color.darkened(0.55)
-	outline.z_index = Layers.Z_ACTOR
-	visual.add_child(outline)
-
-	# A wedge that overlaps the body and sticks out past it, so facing is readable
-	# at a glance: this is the only cue the player has for an enemy's vision cone.
-	var nose := Polygon2D.new()
-	nose.polygon = Shapes.triangle(radius * 1.35, radius * 0.75)
-	nose.position = Vector2(radius * 0.35, 0.0)
-	nose.color = archetype.body_color.lightened(0.5)
-	nose.z_index = Layers.Z_ACTOR
-	visual.add_child(nose)
+	# Legs and torso (see `CharacterRig`). The torso faces where the enemy looks, which is the player's
+	# only cue for where its vision cone points, so a look's torso has to make facing obvious at a glance.
+	# Looked up by archetype first, so a heavy can look different from a guard, then the shared default.
+	_rig = CharacterRig.new()
+	_rig.name = "Rig"
+	visual.add_child(_rig)
+	_rig.setup(CharacterRig.find_look([String(archetype.id), "enemy"]), archetype.radius,
+		archetype.body_color)
 
 
 ## Used by the debug overlay.

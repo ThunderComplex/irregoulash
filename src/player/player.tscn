@@ -15,8 +15,6 @@ script = ExtResource("1_player")
 
 [node name="Visual" type="Node2D" parent="." unique_id=1134069581]
 
-[node name="GunPivot" type="Node2D" parent="Visual" unique_id=398881108]
-
 [node name="Vision" type="Node2D" parent="." unique_id=316009711]
 script = ExtResource("2_vision")
 

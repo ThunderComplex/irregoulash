@@ -13,9 +13,10 @@ signal died
 @onready var visual: Node2D = $Visual
 @onready var health: Health = $Health
 @onready var camera: Camera2D = $Camera
-@onready var gun_pivot: Node2D = $Visual/GunPivot
 
 var aim_direction: Vector2 = Vector2.RIGHT
+## Legs and torso, drawn from `assets/characters/player.tres` when it exists.
+var _rig: CharacterRig = null
 var weapons: Node = null
 var abilities: Node = null
 ## When non-zero the mouse is ignored and this direction is used instead. Only
@@ -50,6 +51,12 @@ func _ready() -> void:
 	weapons = get_node_or_null("WeaponHolder")
 	if weapons != null and weapons.has_signal("shot_fired"):
 		weapons.shot_fired.connect(_on_weapon_shot)
+	var holder := weapons as WeaponHolder
+	if holder != null:
+		# The torso can be drawn per weapon. The holder may already have equipped one before this
+		# connected, so the current weapon is applied once by hand as well.
+		holder.weapon_changed.connect(_on_weapon_changed)
+		_on_weapon_changed(holder.slot(), holder.current)
 
 	abilities = get_node_or_null("AbilityHolder")
 
@@ -65,7 +72,7 @@ func _ready() -> void:
 	GameDirector.set_player(self)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _dead:
 		return
 	if debug_aim != Vector2.ZERO:
@@ -81,9 +88,8 @@ func _process(_delta: float) -> void:
 			if to_mouse.length_squared() > 1.0:
 				aim_direction = to_mouse.normalized()
 	vision.aim_at(aim_direction)
-	gun_pivot.rotation = aim_direction.angle()
-	# Keep the gun the right way up when aiming leftwards.
-	gun_pivot.scale.y = -1.0 if absf(aim_direction.angle()) > PI * 0.5 else 1.0
+	if _rig != null:
+		_rig.update(delta, velocity, aim_direction.angle())
 
 	if GameDirector.god_mode:
 		health.current = health.max_health
@@ -332,46 +338,18 @@ func _build_collision() -> void:
 	collision_mask = Layers.SOLID | Layers.DOOR
 
 
-## Geometric placeholder art, built in code so the scene file stays tiny and the
-## whole look can be swapped for sprites later without touching gameplay.
+## Legs and torso (see `CharacterRig`), from `assets/characters/player.tres` when it exists and a
+## placeholder drawn to the same rules until then.
 func _build_art() -> void:
-	var radius: float = Tuning.player_radius
-
-	var body := Polygon2D.new()
-	body.name = "Body"
-	body.polygon = Shapes.circle(radius)
-	body.color = Color(0.80, 0.87, 1.0)
-	body.z_index = Layers.Z_ACTOR
-	visual.add_child(body)
-
-	var outline := Line2D.new()
-	outline.name = "Outline"
-	outline.points = Shapes.closed_outline(Shapes.circle(radius))
-	outline.width = 2.0
-	outline.default_color = Color(0.22, 0.30, 0.45)
-	outline.z_index = Layers.Z_ACTOR
-	visual.add_child(outline)
-
-	_build_gun()
+	_rig = CharacterRig.new()
+	_rig.name = "Rig"
+	visual.add_child(_rig)
+	_rig.setup(CharacterRig.find_look(["player"]), Tuning.player_radius, Color(0.80, 0.87, 1.0))
 
 
-## Placeholder weapon silhouette; the real thing is drawn per weapon later.
-func _build_gun() -> void:
-	var gun := Polygon2D.new()
-	gun.name = "Gun"
-	gun.polygon = Shapes.rect(Vector2(22.0, 6.0))
-	gun.position = Vector2(11.0, 0.0)
-	gun.color = Color(0.35, 0.38, 0.44)
-	gun.z_index = Layers.Z_ACTOR + 1
-	gun_pivot.add_child(gun)
-
-	var barrel := Polygon2D.new()
-	barrel.name = "Barrel"
-	barrel.polygon = Shapes.rect(Vector2(9.0, 3.0))
-	barrel.position = Vector2(27.0, 0.0)
-	barrel.color = Color(0.22, 0.24, 0.28)
-	barrel.z_index = Layers.Z_ACTOR + 1
-	gun_pivot.add_child(barrel)
+func _on_weapon_changed(slot: WeaponSlot, _index: int) -> void:
+	if _rig != null and slot != null and slot.data != null:
+		_rig.set_weapon(String(slot.data.id))
 
 #endregion
 
