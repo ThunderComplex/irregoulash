@@ -320,11 +320,11 @@ func grant_maxed() -> void:
 	current = -1
 	for id: String in WeaponLibrary.ORDER:
 		var data: WeaponResource = WeaponLibrary.by_id(id)
-		var slot := WeaponSlot.new(data)
-		slot.level = WeaponSlot.MAX_LEVEL
-		slot.mag = slot.mag_size()
-		slot.reserve = data.reserve_max
-		slots.append(slot)
+		var weapon_slot := WeaponSlot.new(data)
+		weapon_slot.level = WeaponSlot.MAX_LEVEL
+		weapon_slot.mag = weapon_slot.mag_size()
+		weapon_slot.reserve = data.reserve_max
+		slots.append(weapon_slot)
 	if not slots.is_empty():
 		current = 0
 	# Nothing carried in, so nothing is being reloaded.

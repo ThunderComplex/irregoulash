@@ -55,6 +55,7 @@ func _ready() -> void:
 
 	camera.position_smoothing_enabled = true
 	camera.position_smoothing_speed = Tuning.camera_smoothing
+	camera.process_callback = Camera2D.CAMERA2D_PROCESS_PHYSICS
 	FxDirector.register_camera(camera)
 	_update_camera_zoom()
 	# The window can be resized, or the display settings changed, at any time.

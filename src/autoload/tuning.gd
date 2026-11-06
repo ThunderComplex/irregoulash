@@ -109,7 +109,7 @@ extends Node
 
 #region Camera / feel
 @export_group("Camera / feel")
-@export var camera_smoothing: float = 8.0
+@export var camera_smoothing: float = 6.0
 ## Nudge the camera slightly toward where the player is aiming.
 @export var camera_aim_offset: float = 0.18
 @export var camera_aim_offset_max: float = 110.0
