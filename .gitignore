@@ -2,3 +2,7 @@
 .godot/
 /android/
 export/
+
+# Screenshots written by the dev probe (`--probe=...`). They are output, not source: regenerating them
+# is a run of the probe, and every one of them changes binary on each run.
+dev/shots/
