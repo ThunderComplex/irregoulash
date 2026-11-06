@@ -255,6 +255,30 @@ Also worth knowing:
   handing the object back to the array or into a typed local. `_exit_tree` had the same shape.
   `--probe=door_freed_actor` kills an enemy mid-swing and asserts no dead instance is left behind; on the
   old code it reproduces the three reported errors.
+- **Sibling order is draw order, so a rebuild must not append over an open overlay.** The in-game
+  settings menu is a sibling of the HUD's `Root` control, and the title screen's menus are siblings of
+  its background. Both rebuilt their content with `add_child()`, which appends: changing resolution
+  from inside the settings menu (or just resizing) put the new root -- and the pause overlay inside it
+  -- *above* the settings panel, and on the title the opaque background covered it completely. The HUD
+  keeps `Root` at index 0 (`move_child(_root, 0)`), and the title raises any overlay it kept to the last
+  child after rebuilding. `--probe=ui_layers` asserts both, with a screenshot of each case.
+- **A layout scale derived from height does not move anything placed in pixels.** The HUD scales from
+  the window *height* alone, and the pause overlay's title and stats are anchored to the centre, so they
+  follow a resize -- but the pause buttons are a `MenuList` positioned in pixels, and they used a fixed
+  reference x (480) that only happened to be centred on a 1280-wide window. A width-only resize also
+  skipped the HUD rebuild entirely, because the scale had not changed. The menu is now placed from the
+  viewport centre (`viewport.x / scale / 2`), and any size change rebuilds. Rule: anything positioned in
+  pixels must derive its position from the viewport on every rebuild, and the rebuild cannot be gated on
+  the scale if the scale ignores one axis. `--probe=pause_resize` checks 16:9, a width-only change and
+  two odd aspects; on the old guard the width-only case is off by exactly half the added width.
+- **A signal handler must not free the control that emitted it.** The resolution dropdown emits
+  `item_selected`; its handler changes the window, which fires `size_changed` *synchronously*, and the
+  settings menu's resize handler rebuilt the panel -- freeing the dropdown while it was still emitting.
+  Godot reports "Object was freed or unreferenced while a signal is being emitted from it", which is a
+  potential crash, not just noise. The rebuild is deferred to `_process` (`_resize_pending`), which is
+  also why any size change now rebuilds, not only one that changes the scale. `--probe=settings_resize`
+  drives the dropdown's own signal; on the old code it reports `emitting button survived=false` and the
+  engine error.
 - **A physics query cannot see a body created in the same frame.** The door test's first version
   spawned a door and immediately asked `intersect_point` whether an enemy was at it; the door did
   not exist to the physics server yet, so the answer was always "nothing there" and the test read

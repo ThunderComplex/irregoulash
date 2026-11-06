@@ -136,6 +136,11 @@ func rebuild() -> void:
 		child.free()
 	_compute_layout()
 	_build()
+	# `_build()` appends the background and the menu, so a kept overlay would end up *under* them:
+	# sibling order is draw order, and the background is opaque. Raise whatever was open to the top.
+	for overlay: Control in [_settings_menu, _level_select]:
+		if overlay != null and is_instance_valid(overlay):
+			move_child(overlay, get_child_count() - 1)
 
 
 func _build() -> void:

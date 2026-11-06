@@ -635,6 +635,42 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.1,
 		},
 	],
+	## The pause menu is placed in pixels, unlike the anchored title and stats, so it has to re-centre on a
+	## resize -- including a width-only one, which does not change the layout scale.
+	"pause_resize": [
+		{
+			"god": true,
+			"wait": 0.3,
+		},
+		{
+			"pause_resize_test": true,
+			"wait": 0.2,
+		},
+	],
+	## Changing resolution from inside the settings menu: the resize rebuild happens while the resolution
+	## button is emitting its own signal, which used to free that button mid-emission. Run on any level.
+	"settings_resize": [
+		{
+			"god": true,
+			"wait": 0.3,
+		},
+		{
+			"settings_resize_test": true,
+			"wait": 0.3,
+		},
+	],
+	## Overlay stacking after a rebuild: an open menu must stay above the rebuilt HUD or title content.
+	## Run against a level (the HUD) or `title_screen.tscn` (the title).
+	"ui_layers": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"ui_layers_test": true,
+			"wait": 0.2,
+		},
+	],
 	## The settings menu and its rebinding list, as the player sees them.
 	"controls_menu": [
 		{
@@ -2513,6 +2549,175 @@ func _send_joy_button(button: JoyButton, pressed: bool) -> void:
 	Input.parse_input_event(event)
 
 
+## Changing resolution from inside the settings menu. The window resize fires `size_changed` from inside
+## the resolution OptionButton's own `item_selected` emission, so a synchronous rebuild freed the
+## emitting button -- "Object was freed while a signal is being emitted from it". The rebuild is deferred
+## to the next idle frame now; this drives the exact path and checks the menu survives it.
+func _settings_resize_test() -> void:
+	var level: Node = GameDirector.current_level
+	var hud: Node = level.get_node_or_null("HUD") if level != null else null
+	if hud == null:
+		print("[probe] settings resize: no HUD")
+		return
+	GameDirector.set_paused(true)
+	await get_tree().process_frame
+	hud.call("open_settings_menu")
+	await get_tree().process_frame
+	var menu: SettingsMenu = hud.get("_settings_menu")
+	if menu == null or not is_instance_valid(menu):
+		print("[probe] settings resize: no settings menu")
+		GameDirector.set_paused(false)
+		return
+
+	var original: Vector2i = Settings.resolution
+	var button: OptionButton = menu.get("_resolution_button")
+	var sizes: Array = menu.get("_resolution_sizes")
+	if button == null or sizes.is_empty():
+		print("[probe] settings resize: no resolution list")
+		GameDirector.set_paused(false)
+		return
+
+	# A size that is not the current one, so the window really resizes.
+	var target: int = 0
+	for i: int in sizes.size():
+		if sizes[i] != original:
+			target = i
+			break
+
+	# Emitting the button's own signal is what a click does.
+	button.item_selected.emit(target)
+	# Immediately after the click the button must still exist: the rebuild is deferred to the next
+	# frame. Freeing it during the emission is exactly the reported error, and this is what tells the
+	# two apart (the menu survives either way).
+	var emitter_survived: bool = is_instance_valid(button)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	# The menu must have rebuilt, not died with the button that was emitting.
+	var survived: bool = is_instance_valid(menu) and menu.get("_panel") != null
+	var changed: bool = Settings.resolution == sizes[target]
+	var rescaled: bool = survived \
+		and absf(float(menu.get("_scale")) - float(menu.call("_compute_scale"))) < 0.001
+
+	# Put it back through the rebuilt button, the same way.
+	var restored: bool = false
+	var back: int = sizes.find(original)
+	if survived and back >= 0:
+		var fresh: OptionButton = menu.get("_resolution_button")
+		if fresh != null:
+			fresh.item_selected.emit(back)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			restored = Settings.resolution == original
+	if survived and is_instance_valid(menu):
+		menu.queue_free()
+	GameDirector.set_paused(false)
+	await get_tree().process_frame
+
+	print("[probe] settings resize: survived=%s changed=%s rescaled=%s restored=%s emitting button survived=%s -> %s" % [
+		survived, changed, rescaled, restored, emitter_survived,
+		"PASS" if survived and changed and rescaled and restored and emitter_survived else "FAIL"])
+
+
+## Overlay stacking across a rebuild (a window resize, or a resolution change made from inside the
+## settings menu). Sibling order is draw order in a canvas layer, and a rebuild used to append the new
+## content *after* an open menu, covering it.
+func _ui_layers_test() -> void:
+	var scene: Node = get_tree().current_scene
+	var ok: bool = false
+	var detail: String = ""
+	if scene != null and scene.has_method("open_settings"):
+		# Title screen: the kept overlay must end up last, above the rebuilt background.
+		scene.call("open_settings")
+		await get_tree().process_frame
+		scene.call("rebuild")
+		await get_tree().process_frame
+		var settings: Node = scene.get("_settings_menu")
+		if settings != null and is_instance_valid(settings):
+			detail = "title: settings %d, last %d" % [
+				settings.get_index(), scene.get_child_count() - 1]
+			ok = settings.get_index() == scene.get_child_count() - 1
+			await _screenshot("title_settings_after_resize")
+			settings.queue_free()
+		else:
+			detail = "title: no settings menu"
+	else:
+		# In a level: the HUD root has to stay underneath its settings menu.
+		var level: Node = GameDirector.current_level
+		var hud: Node = level.get_node_or_null("HUD") if level != null else null
+		if hud == null:
+			print("[probe] ui layers: no HUD")
+			return
+		# Reproduce the report: paused, settings open, then a resolution change.
+		GameDirector.set_paused(true)
+		await get_tree().process_frame
+		hud.call("open_settings_menu")
+		await get_tree().process_frame
+		var before: Vector2i = get_window().size
+		get_window().size = Vector2i(1000, 700)
+		await get_tree().process_frame
+		hud.call("_rebuild")
+		await get_tree().process_frame
+		var root: Node = hud.get("_root")
+		var settings: Node = hud.get("_settings_menu")
+		detail = "level: root %d, settings %d" % [
+			root.get_index(), settings.get_index() if settings != null else -1]
+		ok = root.get_index() == 0 and settings != null and is_instance_valid(settings) \
+			and settings.get_index() > root.get_index()
+		await _screenshot("settings_over_pause")
+		get_window().size = before
+		await get_tree().process_frame
+		if settings != null and is_instance_valid(settings):
+			settings.queue_free()
+		GameDirector.set_paused(false)
+	await get_tree().process_frame
+	print("[probe] ui layers: %s -> %s" % [detail, "PASS" if ok else "FAIL"])
+
+
+## The pause menu after a resize. Its buttons are a `MenuList`, placed in pixels from the viewport centre,
+## while the title and stats above it are anchored -- so they used to move and it did not. Includes a
+## width-only resize, which leaves the layout scale unchanged and used to skip the rebuild entirely.
+func _pause_resize_test() -> void:
+	var level: Node = GameDirector.current_level
+	var hud: Node = level.get_node_or_null("HUD") if level != null else null
+	if hud == null:
+		print("[probe] pause resize: no HUD")
+		return
+	var before: Vector2i = get_window().size
+	GameDirector.set_paused(true)
+	await get_tree().process_frame
+
+	var reports: Array[String] = []
+	var ok: bool = true
+	for size: Vector2i in [Vector2i(1280, 720), Vector2i(1600, 720), Vector2i(1000, 700),
+			Vector2i(1024, 900)]:
+		get_window().size = size
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var menu: Control = hud.get("_pause_menu")
+		if menu == null or not is_instance_valid(menu):
+			reports.append("%dx%d no menu" % [size.x, size.y])
+			ok = false
+			continue
+		var viewport: Vector2 = get_viewport().get_visible_rect().size
+		var rect: Rect2 = menu.get_global_rect()
+		var dx: float = absf(rect.get_center().x - viewport.x * 0.5)
+		var inside: bool = rect.position.x >= 0.0 and rect.end.x <= viewport.x
+		reports.append("%dx%d dx=%.0f inside=%s" % [size.x, size.y, dx, inside])
+		ok = ok and dx <= 2.0 and inside
+
+	# Leave it at a non-16:9 size for the screenshot, then put the window back.
+	get_window().size = Vector2i(1000, 700)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _screenshot("pause_resized")
+	get_window().size = before
+	await get_tree().process_frame
+	await get_tree().process_frame
+	GameDirector.set_paused(false)
+	await get_tree().process_frame
+	print("[probe] pause resize: %s -> %s" % ["; ".join(reports), "PASS" if ok else "FAIL"])
+
+
 ## The level select, end to end: finish the game, open the picker, choose a level, check the practice
 ## loadout, and check that its exit returns to the picker without writing the checkpoint.
 func _level_select_test() -> void:
@@ -3417,6 +3622,12 @@ func _run(scenario: String) -> void:
 			await _level_select_test()
 		if step.has("finish_report"):
 			print("[probe] finished flag after the ending: %s" % Progress.finished)
+		if step.has("ui_layers_test"):
+			await _ui_layers_test()
+		if step.has("settings_resize_test"):
+			await _settings_resize_test()
+		if step.has("pause_resize_test"):
+			await _pause_resize_test()
 		if step.has("pad_prompts"):
 			# A push inside the deadzone: it moves nothing, but marks the pad as the last device so
 			# every prompt re-renders for a controller.

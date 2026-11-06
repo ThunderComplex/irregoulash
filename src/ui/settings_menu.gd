@@ -24,6 +24,11 @@ const ROW_TOP: float = 110.0
 const ROW_HEIGHT: float = 54.0
 
 var _scale: float = 1.0
+## Set when the window changed size. The rebuild happens in `_process`, not in the signal: a resolution
+## change is chosen from this menu, so the resize signal fires from inside the resolution OptionButton's
+## own `item_selected` emission -- and freeing that button there is the "freed while a signal is being
+## emitted from it" error.
+var _resize_pending: bool = false
 var _panel: Control = null
 var _mode_button: OptionButton = null
 var _resolution_button: OptionButton = null
@@ -58,6 +63,9 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if _resize_pending:
+		_resize_pending = false
+		_rebuild()
 	if _footer == null:
 		return
 	var settings_size: Vector2i = Vector2i(get_viewport().get_visible_rect().size)
@@ -100,13 +108,13 @@ func _compute_scale() -> float:
 
 
 func _on_viewport_resized() -> void:
-	if absf(_compute_scale() - _scale) < 0.001:
-		return
-	_scale = _compute_scale()
-	_rebuild()
+	# Any size change, not only a scale change: the panel is centred from the viewport, so a width-only
+	# resize still moves it. Deferred, for the reason `_resize_pending` explains.
+	_resize_pending = true
 
 
 func _rebuild() -> void:
+	_scale = _compute_scale()
 	_close_controls()
 	_panel.free()
 	_panel = null

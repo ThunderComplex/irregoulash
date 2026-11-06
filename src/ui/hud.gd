@@ -430,8 +430,9 @@ func _compute_scale() -> float:
 
 
 func _on_viewport_resized() -> void:
-	if absf(_compute_scale() - _scale) < 0.001:
-		return
+	# Any size change, not only one that changes the scale. The scale is derived from height alone, so a
+	# width-only change used to skip the rebuild and leave the pause menu (placed from the viewport) at
+	# its old x while the anchored title and stats moved. Deferred, so a resize during a signal is safe.
 	_resize_pending = true
 
 
@@ -457,6 +458,11 @@ func _build() -> void:
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
+	# The HUD root is the *first* child, always. The settings menu is a sibling added later, so a
+	# rebuild (a window resize, or a resolution change from inside that menu) used to append the new
+	# root after it and draw the pause overlay straight over the settings panel. Sibling order is draw
+	# order in a canvas layer, so this is the whole fix.
+	move_child(_root, 0)
 
 	# --- damage vignette, first so every readout stays legible on top of it.
 	# A plain full-screen tint would wash the whole scene out, so this is an
@@ -555,9 +561,14 @@ func _build_overlay() -> void:
 	_overlay_body = _label(_overlay, Control.PRESET_CENTER, -400.0, -80.0, 400.0, 40.0, 20,
 		HORIZONTAL_ALIGNMENT_CENTER, Color(0.85, 0.9, 0.95))
 
-	# Paused menu, centred under the stats line. Added after the shade so it draws on top of it.
+	# Paused menu, centred under the stats line. Horizontally it has to be worked out from the viewport:
+	# the title and the stats are anchored to the centre (so they follow a resize), but a `MenuList` is
+	# placed in pixels, so fixed reference coordinates left the buttons off-centre the moment the window
+	# was not 1280 wide.
+	var reference_width: float = get_viewport().get_visible_rect().size.x / maxf(0.001, _scale)
 	_pause_menu = MenuList.new()
-	_pause_menu.configure(Rect2(480.0, 330.0, 320.0, 3.0 * MenuList.ROW_HEIGHT), _scale)
+	_pause_menu.configure(Rect2(reference_width * 0.5 - 160.0, 330.0, 320.0,
+		3.0 * MenuList.ROW_HEIGHT), _scale)
 	_pause_menu.add_item(&"settings", "SETTINGS")
 	_pause_menu.add_item(&"continue", "CONTINUE")
 	_pause_menu.add_item(&"quit_to_menu", "QUIT TO MENU")
