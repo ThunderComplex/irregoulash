@@ -39,6 +39,8 @@ var reveal: bool = false
 ## Weapons carried between levels. Each level spawns a fresh player, so the
 ## loadout is snapshotted on exit and restored on entry.
 var carried_loadout: Array = []
+## Abilities carried between levels, for the same reason and in the same shape.
+var carried_abilities: Array = []
 ## Keys carried between levels, for the same reason. Any key opens any locked door.
 var carried_keys: int = 0
 
@@ -84,6 +86,7 @@ func start_run() -> void:
 	levels_cleared = 0
 	_outcome_reported = false
 	carried_loadout = []
+	carried_abilities = []
 	carried_keys = 0
 	god_mode = false
 	noclip = false
@@ -115,6 +118,7 @@ func continue_run() -> void:
 	debug_info = false
 	# Copied, so continuing twice cannot alias the same array.
 	carried_loadout = Progress.loadout.duplicate(true)
+	carried_abilities = Progress.abilities.duplicate(true)
 	carried_keys = Progress.carried_keys
 	run_started.emit()
 	load_level(path)
@@ -184,21 +188,24 @@ func valid_player() -> Player:
 
 func notify_level_cleared() -> void:
 	levels_cleared += 1
-	snapshot_loadout()
+	snapshot_carried()
 	AudioDirector.play(&"exit")
 
 
-## Remember what the player is carrying so the next level can restore it.
-func snapshot_loadout() -> void:
+## Remember what the player is carrying so the next level can restore it: weapons, abilities and keys.
+func snapshot_carried() -> void:
 	if player == null or not is_instance_valid(player):
 		return
 	var who := valid_player()
 	if who != null:
 		carried_keys = who.keys
-	var holder := player.weapons as WeaponHolder
-	if holder == null:
-		return
-	carried_loadout = holder.serialize()
+	# Separate checks rather than one early return: an unarmed player still carries abilities.
+	var weapons := player.weapons as WeaponHolder
+	if weapons != null:
+		carried_loadout = weapons.serialize()
+	var abilities := player.abilities as AbilityHolder
+	if abilities != null:
+		carried_abilities = abilities.serialize()
 
 
 ## Kept in step by the player whenever a key changes hands, so nothing has to remember to

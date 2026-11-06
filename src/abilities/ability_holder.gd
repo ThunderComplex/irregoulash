@@ -155,4 +155,44 @@ func grant_all() -> void:
 	for id: String in AbilityLibrary.ids():
 		add_ability(id)
 
+
+## Plain-data snapshot of the abilities, so they survive a level change and the checkpoint, the same
+## way `WeaponHolder.serialize()` lets the guns do. Cooldowns are not carried: a new level starts with
+## both abilities ready.
+func serialize() -> Array:
+	var out: Array = []
+	for slot: AbilitySlot in slots:
+		if slot.data == null:
+			continue
+		out.append({
+			"id": String(slot.data.id),
+			"level": slot.level,
+		})
+	return out
+
+
+## Restores a snapshot. Slots are built directly rather than through `add_ability()`, which refuses
+## when the slots are full or the ability is already carried -- exactly the state being restored.
+##
+## Unknown ids are skipped with a warning instead of falling through to `AbilityLibrary.by_id()`, which
+## returns the default ability for anything it does not recognise: that would silently hand the player a
+## fire wall in place of a renamed ability.
+func deserialize(data: Array) -> void:
+	slots.clear()
+	var known: Array[String] = AbilityLibrary.ids()
+	for entry: Variant in data:
+		if not (entry is Dictionary):
+			continue
+		var dict: Dictionary = entry
+		var id: String = String(dict.get("id", ""))
+		if not known.has(id):
+			push_warning("AbilityHolder: unknown ability '%s' in the saved abilities; skipped." % id)
+			continue
+		if slots.size() >= MAX_SLOTS:
+			push_warning("AbilityHolder: saved abilities exceed %d slots; extra skipped." % MAX_SLOTS)
+			break
+		var slot := AbilitySlot.new(AbilityLibrary.by_id(id))
+		slot.level = maxi(0, int(dict.get("level", 0)))
+		slots.append(slot)
+
 #endregion

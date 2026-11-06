@@ -28,18 +28,18 @@ shader_parameter/rim_ao_strength = 0.0
 shader_parameter/base_band = 0.0
 shader_parameter/base_strength = 0.0
 
-[sub_resource type="NavigationPolygon" id="NavigationPolygon_kduoq"]
-vertices = PackedVector2Array(1390, -718, 1390, 2254, 1330, 1298, 1330, -658, -2254, -718, -1138, -658, -1138, -174, -530, -174, -530, 494, -1198, 494, -1198, -658, -2194, -658, -2254, 2254, -2194, 1266, -1106, 1266, -1106, 2194, -462, 2194, -462, 1298, 658, 914, 1230, 1198, -782.3594, 1198, 558, 914, 18, 914, -82, 914, 1230, -558, 658, 430, -1298, -558, -1298, 594, -1486, 594, -1486, -306, -2094, -558, -1874, -306, -2094, 1198, -1874, 594, -846, 1198, -430, 594, -430, -274, -1038, -274, -1038, -558, 558, -558, 558, 78, 18, 78, 18, -174, 402, -174, 402, -274, 658, 178, 658, -558, -82, 178, 558, 430, 18, 430, -82, 430, -782.3594, 1266, -562, 1266, -562, 2094, -1006, 2094, -1006, 1266, -846, 1266, -82, -274)
-polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 0, 3, 5), PackedInt32Array(6, 7, 8, 9), PackedInt32Array(6, 9, 10, 5), PackedInt32Array(4, 5, 10), PackedInt32Array(4, 10, 11), PackedInt32Array(12, 4, 11, 13), PackedInt32Array(13, 14, 15, 12), PackedInt32Array(1, 12, 15, 16), PackedInt32Array(2, 1, 16, 17), PackedInt32Array(18, 19, 20, 21), PackedInt32Array(22, 21, 20), PackedInt32Array(23, 22, 20), PackedInt32Array(24, 19, 18, 25), PackedInt32Array(26, 27, 28, 29), PackedInt32Array(30, 26, 29, 31), PackedInt32Array(32, 30, 31, 33), PackedInt32Array(34, 32, 33, 28), PackedInt32Array(34, 28, 27), PackedInt32Array(20, 34, 27, 35, 23), PackedInt32Array(36, 37, 38, 39), PackedInt32Array(40, 41, 42, 43), PackedInt32Array(39, 40, 43, 44), PackedInt32Array(45, 46, 24), PackedInt32Array(45, 24, 25), PackedInt32Array(47, 45, 25, 48), PackedInt32Array(48, 21, 22, 49), PackedInt32Array(47, 48, 49), PackedInt32Array(47, 49, 50, 36), PackedInt32Array(51, 52, 53, 54), PackedInt32Array(54, 55, 56), PackedInt32Array(51, 54, 56, 20), PackedInt32Array(20, 56, 34), PackedInt32Array(50, 23, 35, 36), PackedInt32Array(57, 47, 36), PackedInt32Array(57, 36, 39), PackedInt32Array(57, 39, 44)])
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_kpsgy"]
+vertices = PackedVector2Array(1390, -718, 1390, 2254, 1330, 1298, 1330, 78, 658, 78, 658, -658, -2254, -718, -1138, -658, -1138, -174, -530, -174, -530, 494, -1198, 494, -1198, -658, -2194, -658, -2254, 2254, -2194, 1266, -1106, 1266, -1106, 2194, -462, 2194, -462, 1298, 658, 914, 1230, 1198, -782.3594, 1198, 558, 914, 18, 914, -82, 914, 1230, 178, 658, 430, -82, 178, 558, 430, -1298, -558, -1298, 594, -1486, 594, -1486, -306, -2094, -558, -1874, -306, -2094, 1198, -1874, 594, -846, 1198, -430, 594, -430, -274, -1038, -274, -1038, -558, 558, -558, 558, 78, 18, 78, 18, -174, 402, -174, 402, -274, 18, 430, -82, 430, -782.3594, 1266, -562, 1266, -562, 2094, -1006, 2094, -1006, 1266, -846, 1266, -82, -274)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(3, 4, 5, 0), PackedInt32Array(6, 0, 5, 7), PackedInt32Array(8, 9, 10, 11), PackedInt32Array(8, 11, 12, 7), PackedInt32Array(6, 7, 12), PackedInt32Array(6, 12, 13), PackedInt32Array(14, 6, 13, 15), PackedInt32Array(15, 16, 17, 14), PackedInt32Array(1, 14, 17, 18), PackedInt32Array(2, 1, 18, 19), PackedInt32Array(20, 21, 22, 23), PackedInt32Array(24, 23, 22), PackedInt32Array(25, 24, 22), PackedInt32Array(26, 21, 20, 27), PackedInt32Array(28, 26, 27, 29), PackedInt32Array(30, 31, 32, 33), PackedInt32Array(34, 30, 33, 35), PackedInt32Array(36, 34, 35, 37), PackedInt32Array(38, 36, 37, 32), PackedInt32Array(38, 32, 31), PackedInt32Array(22, 38, 31, 39, 25), PackedInt32Array(40, 41, 42, 43), PackedInt32Array(44, 45, 46, 47), PackedInt32Array(43, 44, 47, 48), PackedInt32Array(29, 23, 24, 49), PackedInt32Array(28, 29, 49), PackedInt32Array(28, 49, 50, 40), PackedInt32Array(51, 52, 53, 54), PackedInt32Array(54, 55, 56), PackedInt32Array(51, 54, 56, 22), PackedInt32Array(22, 56, 38), PackedInt32Array(50, 25, 39, 40), PackedInt32Array(57, 28, 40), PackedInt32Array(57, 40, 43), PackedInt32Array(57, 43, 48)])
 outlines = Array[PackedVector2Array]([PackedVector2Array(-2272, -736, 1408, -736, 1408, 2272, -2272, 2272)])
 parsed_geometry_type = 1
 source_geometry_mode = 1
 source_geometry_group_name = &"wall"
 agent_radius = 18.0
 
-[node name="LevelCampaign1" type="Node2D" unique_id=60981112]
+[node name="LevelCampaign" type="Node2D" unique_id=60981112]
 script = ExtResource("1_kpsgy")
-level_title = "Campaign 2"
+level_title = "Campaign 4"
 objective = "Get to the exit"
 bounds_rect = Rect2(-900, -600, 2000, 2000)
 wall_surface_id = "wood"
@@ -136,12 +136,12 @@ position = Vector2(384, 1248)
 size = Vector2(1728, 64)
 
 [node name="DrawnWall21" parent="Walls" unique_id=1964381824 instance=ExtResource("4_d6vt1")]
-position = Vector2(944, -608)
+position = Vector2(944, 128)
 size = Vector2(608, 64)
 
 [node name="DrawnWall22" parent="Walls" unique_id=697151901 instance=ExtResource("4_d6vt1")]
-position = Vector2(1280, 320)
-size = Vector2(64, 1920)
+position = Vector2(1280, 688)
+size = Vector2(64, 1184)
 
 [node name="DrawnWall23" parent="Walls" unique_id=96141941 instance=ExtResource("4_d6vt1")]
 position = Vector2(608, 672)
@@ -164,18 +164,52 @@ script = ExtResource("6_kduoq")
 [node name="P0" type="Marker2D" parent="Routes/Guard1Route" unique_id=2109850464]
 position = Vector2(-768, -416)
 
+[node name="Guard2Route" type="Node2D" parent="Routes" unique_id=998785911]
+script = ExtResource("6_kduoq")
+
+[node name="P0" type="Marker2D" parent="Routes/Guard2Route" unique_id=287300535]
+position = Vector2(-1984, 672)
+
+[node name="P1" type="Marker2D" parent="Routes/Guard2Route" unique_id=474634598]
+position = Vector2(-2016, -192)
+
+[node name="Scout1Route" type="Node2D" parent="Routes" unique_id=1761101024]
+script = ExtResource("6_kduoq")
+
+[node name="P0" type="Marker2D" parent="Routes/Scout1Route" unique_id=2106409902]
+position = Vector2(960, 256)
+
+[node name="P1" type="Marker2D" parent="Routes/Scout1Route" unique_id=619435070]
+position = Vector2(320, 288)
+
+[node name="P2" type="Marker2D" parent="Routes/Scout1Route" unique_id=1321420167]
+position = Vector2(352, 1056)
+
+[node name="P3" type="Marker2D" parent="Routes/Scout1Route" unique_id=690987953]
+position = Vector2(-1888, 1088)
+
+[node name="P4" type="Marker2D" parent="Routes/Scout1Route" unique_id=1915999065]
+position = Vector2(1024, 1088)
+
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
 position = Vector2(166, -46)
 
 [node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
 
 [node name="Lamp0" parent="Lamps" unique_id=1065493755 instance=ExtResource("6_mtdhp")]
-position = Vector2(999, 216)
+position = Vector2(305, 368)
 radius = 300.0
+energy = 0.8
+flicker = true
+flicker_amount = 0.2
 
 [node name="Lamp1" parent="Lamps" unique_id=1901478582 instance=ExtResource("6_mtdhp")]
 position = Vector2(-254, -396)
 radius = 300.0
+
+[node name="Lamp3" parent="Lamps" unique_id=1776645941 instance=ExtResource("6_mtdhp")]
+position = Vector2(-866, 729)
+radius = 400.0
 
 [node name="Lamp2" parent="Lamps" unique_id=37546153 instance=ExtResource("6_mtdhp")]
 position = Vector2(390, -53)
@@ -189,12 +223,24 @@ position = Vector2(-1984, -448)
 archetype_id = "heavy"
 patrol_route = NodePath("../../Routes/Heavy1Route")
 
-[node name="Guard1" type="CharacterBody2D" parent="Enemies" unique_id=1392110194 instance=ExtResource("8_d6vt1")]
+[node name="Guard1" parent="Enemies" unique_id=1392110194 instance=ExtResource("8_d6vt1")]
 position = Vector2(-576, -416)
+patrol_route = NodePath("../../Routes/Guard1Route")
+
+[node name="Guard2" type="CharacterBody2D" parent="Enemies" unique_id=1198455706 instance=ExtResource("8_d6vt1")]
+position = Vector2(-1984, -320)
 collision_layer = 4
 motion_mode = 1
 script = ExtResource("9_d3owa")
-patrol_route = NodePath("../../Routes/Guard1Route")
+patrol_route = NodePath("../../Routes/Guard2Route")
+
+[node name="Scout1" type="CharacterBody2D" parent="Enemies" unique_id=484508088 instance=ExtResource("8_d6vt1")]
+position = Vector2(940, 214)
+collision_layer = 4
+motion_mode = 1
+script = ExtResource("9_d3owa")
+archetype_id = "scout"
+patrol_route = NodePath("../../Routes/Scout1Route")
 
 [node name="Pickups" type="Node2D" parent="." unique_id=330227706]
 
@@ -215,6 +261,21 @@ position = Vector2(-951, -314)
 kind = "ammo"
 amount = 40
 
+[node name="Pickup4" parent="Pickups" unique_id=300749443 instance=ExtResource("9_hdi75")]
+position = Vector2(-1385, 525)
+kind = "ammo"
+amount = 20
+
+[node name="Pickup5" parent="Pickups" unique_id=371173599 instance=ExtResource("9_hdi75")]
+position = Vector2(-1999, 33)
+kind = "upgrade"
+amount = 20
+
+[node name="Pickup6" parent="Pickups" unique_id=1681972650 instance=ExtResource("9_hdi75")]
+position = Vector2(1011, 675)
+kind = "health"
+amount = 50
+
 [node name="Pickup3" parent="Pickups" unique_id=791926239 instance=ExtResource("9_hdi75")]
 position = Vector2(-952, -414)
 kind = "health"
@@ -226,8 +287,8 @@ is_final = true
 
 [node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]
 visible = false
-navigation_polygon = SubResource("NavigationPolygon_kduoq")
-metadata/navmesh_hash = 1069281424
+navigation_polygon = SubResource("NavigationPolygon_kpsgy")
+metadata/navmesh_hash = 2605821336
 
 [node name="Doors" type="Node2D" parent="." unique_id=789437148]
 

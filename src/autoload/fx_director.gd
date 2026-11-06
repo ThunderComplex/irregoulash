@@ -292,10 +292,13 @@ func _free_after(node: Node, seconds: float) -> void:
 func _update_effects(delta: float) -> void:
 	for i: int in range(_effects.size() - 1, -1, -1):
 		var e: Dictionary = _effects[i]
-		var node: Node2D = e["node"]
-		if not is_instance_valid(node):
+		# Checked as a Variant before it is typed: when a level is freed with effects still alive (a
+		# muzzle flash at an exit, blood on the floor), `e["node"]` is a freed instance, and assigning
+		# that to a `Node2D` local errors before the validity check below ever runs.
+		if not is_instance_valid(e.get("node")):
 			_effects.remove_at(i)
 			continue
+		var node: Node2D = e["node"]
 
 		e["life"] = float(e["life"]) - delta
 		var life: float = e["life"]

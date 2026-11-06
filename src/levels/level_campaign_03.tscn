@@ -12,7 +12,7 @@
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="10_e1ttf"]
 [ext_resource type="PackedScene" uid="uid://baqe6b7mjufvo" path="res://src/levels/level_campaign_04.tscn" id="10_ouuhi"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_pay1d"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ouuhi"]
 shader = ExtResource("2_ouuhi")
 shader_parameter/albedo = ExtResource("3_pay1d")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -37,9 +37,9 @@ source_geometry_mode = 1
 source_geometry_group_name = &"wall"
 agent_radius = 18.0
 
-[node name="LevelCampaign1" type="Node2D" unique_id=60981112]
+[node name="LevelCampaign" type="Node2D" unique_id=60981112]
 script = ExtResource("1_mpawk")
-level_title = "Campaign 2"
+level_title = "Campaign 3"
 objective = "Get to the exit"
 bounds_rect = Rect2(-900, -600, 2000, 2000)
 wall_surface_id = "wood"
@@ -47,7 +47,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_pay1d")
+material = SubResource("ShaderMaterial_ouuhi")
 position = Vector2(1216, 128)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-4781.0264, -4621.0264, 4781.0264, -4621.0264, 4781.0264, 4621.0264, -4781.0264, 4621.0264)

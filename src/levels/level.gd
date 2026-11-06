@@ -452,6 +452,11 @@ func _spawn_player() -> void:
 			holder.deserialize(GameDirector.carried_loadout)
 		if starting_ammo_bonus > 0:
 			holder.add_ammo(starting_ammo_bonus)
+	# Abilities are inventory as well, now: a build is not a per-level buff, and the upgrade levels
+	# have to survive with them. A fresh run starts empty and takes its first one from a level pickup.
+	var abilities := player.abilities as AbilityHolder
+	if abilities != null and not GameDirector.carried_abilities.is_empty():
+		abilities.deserialize(GameDirector.carried_abilities)
 	GameDirector.set_player(player)
 
 

@@ -37,7 +37,7 @@ source_geometry_mode = 1
 source_geometry_group_name = &"wall"
 agent_radius = 18.0
 
-[node name="LevelCampaign1" type="Node2D" unique_id=60981112]
+[node name="LevelCampaign" type="Node2D" unique_id=60981112]
 script = ExtResource("1_0jsvj")
 level_title = "Campaign 2"
 objective = "Get to the exit"
@@ -254,7 +254,6 @@ amount = 50
 
 [node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("9_nfir1")]
 position = Vector2(-528, 364)
-is_final = true
 next_level = ExtResource("10_bnbio")
 
 [node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]

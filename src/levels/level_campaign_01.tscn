@@ -36,7 +36,7 @@ source_geometry_mode = 1
 source_geometry_group_name = &"wall"
 agent_radius = 18.0
 
-[node name="LevelCampaign1" type="Node2D" unique_id=60981112]
+[node name="LevelCampaign" type="Node2D" unique_id=60981112]
 script = ExtResource("1_level")
 level_title = "Campaign 1"
 objective = "Get to the exit"

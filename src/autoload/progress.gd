@@ -2,10 +2,10 @@ class_name GameProgress
 extends Node
 ## The one checkpoint the title screen's Continue button resumes from.
 ##
-## Deliberately not a save system: it remembers the level you were on and the loadout you were
-## carrying, and nothing else. No position, no enemy state, no items already taken. Continue
-## therefore puts you at the *start* of the level you were in, with the weapons you had when
-## you paused, which is the reassuring half and the cheap half.
+## Deliberately not a save system: it remembers the level you were on and what you carried
+## (weapons, abilities and keys), and nothing else. No position, no enemy state, no items already
+## taken. Continue therefore puts you at the *start* of the level you were in, with the build you
+## had when you paused, which is the reassuring half and the cheap half.
 ##
 ## Written when a level starts, refreshed whenever the game is paused (the moment before you
 ## might quit to the menu), and cleared when the run is won.
@@ -21,6 +21,9 @@ var level_title: String = ""
 ## The same plain-data shape `WeaponHolder.serialize()` produces, so restoring it uses code
 ## that already exists and is already exercised by the level chain.
 var loadout: Array = []
+## Abilities are carried the same way, and their upgrade levels with them: a checkpoint that
+## dropped them would lose the player's build, not just their position.
+var abilities: Array = []
 ## Keys are inventory, so a checkpoint that forgot them would make a player lose progress.
 var carried_keys: int = 0
 
@@ -47,8 +50,9 @@ func record() -> void:
 	level_title = String(title) if title != null else ""
 	# The live loadout rather than the one snapshotted at the last level exit: pausing is the
 	# moment before quitting to the menu, so this is where the save is worth refreshing.
-	GameDirector.snapshot_loadout()
+	GameDirector.snapshot_carried()
 	loadout = GameDirector.carried_loadout.duplicate(true)
+	abilities = GameDirector.carried_abilities.duplicate(true)
 	carried_keys = GameDirector.carried_keys
 	save()
 
@@ -59,6 +63,7 @@ func clear() -> void:
 	level_path = ""
 	level_title = ""
 	loadout = []
+	abilities = []
 	carried_keys = 0
 	remove_file()
 	changed.emit()
@@ -87,6 +92,7 @@ func save() -> void:
 	config.set_value("progress", "level_path", level_path)
 	config.set_value("progress", "level_title", level_title)
 	config.set_value("progress", "loadout", loadout)
+	config.set_value("progress", "abilities", abilities)
 	config.set_value("progress", "carried_keys", carried_keys)
 	var error: Error = config.save(PATH)
 	if error != OK:
@@ -104,5 +110,8 @@ func load_progress() -> void:
 	# what deserialize() expects.
 	var stored: Variant = config.get_value("progress", "loadout", [])
 	loadout = stored if stored is Array else []
+	# Defaults to empty, so a checkpoint written before abilities were carried still loads.
+	var stored_abilities: Variant = config.get_value("progress", "abilities", [])
+	abilities = stored_abilities if stored_abilities is Array else []
 	carried_keys = int(config.get_value("progress", "carried_keys", 0))
 	changed.emit()

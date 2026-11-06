@@ -123,9 +123,11 @@ Walk over weapons, ammo and medkits to pick them up.
 ## Not built yet
 
 A talent tree, a real inventory, consumables, procgen levels, mid-level saving,
-shops, boss fights, controller support, keybind remapping, and real art/audio
-assets. `docs/OPEN_QUESTIONS.md` lists the design questions that are still open;
-`docs/DESIGN_NOTES.md` records how the existing systems were built and why.
+shops, boss fights, and real art/audio assets. Controller support and keybind
+remapping are *in* scope for release and are queued in `docs/TASKS.md`, alongside
+the rest of the work that is planned but not built. `docs/OPEN_QUESTIONS.md` lists
+the design questions that are still open; `docs/DESIGN_NOTES.md` records how the
+existing systems were built and why.
 
 ---
 
@@ -145,7 +147,7 @@ src/levels/              level.gd (level base), wall, door, lamp, exit_zone, pat
                          vision_memory, level_lint, navmesh_baker
 src/ui/                  hud, menu_list, title_screen, settings_menu
 dev/                     probe.gd, build_levels.gd, check_scene_hygiene.gd (dev tools)
-docs/                    LEVEL_AUTHORING.md, DESIGN_NOTES.md, OPEN_QUESTIONS.md
+docs/                    LEVEL_AUTHORING.md, DESIGN_NOTES.md, OPEN_QUESTIONS.md, TASKS.md
 ```
 
 ### Two things worth knowing before reading the code

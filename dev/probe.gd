@@ -583,6 +583,26 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.2,
 		},
 	],
+	## Abilities are inventory: they, and their upgrade levels, must survive a level exit and Continue.
+	## Run this against `level_campaign_01.tscn`; it starts a real run and walks to the next level.
+	"carry": [
+		{
+			"backup_progress": true,
+			"wait": 0.1,
+		},
+		{
+			"call_start_run": true,
+			"wait": 2.5,
+		},
+		{
+			"carry_test": true,
+			"wait": 0.2,
+		},
+		{
+			"restore_progress": true,
+			"wait": 0.1,
+		},
+	],
 	## A door's hinge must sit on a corner of its footprint, so an open leaf lies against the wall face.
 	## Run this against `dev/surface_lab.tscn`, where the wood is textured and lit.
 	"door_hinge": [
@@ -2157,6 +2177,110 @@ func _reload_switch_test() -> void:
 		"PASS" if abandoned and finished else "FAIL"])
 
 
+## Abilities are inventory: they and their upgrade levels have to survive a level exit, and Continue.
+## The failure this covers is not a crash -- the ability is simply not in the slots after a door -- so
+## it asserts the carried build, not the absence of errors.
+func _carry_test() -> void:
+	var player := GameDirector.valid_player()
+	if player == null:
+		print("[probe] carry: no player")
+		return
+	var holder := player.abilities as AbilityHolder
+	if holder == null:
+		print("[probe] carry: no ability holder")
+		return
+
+	# A deterministic build rather than whatever the level happened to drop.
+	holder.slots.clear()
+	holder.add_ability("fire_wall")
+	holder.add_ability("lightning_bolt")
+	holder.slot_at(0).level = 2
+	holder.slot_at(1).level = 0
+	var wanted: String = _ability_signature(holder)
+	print("[probe] carry: before the exit, abilities are %s" % wanted)
+
+	var next_path: String = _next_level_path()
+	if next_path.is_empty():
+		print("[probe] carry: this level has no exit with a next level -> FAIL")
+		return
+
+	var previous: Node = GameDirector.current_level
+	GameDirector.notify_level_cleared()
+	var snapshotted: String = _ability_signature_from(GameDirector.carried_abilities)
+	GameDirector.load_level(next_path)
+	var arrived: Node = await _await_level_change(previous, 8000)
+	if arrived == null:
+		print("[probe] carry: never reached %s -> FAIL" % next_path)
+		return
+	var next_player := GameDirector.valid_player()
+	var after_exit: String = _ability_signature(next_player.abilities if next_player != null else null)
+	print("[probe] carry: arrived in '%s' with %s" % [arrived.name, after_exit])
+
+	# ...and the checkpoint has to keep it too.
+	Progress.record()
+	previous = arrived
+	GameDirector.continue_run()
+	var reloaded: Node = await _await_level_change(previous, 8000)
+	if reloaded == null:
+		print("[probe] carry: Continue never reloaded the level -> FAIL")
+		return
+	var continued_player := GameDirector.valid_player()
+	var after_continue: String = _ability_signature(
+		continued_player.abilities if continued_player != null else null)
+	print("[probe] carry: after Continue, abilities are %s" % after_continue)
+
+	var passed: bool = snapshotted == wanted and after_exit == wanted and after_continue == wanted
+	print("[probe] carry: expected %s -- snapshot %s, exit %s, continue %s -> %s" % [
+		wanted, snapshotted, after_exit, after_continue, "PASS" if passed else "FAIL"])
+
+
+## "fire_wall:2, lightning_bolt:0" -- short enough to read in a log, exact enough to compare.
+func _ability_signature(holder: Variant) -> String:
+	var ability_holder := holder as AbilityHolder
+	if ability_holder == null:
+		return "<none>"
+	var parts: Array[String] = []
+	for slot: AbilitySlot in ability_holder.slots:
+		if slot.data != null:
+			parts.append("%s:%d" % [slot.data.id, slot.level])
+	return ", ".join(parts) if not parts.is_empty() else "<empty>"
+
+
+func _ability_signature_from(data: Array) -> String:
+	var parts: Array[String] = []
+	for entry: Variant in data:
+		if entry is Dictionary:
+			var dict: Dictionary = entry
+			parts.append("%s:%d" % [String(dict.get("id", "?")), int(dict.get("level", 0))])
+	return ", ".join(parts) if not parts.is_empty() else "<empty>"
+
+
+## The first exit in the open level that leads somewhere.
+func _next_level_path() -> String:
+	var level: Node = GameDirector.current_level
+	if level == null:
+		return ""
+	for node: Node in _all_nodes(level):
+		var exit := node as ExitZone
+		if exit != null and exit.next_level != null:
+			return exit.next_level.resource_path
+	return ""
+
+
+## Waits until `GameDirector.current_level` is a different node than `previous`, or gives up.
+func _await_level_change(previous: Node, timeout_ms: int) -> Node:
+	var deadline: int = Time.get_ticks_msec() + timeout_ms
+	while Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+		var current: Node = GameDirector.current_level
+		if current != null and is_instance_valid(current) and current != previous:
+			# The player is spawned during the level's `_ready`, after it registers itself, so give it
+			# one more frame before the caller asks for it.
+			await get_tree().process_frame
+			return current
+	return null
+
+
 ## Whether the leaf's origin sits on a corner of the door's footprint. A hinge in the middle of an end
 ## edge is the bug this reports: the leaf then swings out of the centre of the wall instead of lying
 ## against its face.
@@ -2711,6 +2835,8 @@ func _run(scenario: String) -> void:
 			await _door_freed_actor_test()
 		if step.has("reload_switch_test"):
 			await _reload_switch_test()
+		if step.has("carry_test"):
+			await _carry_test()
 		if step.has("clear_progress"):
 			Progress.clear()
 			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())

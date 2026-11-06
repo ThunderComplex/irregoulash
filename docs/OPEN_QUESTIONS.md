@@ -1,31 +1,63 @@
 # Open questions
 
-Design decisions that are not made yet. Not a task list: each line is a question with the
-constraint that will shape the answer, and they are ordered by how much they would change.
+Design questions that are genuinely undecided. Answered ones are kept at the bottom for the record;
+the decisions they produced live in `docs/DESIGN_NOTES.md`, and the work they created lives in
+`docs/TASKS.md`.
 
-## Campaign shape
+## Still open
 
-- **Chain, tree, or hub?** Exits already support per-exit `next_level`, so branching is nearly free
-  mechanically, but it decides how much level budget goes into routes a player may never see, and
-  what "Continue" should mean if a player can miss a branch.
-- **How long is the game?** Everything about pacing and difficulty tuning depends on the answer.
+- **How much Steam, exactly?** Achievements and cloud saves are cheap and worth doing; leaderboards,
+  Workshop or a level editor are a different product. Decide before the store page, because the page
+  promises it. See task 7 in `docs/TASKS.md`.
+- **What does Continue mean after the campaign is finished?** The checkpoint is cleared on a win, so a
+  finished game offers New Game only. A level select (task 6) needs to answer whether replaying a
+  level restores the progression you had, or starts that level from a fixed loadout.
+- **Upgrade caps.** Task 2 proposes 3 for both weapons and abilities, so a late crate is not wasted and
+  damage does not run away. It is a balance number to settle in playtesting, not a design question --
+  but it has to exist before upgrade crates are placed.
+- **What happens to an ability pickup when both slots are full?** It currently stays on the ground.
+  That is fine with three abilities and two slots; it stops being obvious if the roster grows.
 
-## Systems
+## Answered
 
-- **Mid-level saving?** The checkpoint stores the level and the loadout, and Continue restarts the
-  level. A real save means serialising position, enemy states and loot taken — and keeping it valid
-  every time a level is re-edited.
-- **Consumables and the talent tree.** `Health` is a component and abilities have upgrade levels, so
-  the plumbing exists, but nothing has decided what the player spends or chooses.
-- **Keybinds and controller support.** Both are publisher-facing rather than fun-facing. Keybinds
-  are currently a table in `GameInput`; gamepad support needs stick aiming that feels right with a
-  vision cone.
+Kept verbatim so the answers are not lost; the condensed decisions are in `docs/DESIGN_NOTES.md`.
 
-## Presentation
+### Campaign shape
 
-- **Real art and audio.** Swapping the code-drawn placeholders for sprites and animations touches
-  the player, enemies, walls, doors, pickups, exits and effects, and needs an animation state per
-  entity. Worth budgeting as a distinct chunk of work, not a gradual swap.
-- **Per-pixel player visibility.** The vision cone is a light with soft edges; the last approximation
-  in the vision tech. Only worth doing if the softness actually reads badly in real content.
-- **Enemy-vs-enemy avoidance.** Guards converging currently occupy the same pixel. Small, cosmetic.
+> The campaign is a chain, and this will never deviate. I might want the player to unlock a level
+> select once he's finished with the game.
+
+→ Task 3 (one ordered table) and task 6 (level select after the ending).
+
+### How long is the game?
+
+> The game should be long enough to warrant a $4/4€ price tag. But since the game is also relatively
+> small in terms of mechanics making it too long would be detrimental. I'm thinking somewhere around
+> 2-2.5 hours.
+
+→ About a dozen hand-authored levels at ~10 minutes each. The level count is the real constraint; the
+hours fall out of it.
+
+### Mid-level saving?
+
+> No, the checkpoint per level is fine. Levels won't be big enough to seriously warrant mid-level
+> saving.
+
+→ No work. It also sets a practical ceiling on level length, because dying restarts the level.
+
+### Consumables and the talent tree
+
+> Not necessary and too overkill. Medkit pickups are enough. However, ability upgrade pickups similar
+> to weapon upgrade pickups would be a good idea.
+
+→ Task 1 (carry abilities) and task 2 (one crate raises both slots), because abilities are currently
+per-level, so upgrades would evaporate at the next exit.
+
+### Keybinds and controller support
+
+> Fully rebindable keys are a must before this game is properly released.
+
+And, in the discussion that followed: the release target is Steam, where the game may be played on
+Steam Deck/Machine and with controllers, so gamepad support is in scope too.
+
+→ Task 4 (rebindable input) and task 5 (gamepad, including Deck at 1280x800).
