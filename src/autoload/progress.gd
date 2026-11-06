@@ -26,6 +26,9 @@ var loadout: Array = []
 var abilities: Array = []
 ## Keys are inventory, so a checkpoint that forgot them would make a player lose progress.
 var carried_keys: int = 0
+## Whether this player has ever reached the final exit. Kept across runs: finishing unlocks the level
+## select, and finishing again (or starting a new game) must not take that away.
+var finished: bool = false
 
 
 func _ready() -> void:
@@ -42,6 +45,10 @@ func has_progress() -> bool:
 func record() -> void:
 	if not GameDirector.run_active:
 		return
+	# A level picked from the level select is practice: it must not overwrite the checkpoint of the
+	# real run, so a replay can never cost someone their place in the campaign.
+	if GameDirector.selected_level_run:
+		return
 	var level: Node = GameDirector.current_level
 	if level == null or not is_instance_valid(level):
 		return
@@ -57,9 +64,28 @@ func record() -> void:
 	save()
 
 
-## Forgets the checkpoint and removes the file, so a fresh install and a finished run both
-## leave nothing behind for Continue to offer.
-func clear() -> void:
+## Forgets where the run was, keeping the "finished the game" flag. Called when a new game starts and
+## when one is won: there is nothing left to continue, but the level select stays unlocked.
+func clear_checkpoint() -> void:
+	level_path = ""
+	level_title = ""
+	loadout = []
+	abilities = []
+	carried_keys = 0
+	save()
+	changed.emit()
+
+
+## The final exit: remember that the game was finished, then drop the checkpoint.
+func finish_run() -> void:
+	finished = true
+	clear_checkpoint()
+
+
+## Forgets everything, including the finished flag. Used by a full wipe (and by tests), not by New Game:
+## a new campaign does not take the level select away.
+func reset() -> void:
+	finished = false
 	level_path = ""
 	level_title = ""
 	loadout = []
@@ -94,6 +120,7 @@ func save() -> void:
 	config.set_value("progress", "loadout", loadout)
 	config.set_value("progress", "abilities", abilities)
 	config.set_value("progress", "carried_keys", carried_keys)
+	config.set_value("progress", "finished", finished)
 	var error: Error = config.save(PATH)
 	if error != OK:
 		push_warning("Could not save progress to %s (error %d)." % [PATH, error])
@@ -114,4 +141,5 @@ func load_progress() -> void:
 	var stored_abilities: Variant = config.get_value("progress", "abilities", [])
 	abilities = stored_abilities if stored_abilities is Array else []
 	carried_keys = int(config.get_value("progress", "carried_keys", 0))
+	finished = bool(config.get_value("progress", "finished", false))
 	changed.emit()

@@ -116,11 +116,15 @@ Walk over weapons, ammo and medkits to pick them up.
   shut by hand or smashed with a dash, locked ones need a key (any key opens any door, and you can
   carry as many as you find), and enemies open doors in their way and shut them again behind
   themselves. The navmesh deliberately ignores doors, so a doorway is never a dead end to the AI.
-- **Menus, and one checkpoint.** The title screen offers New Game, Continue, Settings and Quit;
-  the pause menu offers Settings, Continue and Quit to Menu. Continue resumes the level you were
-  on with the weapons you were carrying, from a single `user://progress.cfg` written on level
-  entry and refreshed whenever you pause. It is a level checkpoint, not a save system: no
-  position, no enemy state, no items already taken.
+- **Menus, and one checkpoint.** The title screen offers New Game, Continue, Level Select, Settings
+  and Quit; the pause menu offers Settings, Continue and Quit to Menu. Continue resumes the level you
+  were on with what you were carrying, from a single `user://progress.cfg` written on level entry and
+  refreshed whenever you pause. It is a level checkpoint, not a save system: no position, no enemy
+  state, no items already taken.
+- **Level select after finishing.** Reaching the final exit sets a `finished` flag in
+  `user://progress.cfg` that survives new games, and unlocks a picker on the title screen. A level
+  picked there is a practice run: every weapon fully upgraded and stocked, no abilities, the
+  checkpoint untouched, and its exit brings you back to the picker.
 - **Surfaces.** Walls and floors take a tiled texture chosen per level from two dropdowns on the `Level`
   node, with the rim, inner shadow and bottom band computed from each rectangle's own
   size. Tiling is in world space, so grain stays the same size on a 96px wall and a 900px one. Floors are

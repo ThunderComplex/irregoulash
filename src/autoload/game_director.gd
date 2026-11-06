@@ -35,6 +35,12 @@ var god_mode: bool = false
 var noclip: bool = false
 var debug_info: bool = false
 var reveal: bool = false
+## True while a level picked from the level select is being played: practice, not a campaign run.
+## It suppresses checkpoint recording and turns the exit into "back to the picker".
+var selected_level_run: bool = false
+## Set when the title screen should open the level select as soon as it is up. Used by the practice
+## loop: finish a selected level, land back on the picker rather than on the menu.
+var open_level_select_pending: bool = false
 ## Weapons carried between levels. Each level spawns a fresh player, so the
 ## loadout is snapshotted on exit and restored on entry.
 var carried_loadout: Array = []
@@ -74,10 +80,12 @@ func _process(delta: float) -> void:
 #region flow
 
 func start_run() -> void:
-	# A new game forgets the checkpoint, so Continue cannot offer the run that was just
-	# abandoned. The first level records a fresh one as soon as it loads.
-	Progress.clear()
+	# A new run clears the checkpoint but not the record of having finished the game: the title
+	# screen keeps its level select. The first level records a fresh checkpoint as soon as it loads.
+	Progress.clear_checkpoint()
 	run_active = true
+	selected_level_run = false
+	open_level_select_pending = false
 	run_time = 0.0
 	kills = 0
 	shots_fired = 0
@@ -104,6 +112,8 @@ func continue_run() -> void:
 		return
 	var path: String = Progress.level_path
 	run_active = true
+	selected_level_run = false
+	open_level_select_pending = false
 	# Counters start over: this is a fresh attempt at that level, not a replay of the run.
 	run_time = 0.0
 	kills = 0
@@ -123,6 +133,41 @@ func continue_run() -> void:
 	load_level(path)
 
 
+## Play one level from the level select, outside the campaign. Nothing about the real run is touched:
+## the checkpoint is neither read nor written, and the exit returns to the picker.
+##
+## The player is given every weapon, fully upgraded and fully stocked, and no abilities. Practice is for
+## replaying a level's fight, not for earning anything, so there is nothing to carry in and nothing to
+## take out.
+func start_selected_level(path: String) -> void:
+	if not ResourceLoader.exists(path):
+		push_error("GameDirector: selected level not found: %s" % path)
+		return
+	selected_level_run = true
+	open_level_select_pending = false
+	run_active = true
+	run_time = 0.0
+	kills = 0
+	shots_fired = 0
+	enemies_alerted = 0
+	levels_cleared = 0
+	_outcome_reported = false
+	god_mode = false
+	noclip = false
+	reveal = false
+	debug_info = false
+	carried_loadout = []
+	carried_abilities = []
+	carried_keys = 0
+	run_started.emit()
+	load_level(path)
+
+
+## The exit of a practice level: back to the picker it was chosen from.
+func finish_selected_level() -> void:
+	go_to_title()
+
+
 func load_level(path: String) -> void:
 	get_tree().paused = false
 	_set_slowmo(false)
@@ -137,6 +182,11 @@ func load_level(path: String) -> void:
 
 
 func go_to_title() -> void:
+	# Leaving a practice run lands on the picker, which is where it started from. Leaving a real run
+	# lands on the menu as usual.
+	if selected_level_run:
+		open_level_select_pending = true
+	selected_level_run = false
 	run_active = false
 	run_time = 0.0
 	get_tree().paused = false
@@ -227,8 +277,15 @@ func notify_win() -> void:
 		return
 	_outcome_reported = true
 	run_active = false
-	# Finished: there is nothing left to continue, so the title screen offers a new game only.
-	Progress.clear()
+	# Only the campaign's last level counts as finishing the game. A level outside the campaign also
+	# ends the run at its exit (that is what makes trying one on its own safe), but it must not unlock
+	# the level select or drop the run's checkpoint.
+	var path: String = ""
+	if current_level != null and is_instance_valid(current_level):
+		path = String(current_level.scene_file_path)
+	if CampaignLibrary.is_campaign_final(path):
+		# There is nothing left to continue, but the finished flag survives the checkpoint.
+		Progress.finish_run()
 	AudioDirector.play(&"win")
 	game_won.emit()
 

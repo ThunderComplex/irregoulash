@@ -186,6 +186,8 @@ const SCENARIOS: Dictionary = {
 	## you were carrying, then win.
 	"flow": [
 		{
+			# A win writes the "finished" flag, so the checkpoint is put back afterwards.
+			"backup_progress": true,
 			"give_all": true,
 			"wait": 0.4,
 			"report": true,
@@ -202,6 +204,14 @@ const SCENARIOS: Dictionary = {
 			"report": true,
 			"shot": "flow_02_win",
 		},
+		{
+			"finish_report": true,
+			"wait": 0.1,
+		},
+		{
+			"restore_progress": true,
+			"wait": 0.2,
+		},
 	],
 	## The project's main scene, which the probe is normally too late for.
 	"title": [
@@ -213,10 +223,16 @@ const SCENARIOS: Dictionary = {
 	## What pressing Enter on the title screen does, end to end.
 	"start": [
 		{
+			# Starting a run writes a checkpoint, so put the player's own back afterwards.
+			"backup_progress": true,
 			"call_start_run": true,
 			"wait": 2.5,
 			"report": true,
 			"shot": "start_run_level_01",
+		},
+		{
+			"restore_progress": true,
+			"wait": 0.2,
 		},
 	],
 	"debug": [
@@ -633,6 +649,17 @@ const SCENARIOS: Dictionary = {
 		},
 		{
 			"close_menus": true,
+			"wait": 0.2,
+		},
+	],
+	## Level select: finish the game, pick a level, check the practice loadout, and check that finishing
+	## it returns to the picker without touching the checkpoint. Run against `title_screen.tscn`.
+	"level_select": [
+		{
+			"wait": 0.3,
+		},
+		{
+			"level_select_test": true,
 			"wait": 0.2,
 		},
 	],
@@ -2486,6 +2513,93 @@ func _send_joy_button(button: JoyButton, pressed: bool) -> void:
 	Input.parse_input_event(event)
 
 
+## The level select, end to end: finish the game, open the picker, choose a level, check the practice
+## loadout, and check that its exit returns to the picker without writing the checkpoint.
+func _level_select_test() -> void:
+	var title: Node = get_tree().current_scene
+	if title == null or not title.has_method("open_level_select"):
+		print("[probe] level select: no title screen")
+		return
+
+	_backup_progress()
+	# Finishing is what unlocks the picker. Set it and save, the way a win would.
+	Progress.finished = true
+	Progress.save()
+	await get_tree().process_frame
+	var unlocked: bool = Progress.finished
+	var stored: bool = _progress_finished_on_disk()
+
+	title.call("open_level_select")
+	await get_tree().process_frame
+	var picker: Variant = title.get("_level_select")
+	var opened: bool = picker != null and is_instance_valid(picker)
+	await _screenshot("level_select")
+
+	var paths: Array[String] = CampaignLibrary.paths()
+	var target: String = paths[1] if paths.size() > 1 else paths[0]
+	var checkpoint_before: String = Progress.level_path
+	var chosen: bool = opened and bool((picker as Node).call("choose", target))
+
+	# Wait for the practice level and its player.
+	var player: Player = null
+	var deadline: int = Time.get_ticks_msec() + 8000
+	while Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+		if GameDirector.selected_level_run:
+			player = GameDirector.valid_player()
+			if player != null:
+				break
+	var in_practice: bool = GameDirector.selected_level_run and player != null
+
+	var weapons_ok: bool = false
+	if player != null:
+		var holder := player.weapons as WeaponHolder
+		weapons_ok = holder != null and holder.slots.size() == WeaponLibrary.ORDER.size()
+		if weapons_ok:
+			for slot: WeaponSlot in holder.slots:
+				weapons_ok = weapons_ok and slot.level == WeaponSlot.MAX_LEVEL \
+					and slot.mag == slot.mag_size() and slot.reserve == slot.data.reserve_max
+	# "No abilities" is part of the practice loadout, not an accident of the level.
+	var abilities_ok: bool = player != null and (player.abilities as AbilityHolder).slots.is_empty()
+
+	# Entering the level calls `Progress.record()`. A practice run must not touch the checkpoint.
+	await get_tree().process_frame
+	var checkpoint_after: String = Progress.level_path
+	var untouched: bool = checkpoint_after == checkpoint_before
+
+	# Its exit goes back to the picker, not into the next level and not into the ending.
+	var exit: ExitZone = _first_exit()
+	var exit_ok: bool = exit != null
+	if exit != null:
+		player.global_position = exit.global_position
+	var back_at_picker: bool = false
+	deadline = Time.get_ticks_msec() + 8000
+	while Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+		var scene: Node = get_tree().current_scene
+		if scene != null and scene.has_method("open_level_select"):
+			var again: Variant = scene.get("_level_select")
+			if again != null and is_instance_valid(again):
+				back_at_picker = true
+				break
+	_restore_progress()
+
+	var passed: bool = unlocked and stored and opened and chosen and in_practice and weapons_ok \
+		and abilities_ok and untouched and exit_ok and back_at_picker
+	print("[probe] level select: unlocked=%s saved=%s opened=%s chosen=%s practice=%s maxed weapons=%s no abilities=%s checkpoint untouched=%s exit=%s back at picker=%s -> %s" % [
+		unlocked, stored, opened, chosen, in_practice, weapons_ok, abilities_ok, untouched, exit_ok,
+		back_at_picker, "PASS" if passed else "FAIL"])
+
+
+## Whether the on-disk checkpoint says the game was finished, so the flag is proven to persist rather
+## than only living in memory.
+func _progress_finished_on_disk() -> bool:
+	var config := ConfigFile.new()
+	if config.load(GameProgress.PATH) != OK:
+		return false
+	return bool(config.get_value("progress", "finished", false))
+
+
 ## One crate raises *both* ability slots by a level, refuses at the cap (so it stays on the ground), and
 ## the HUD shows the level. The cap matters as much as the upgrade: a crate that is consumed for nothing
 ## is worse than no crate.
@@ -2543,8 +2657,10 @@ func _ability_upgrade_test() -> void:
 	pickup.kind = "ability_upgrade"
 	GameDirector.spawn_parent().add_child(pickup)
 	pickup.global_position = player.global_position
-	for frame: int in 4:
-		await get_tree().process_frame
+	# Physics frames, not process frames: an Area2D sees a body only after the physics server has
+	# ticked, and an uncapped idle loop can run several process frames without one.
+	for frame: int in 8:
+		await get_tree().physics_frame
 	var collected: bool = not is_instance_valid(pickup) or pickup.is_queued_for_deletion()
 	var pickup_raised: bool = _all_levels(holder) == 1
 	print("[probe] ability upgrade: walked over a crate -> %s, collected=%s" % [
@@ -3068,7 +3184,7 @@ func _restore_progress() -> void:
 			file.close()
 		Progress.load_progress()
 	else:
-		Progress.clear()
+		Progress.reset()
 	print("[probe] progress file after restore: exists=%s (existed before: %s)" % [
 		Progress.file_exists(), _progress_existed,
 	])
@@ -3297,12 +3413,16 @@ func _run(scenario: String) -> void:
 			await _rebind_test()
 		if step.has("gamepad_test"):
 			await _gamepad_test()
+		if step.has("level_select_test"):
+			await _level_select_test()
+		if step.has("finish_report"):
+			print("[probe] finished flag after the ending: %s" % Progress.finished)
 		if step.has("pad_prompts"):
 			# A push inside the deadzone: it moves nothing, but marks the pad as the last device so
 			# every prompt re-renders for a controller.
 			_send_joy_axis(JOY_AXIS_RIGHT_X, 0.05)
 		if step.has("clear_progress"):
-			Progress.clear()
+			Progress.reset()
 			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())
 		if step.has("restore_progress"):
 			_restore_progress()

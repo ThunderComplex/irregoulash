@@ -443,20 +443,27 @@ func _spawn_player() -> void:
 	player.global_position = spawn_point
 	# Keys are inventory like the loadout: they survive the level change, so a key found in a level
 	# cannot be lost by walking through an exit.
-	player.keys = GameDirector.carried_keys
+	player.keys = 0 if GameDirector.selected_level_run else GameDirector.carried_keys
 	var holder := player.weapons as WeaponHolder
 	if holder != null:
-		if GameDirector.carried_loadout.is_empty():
+		if GameDirector.selected_level_run:
+			# Practice: every gun, maxed, instead of whatever the campaign run is carrying.
+			holder.grant_maxed()
+		elif GameDirector.carried_loadout.is_empty():
 			holder.set_loadout(start_weapons)
 		else:
 			holder.deserialize(GameDirector.carried_loadout)
-		if starting_ammo_bonus > 0:
+		if starting_ammo_bonus > 0 and not GameDirector.selected_level_run:
 			holder.add_ammo(starting_ammo_bonus)
 	# Abilities are inventory as well, now: a build is not a per-level buff, and the upgrade levels
 	# have to survive with them. A fresh run starts empty and takes its first one from a level pickup.
+	# A practice run starts with none, by design.
 	var abilities := player.abilities as AbilityHolder
-	if abilities != null and not GameDirector.carried_abilities.is_empty():
-		abilities.deserialize(GameDirector.carried_abilities)
+	if abilities != null:
+		if GameDirector.selected_level_run:
+			abilities.slots.clear()
+		elif not GameDirector.carried_abilities.is_empty():
+			abilities.deserialize(GameDirector.carried_abilities)
 	GameDirector.set_player(player)
 
 

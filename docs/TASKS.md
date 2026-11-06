@@ -15,7 +15,7 @@ Design reasoning lives in `docs/DESIGN_NOTES.md`; genuinely undecided questions 
 | 3 | Campaign as one ordered table | -- | medium | done |
 | 4 | Rebindable input (keyboard and mouse) | -- | medium | done |
 | 5 | Gamepad support, including Steam Deck | 4 | large | done |
-| 6 | Level select after finishing | 3 | medium | queued |
+| 6 | Level select after finishing | 3 | medium | done |
 | 7 | Steam release plumbing | 3, 4, 5, 6 | medium | queued |
 
 Why this order:
@@ -357,6 +357,14 @@ the cone visible, at the default zoom.
 
 ## 6. Level select after finishing
 
+**Status: done.** Reaching the final exit sets `Progress.finished`, persisted in
+`user://progress.cfg` and kept across new games. The title screen's LEVEL SELECT item is greyed until
+then, and opens a picker built from `CampaignLibrary`. Choosing a level calls
+`GameDirector.start_selected_level()`: a practice run with every weapon at max level and full reserve,
+no abilities, `Progress.record()` suppressed so the campaign checkpoint is never touched, and the level's
+exit routed to the picker (`open_level_select_pending`). `--probe=level_select` covers the unlock flag on
+disk, the picker, the practice loadout, an untouched checkpoint, and the return to the picker.
+
 **Goal.** After the final exit, the title screen offers a level select; levels are replayable
 individually.
 
@@ -366,9 +374,9 @@ last level exists.
 
 **Steps.**
 
-1. `Progress`: add `completed: Array[String]` (paths), persisted in `progress.cfg`; mark on
-   `notify_win()`/level clear; do **not** clear it in `Progress.clear()` (that function means "forget
-   the checkpoint") -- add a separate `reset_campaign()` for New Game.
+1. `Progress`: a `finished` flag, persisted in `progress.cfg`, set on the campaign's final exit and kept
+   separately from the checkpoint (`clear_checkpoint()` in a new game must not clear it; `reset()`
+   wipes everything).
 2. `GameDirector`: `start_at(path)` that begins a run on a chosen level with an empty loadout, or
    restores a per-level snapshot if the design wants replay with progression (decide then).
 3. Title screen: if `progress.completed` covers the campaign, add a "Level select" item that opens a

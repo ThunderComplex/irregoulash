@@ -9,9 +9,6 @@ the decisions they produced live in `docs/DESIGN_NOTES.md`, and the work they cr
 - **How much Steam, exactly?** Achievements and cloud saves are cheap and worth doing; leaderboards,
   Workshop or a level editor are a different product. Decide before the store page, because the page
   promises it. See task 7 in `docs/TASKS.md`.
-- **What does Continue mean after the campaign is finished?** The checkpoint is cleared on a win, so a
-  finished game offers New Game only. A level select (task 6) needs to answer whether replaying a
-  level restores the progression you had, or starts that level from a fixed loadout.
 - **Is level 3 the right upgrade cap?** Both weapons and abilities now stop at 3
   (`WeaponSlot.MAX_LEVEL`, `AbilitySlot.MAX_LEVEL`), which keeps a late crate from being wasted and stops
   damage running away. The number is a balance value to revisit in playtesting, not a design question.

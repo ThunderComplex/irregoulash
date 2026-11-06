@@ -313,6 +313,27 @@ func grant_all() -> void:
 	weapon_changed.emit(slot(), current)
 
 
+## Every weapon at once, fully upgraded, magazine and reserve full. Used by the level select: a
+## practice run should be about the level, not about the loadout you happened to have.
+func grant_maxed() -> void:
+	slots.clear()
+	current = -1
+	for id: String in WeaponLibrary.ORDER:
+		var data: WeaponResource = WeaponLibrary.by_id(id)
+		var slot := WeaponSlot.new(data)
+		slot.level = WeaponSlot.MAX_LEVEL
+		slot.mag = slot.mag_size()
+		slot.reserve = data.reserve_max
+		slots.append(slot)
+	if not slots.is_empty():
+		current = 0
+	# Nothing carried in, so nothing is being reloaded.
+	_reload_left = 0.0
+	_recoil = 0.0
+	ammo_changed.emit()
+	weapon_changed.emit(slot(), current)
+
+
 ## Plain-data snapshot of the loadout, so it can survive a level change.
 func serialize() -> Array:
 	var out: Array = []

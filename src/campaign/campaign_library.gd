@@ -55,6 +55,12 @@ static func is_final(path: String) -> bool:
 	return next_after(path).is_empty()
 
 
+## Whether `path` is the campaign's own last level -- the one whose exit wins the game. A level that is
+## not in the campaign also ends the run, but finishing one must not count as finishing the game.
+static func is_campaign_final(path: String) -> bool:
+	return not LEVELS.is_empty() and index_of(path) == LEVELS.size() - 1
+
+
 ## "3 / 12", or "" for a level that is not in the campaign.
 static func position_text(path: String) -> String:
 	var index: int = index_of(path)

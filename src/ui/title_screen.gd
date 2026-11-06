@@ -20,6 +20,7 @@ var _origin: Vector2 = Vector2.ZERO
 var _resize_pending: bool = false
 var _main_menu: MenuList = null
 var _settings_menu: Control = null
+var _level_select: Control = null
 
 
 func _ready() -> void:
@@ -29,6 +30,11 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	Progress.changed.connect(_refresh_continue)
 	GameInput.device_changed.connect(_on_device_changed)
+	# Returning from a practice run lands here, with the picker already open: the loop is
+	# pick -> play -> pick, not pick -> play -> menu.
+	if GameDirector.open_level_select_pending:
+		GameDirector.open_level_select_pending = false
+		open_level_select()
 
 
 ## The controls table is written for the device in hand, so switching between pad and keyboard rebuilds
@@ -46,6 +52,8 @@ func _refresh_continue() -> void:
 	var had_focus: bool = _main_menu.item_has_focus(&"continue")
 	var enabled: bool = Progress.has_progress()
 	_main_menu.set_item(&"continue", Progress.continue_label(), enabled)
+	# Finishing the game unlocks the picker, and it stays unlocked across new games.
+	_main_menu.set_item(&"level_select", "LEVEL SELECT", Progress.finished)
 	# Disabling the focused Control drops focus entirely, which would leave the keyboard with
 	# nothing to activate. Move it to New Game rather than leaving the menu dead.
 	if had_focus and not enabled:
@@ -67,10 +75,30 @@ func _on_menu_item(id: StringName) -> void:
 			GameDirector.start_run()
 		&"continue":
 			GameDirector.continue_run()
+		&"level_select":
+			open_level_select()
 		&"settings":
 			open_settings()
 		&"quit":
 			get_tree().quit()
+
+
+## Opens the level picker. Public so the dev probe can open it, and so the title can reopen it when a
+## practice run ends.
+func open_level_select() -> void:
+	if _level_select != null and is_instance_valid(_level_select):
+		return
+	if not Progress.finished:
+		return
+	_level_select = LevelSelect.new()
+	_level_select.closed.connect(_on_level_select_closed)
+	add_child(_level_select)
+
+
+func _on_level_select_closed() -> void:
+	_level_select = null
+	if _main_menu != null and is_instance_valid(_main_menu):
+		_main_menu.focus_item(&"level_select")
 
 
 ## Opens the settings menu over the title. Public so the dev probe can open it too.
@@ -99,11 +127,11 @@ func _on_viewport_resized() -> void:
 	_resize_pending = true
 
 
-## Rebuilds everything except an open settings menu, which stays put. The main menu *is*
-## rebuilt, so it is never the node left holding stale coordinates.
+## Rebuilds everything except an open overlay, which stays put. The main menu *is* rebuilt, so it is
+## never the node left holding stale coordinates.
 func rebuild() -> void:
 	for child: Node in get_children():
-		if child == _settings_menu:
+		if child == _settings_menu or child == _level_select:
 			continue
 		child.free()
 	_compute_layout()
@@ -158,15 +186,14 @@ func _build() -> void:
   sight, and they will search for you.
 - Clear the yard, find the exit, escape.""", 16, Color(0.62, 0.72, 0.84))
 
-	# --- main menu: a 2x2 grid of buttons in the bottom right, which is the only free space on
-	# this screen. A single column collided with the control list and its debug keys, both of
-	# which are longer than they look, and a row along the bottom collided with them too.
-	# Continue knows where the last run got to, and is greyed out rather than hidden when there
-	# is nothing to resume.
+	# --- main menu: a grid of buttons across the bottom, which is the only free space on this screen;
+	# the control list and the "what to try" text both run down to just above it. Three columns rather
+	# than two because the level select adds a fifth entry after the campaign is finished.
 	_main_menu = MenuList.new()
-	_main_menu.configure(Rect2(640.0, 620.0, 560.0, 2.0 * MenuList.ROW_HEIGHT), _scale, 2)
+	_main_menu.configure(Rect2(400.0, 620.0, 840.0, 2.0 * MenuList.ROW_HEIGHT), _scale, 3)
 	_main_menu.add_item(&"new_game", "NEW GAME")
 	_main_menu.add_item(&"continue", Progress.continue_label(), Progress.has_progress())
+	_main_menu.add_item(&"level_select", "LEVEL SELECT", Progress.finished)
 	_main_menu.add_item(&"settings", "SETTINGS")
 	_main_menu.add_item(&"quit", "QUIT")
 	_main_menu.activated.connect(_on_menu_item)
@@ -204,11 +231,8 @@ func _controls_block(position_: Vector2) -> void:
 		grid.add_child(_block_label(String(row[0]), 17, Color(0.78, 0.84, 0.92)))
 		grid.add_child(_block_label(String(row[1]), 17, Color(0.62, 0.68, 0.78)))
 
-	var hint := _block_label("Walk over weapons, ammo, medkits and keys to pick them up.", 15,
-		Color(0.55, 0.62, 0.72))
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(hint)
-
+	# The pickup hint used to sit here. The menu now needs the bottom of the frame, and pickups are
+	# explained by walking over one.
 	if OS.is_debug_build():
 		var debug := _block_label("Debug: " + GameInput.debug_short_text(), 14,
 			Color(0.45, 0.5, 0.58))

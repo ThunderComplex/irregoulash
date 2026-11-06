@@ -157,6 +157,12 @@ func _enter(_player: Player) -> void:
 	_used = true
 	entered.emit(self)
 
+	# A level picked from the level select ends here: back to the picker, not into the next level and
+	# not into the campaign's ending.
+	if GameDirector.selected_level_run:
+		GameDirector.finish_selected_level()
+		return
+
 	var next: String = _next_level()
 	if next.is_empty():
 		GameDirector.notify_win()
