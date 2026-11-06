@@ -208,7 +208,11 @@ func _finish_reload() -> void:
 
 #region inventory
 
-## Adds a weapon (or ammo for one already carried). Returns true if it was new.
+## Adds a weapon, or ammo for one already carried. Returns true if the weapon was new.
+##
+## `auto_equip` takes the hand only for a *new* weapon. A top-up for one already carried never does:
+## the pickup that switches you to a gun is the one that gives you the gun, and a player who picked
+## their weapon deliberately does not want it changed by walking over ammunition.
 func add_weapon(id: String, ammo: int = -1, auto_equip: bool = true) -> bool:
 	var data: WeaponResource = WeaponLibrary.by_id(id)
 	# What is in hand now, so that if this pickup takes its place the reload can be abandoned with it.
@@ -218,8 +222,6 @@ func add_weapon(id: String, ammo: int = -1, auto_equip: bool = true) -> bool:
 			var held: WeaponSlot = slots[i]
 			var amount: int = ammo if ammo >= 0 else held.ammo_pickup_amount() * 2
 			held.reserve = mini(data.reserve_max, held.reserve + amount)
-			if auto_equip:
-				select(i)
 			ammo_changed.emit()
 			return false
 

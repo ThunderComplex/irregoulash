@@ -583,6 +583,17 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.2,
 		},
 	],
+	## Ammo for a weapon you already carry must not take the hand; a new weapon must.
+	"ammo_pickup": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"ammo_pickup_test": true,
+			"wait": 0.2,
+		},
+	],
 	## Abilities are inventory: they, and their upgrade levels, must survive a level exit and Continue.
 	## Run this against `level_campaign_01.tscn`; it starts a real run and walks to the next level.
 	"carry": [
@@ -2177,6 +2188,42 @@ func _reload_switch_test() -> void:
 		"PASS" if abandoned and finished else "FAIL"])
 
 
+## A pickup for a weapon you already carry is ammo, and ammo must not change the weapon in hand. Only a
+## weapon picked up for the first time does that. Both halves are asserted, so "fixing" this by never
+## auto-equipping would fail too.
+func _ammo_pickup_test() -> void:
+	var player := GameDirector.valid_player()
+	if player == null:
+		print("[probe] ammo pickup: no player")
+		return
+	var holder := player.weapons as WeaponHolder
+	if holder == null:
+		print("[probe] ammo pickup: no weapon holder")
+		return
+
+	# A deterministic two-weapon loadout, holding the pistol.
+	holder.set_loadout(["pistol", "smg"])
+	holder.slots[1].reserve = 5
+	holder.select(0)
+	var before_weapon: String = String(holder.slot().data.id)
+	var before_reserve: int = holder.slots[1].reserve
+
+	# What a weapon pickup for an already-carried weapon does.
+	holder.add_weapon("smg", 10)
+	var stayed: bool = holder.current == 0 and String(holder.slot().data.id) == "pistol"
+	var topped_up: bool = holder.slots[1].reserve == before_reserve + 10
+	print("[probe] ammo pickup: held '%s', picked up ammo for smg -> held '%s', smg reserve %d -> %d" % [
+		before_weapon, String(holder.slot().data.id), before_reserve, holder.slots[1].reserve])
+
+	# ...and a weapon picked up for the first time still takes the hand.
+	holder.add_weapon("shotgun", 10)
+	var switched: bool = String(holder.slot().data.id) == "shotgun"
+	print("[probe] ammo pickup: picked up a new shotgun -> held '%s'" % String(holder.slot().data.id))
+
+	print("[probe] ammo pickup: stayed=%s, topped up=%s, new weapon switched=%s -> %s" % [
+		stayed, topped_up, switched, "PASS" if stayed and topped_up and switched else "FAIL"])
+
+
 ## Abilities are inventory: they and their upgrade levels have to survive a level exit, and Continue.
 ## The failure this covers is not a crash -- the ability is simply not in the slots after a door -- so
 ## it asserts the carried build, not the absence of errors.
@@ -2833,6 +2880,8 @@ func _run(scenario: String) -> void:
 			await _reload_switch_test()
 		if step.has("carry_test"):
 			await _carry_test()
+		if step.has("ammo_pickup_test"):
+			_ammo_pickup_test()
 		if step.has("clear_progress"):
 			Progress.clear()
 			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())

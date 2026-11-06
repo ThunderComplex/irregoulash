@@ -451,7 +451,7 @@ one-field edit in the editor afterwards.
 | `kind` | `weapon`, `ammo`, `upgrade`, `health`, `ability` or `key` |
 | `ability_id` | `fire_wall`, `fire_tempest`, `lightning_bolt` (for `kind = ability`) |
 | (`key` pickups) | always give exactly one key; there is nothing to configure |
-| `weapon_id` | `pistol`, `smg`, `shotgun` (for `kind = weapon`) |
+| `weapon_id` | `pistol`, `smg`, `shotgun` (for `kind = weapon`). Picking up a weapon you already carry gives it ammo instead, and leaves the weapon in hand alone; only a weapon picked up for the first time takes the hand |
 | `amount` | ammo rounds, or health restored |
 
 ### `ExitZone` — `src/levels/exit_zone.tscn`
