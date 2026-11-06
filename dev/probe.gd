@@ -1161,7 +1161,7 @@ const SCENARIOS: Dictionary = {
 	## The character rig up close: standing, walking towards the aim, backing away from it (the legs
 	## should turn round and walk backwards), strafing, and an enemy. Run against
 	## `dev/surface_lab.tscn`; zoomed in and revealed so the art itself can be judged.
-	## The legs' heading and walk frame while backing away from the aim, sampled over a stride.
+	## The legs' heading and reach while backing away from the aim, sampled over a stride.
 	"rig_backpedal": [
 		{"god": true, "aim": Vector2(1.0, 0.0), "keys_press": ["move_left"], "wait": 0.3, "rig_report": true},
 		{"wait": 0.06, "rig_report": true},
@@ -1213,6 +1213,15 @@ const SCENARIOS: Dictionary = {
 			"spawn_enemies": 1,
 			"wait": 0.8,
 			"shot": "rig_05_enemy",
+		},
+		{
+			# The held weapon follows the selection.
+			"zoom": 3.0,
+			"give_all": true,
+			"select_weapon": 2,
+			"aim": Vector2(-1.0, 0.0),
+			"wait": 0.4,
+			"shot": "rig_06_shotgun",
 		},
 	],
 	## Bake a navmesh at runtime and verify it: that the server knows about it, that
@@ -3860,9 +3869,12 @@ func _run(scenario: String) -> void:
 			var walker: Player = GameDirector.valid_player()
 			var rig := walker.get_node_or_null("Visual/Rig") as CharacterRig if walker != null else null
 			if rig != null:
-				print("[probe]   rig: moving %s, aim %.0f deg, legs %.0f deg, frame %d" % [
+				var legs: Array = rig.get("_leg_sprites")
+				var art: float = rig.look.art_scale
+				print("[probe]   rig: moving %s, aim %.0f deg, legs %.0f deg, reach left %+.2f right %+.2f" % [
 					str(walker.velocity.round()), rad_to_deg(walker.aim_direction.angle()),
-					rad_to_deg(wrapf(rig.get("_legs_angle"), -PI, PI)), (rig.get("_legs") as Sprite2D).frame])
+					rad_to_deg(wrapf(rig.get("_legs_angle"), -PI, PI)),
+					(legs[0] as Sprite2D).scale.x / art, (legs[1] as Sprite2D).scale.x / art])
 		if step.has("death_report"):
 			print("[probe]   game over shown %d time(s); player alive=%s" % [_game_overs,
 				GameDirector.valid_player() != null and not GameDirector.valid_player().is_dead()])

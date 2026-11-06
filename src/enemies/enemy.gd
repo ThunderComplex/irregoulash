@@ -1007,6 +1007,8 @@ func _build_art() -> void:
 	visual.add_child(_rig)
 	_rig.setup(CharacterRig.find_look([String(archetype.id), "enemy"]), archetype.radius,
 		archetype.body_color)
+	# The gun it carries is the one it drops.
+	_rig.set_weapon(archetype.drop_weapon)
 
 
 ## Used by the debug overlay.

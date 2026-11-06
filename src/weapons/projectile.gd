@@ -30,8 +30,9 @@ func launch(origin: Vector2, direction: Vector2, speed: float) -> void:
 ## Where the round may actually start: the muzzle, pulled back to the first thing between the
 ## shooter and the muzzle.
 ##
-## A muzzle is offset ahead of its shooter (the player's is 20px ahead of a 14px-wide body), so
-## standing flush against a wall puts the muzzle *inside* the wall. `intersect_ray` ignores any shape
+## A muzzle is offset ahead of its shooter (the player's is the tip of the held weapon's art, about 40px
+## ahead of a 14px-radius body), so standing flush against a wall puts the muzzle *inside* or even
+## beyond the wall. `intersect_ray` ignores any shape
 ## that contains the ray origin, so a round spawned in there never saw the wall and flew out the far
 ## side -- point-blank shots went through walls and doors and killed people behind them. Clamping the
 ## spawn to the surface makes a point-blank shot hit the wall in your face, which is what it looks

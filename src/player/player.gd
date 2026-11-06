@@ -262,7 +262,13 @@ func _update_noclip() -> void:
 		collision_layer = wanted
 
 
+## Where shots leave the gun: the tip of the held weapon's art when there is some, else a little ahead of
+## the player.
 func muzzle_position() -> Vector2:
+	if _rig != null:
+		var tip: Variant = _rig.muzzle_position(aim_direction.angle())
+		if tip != null:
+			return tip
 	return global_position + aim_direction * 20.0
 
 
