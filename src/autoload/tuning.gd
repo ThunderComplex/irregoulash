@@ -116,6 +116,15 @@ extends Node
 @export var shake_decay: float = 3.4
 @export var shake_max_offset: float = 26.0
 
+@export_group("Gamepad")
+## How far the right stick must be pushed before it aims. A resting stick drifts, and a stick that
+## overrides the mouse at rest would make the cone twitch while the player is using the mouse.
+@export var gamepad_aim_deadzone: float = 0.28
+## Camera look-ahead on a pad. The mouse version scales with cursor distance; a stick has none, so this
+## is a fixed nudge in the aim direction -- the aim persists when the stick is released, so it does not
+## snap back to centre.
+@export var gamepad_camera_offset: float = 72.0
+
 @export_group("Resolution independence")
 ## How much world is visible vertically, in pixels, whatever the window size. The camera
 ## zooms to keep this constant, so the vision cone covers the same share of the screen at

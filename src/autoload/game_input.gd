@@ -16,6 +16,8 @@ extends Node
 
 ## Emitted whenever a binding changes or is reset, so any open menu can re-read the map.
 signal bindings_changed()
+## Emitted when the player switches between keyboard/mouse and a gamepad, so prompts can follow.
+signal device_changed(gamepad: bool)
 
 const BINDINGS_PATH: String = "user://bindings.cfg"
 const BINDINGS_FILE: String = "bindings.cfg"
@@ -32,6 +34,10 @@ const META: Dictionary = {
 	"reload": {"label": "Reload", "group": "Combat"},
 	"ability_1": {"label": "Ability 1", "group": "Combat"},
 	"ability_2": {"label": "Ability 2", "group": "Combat"},
+	"aim_left": {"label": "Aim left", "group": "Aiming"},
+	"aim_right": {"label": "Aim right", "group": "Aiming"},
+	"aim_up": {"label": "Aim up", "group": "Aiming"},
+	"aim_down": {"label": "Aim down", "group": "Aiming"},
 	"switch_1": {"label": "Weapon 1", "group": "Weapons"},
 	"switch_2": {"label": "Weapon 2", "group": "Weapons"},
 	"switch_3": {"label": "Weapon 3", "group": "Weapons"},
@@ -55,30 +61,74 @@ const META: Dictionary = {
 ## Data rather than ready-made `InputEvent`s so a default can be saved, compared and described by the
 ## same code that handles a rebind, and so nothing can share and mutate one event object.
 const DEFAULT_SPECS: Dictionary = {
-	"move_up": [ {"type": "key", "code": KEY_W}],
-	"move_down": [ {"type": "key", "code": KEY_S}],
-	"move_left": [ {"type": "key", "code": KEY_A}],
-	"move_right": [ {"type": "key", "code": KEY_D}],
-	"dash": [ {"type": "key", "code": KEY_SHIFT}],
-	"fire": [ {"type": "mouse", "button": MOUSE_BUTTON_LEFT}],
-	"reload": [ {"type": "key", "code": KEY_R}],
-	"ability_1": [ {"type": "key", "code": KEY_Q}],
-	"ability_2": [ {"type": "key", "code": KEY_E}],
-	"switch_1": [ {"type": "key", "code": KEY_1}],
-	"switch_2": [ {"type": "key", "code": KEY_2}],
-	"switch_3": [ {"type": "key", "code": KEY_3}],
-	"switch_next": [ {"type": "mouse", "button": MOUSE_BUTTON_WHEEL_DOWN}],
-	"switch_prev": [ {"type": "mouse", "button": MOUSE_BUTTON_WHEEL_UP}],
-	"interact": [ {"type": "key", "code": KEY_F}],
-	"pause": [ {"type": "key", "code": KEY_ESCAPE}],
-	"debug_god": [ {"type": "key", "code": KEY_F1}],
-	"debug_noclip": [ {"type": "key", "code": KEY_F2}],
-	"debug_info": [ {"type": "key", "code": KEY_F3}],
-	"debug_reveal": [ {"type": "key", "code": KEY_F4}],
-	"debug_spawn": [ {"type": "key", "code": KEY_F5}],
-	"debug_alert_all": [ {"type": "key", "code": KEY_F6}],
-	"debug_give": [ {"type": "key", "code": KEY_F7}],
-	"debug_slowmo": [ {"type": "key", "code": KEY_F9}],
+	"move_up": [
+		{"type": "key", "code": KEY_W},
+		{"type": "joy_axis", "axis": JOY_AXIS_LEFT_Y, "value": -1.0},
+	],
+	"move_down": [
+		{"type": "key", "code": KEY_S},
+		{"type": "joy_axis", "axis": JOY_AXIS_LEFT_Y, "value": 1.0},
+	],
+	"move_left": [
+		{"type": "key", "code": KEY_A},
+		{"type": "joy_axis", "axis": JOY_AXIS_LEFT_X, "value": -1.0},
+	],
+	"move_right": [
+		{"type": "key", "code": KEY_D},
+		{"type": "joy_axis", "axis": JOY_AXIS_LEFT_X, "value": 1.0},
+	],
+	"dash": [
+		{"type": "key", "code": KEY_SHIFT},
+		{"type": "joy_button", "button": JOY_BUTTON_B},
+	],
+	"fire": [
+		{"type": "mouse", "button": MOUSE_BUTTON_LEFT},
+		# The trigger is an axis, not a button, on every pad Godot supports.
+		{"type": "joy_axis", "axis": JOY_AXIS_TRIGGER_RIGHT, "value": 1.0},
+	],
+	"reload": [
+		{"type": "key", "code": KEY_R},
+		{"type": "joy_button", "button": JOY_BUTTON_X},
+	],
+	"aim_left": [{"type": "joy_axis", "axis": JOY_AXIS_RIGHT_X, "value": -1.0}],
+	"aim_right": [{"type": "joy_axis", "axis": JOY_AXIS_RIGHT_X, "value": 1.0}],
+	"aim_up": [{"type": "joy_axis", "axis": JOY_AXIS_RIGHT_Y, "value": -1.0}],
+	"aim_down": [{"type": "joy_axis", "axis": JOY_AXIS_RIGHT_Y, "value": 1.0}],
+	"ability_1": [
+		{"type": "key", "code": KEY_Q},
+		{"type": "joy_button", "button": JOY_BUTTON_LEFT_SHOULDER},
+	],
+	"ability_2": [
+		{"type": "key", "code": KEY_E},
+		{"type": "joy_button", "button": JOY_BUTTON_RIGHT_SHOULDER},
+	],
+	"switch_1": [{"type": "key", "code": KEY_1}],
+	"switch_2": [{"type": "key", "code": KEY_2}],
+	"switch_3": [{"type": "key", "code": KEY_3}],
+	"switch_next": [
+		{"type": "mouse", "button": MOUSE_BUTTON_WHEEL_DOWN},
+		{"type": "joy_button", "button": JOY_BUTTON_DPAD_RIGHT},
+	],
+	"switch_prev": [
+		{"type": "mouse", "button": MOUSE_BUTTON_WHEEL_UP},
+		{"type": "joy_button", "button": JOY_BUTTON_DPAD_LEFT},
+	],
+	"interact": [
+		{"type": "key", "code": KEY_F},
+		{"type": "joy_button", "button": JOY_BUTTON_Y},
+	],
+	"pause": [
+		{"type": "key", "code": KEY_ESCAPE},
+		{"type": "joy_button", "button": JOY_BUTTON_START},
+	],
+	"debug_god": [{"type": "key", "code": KEY_F1}],
+	"debug_noclip": [{"type": "key", "code": KEY_F2}],
+	"debug_info": [{"type": "key", "code": KEY_F3}],
+	"debug_reveal": [{"type": "key", "code": KEY_F4}],
+	"debug_spawn": [{"type": "key", "code": KEY_F5}],
+	"debug_alert_all": [{"type": "key", "code": KEY_F6}],
+	"debug_give": [{"type": "key", "code": KEY_F7}],
+	"debug_slowmo": [{"type": "key", "code": KEY_F9}],
 }
 
 ## Actions the title screen lists. A subset: the HUD already shows the weapon slots, and the debug keys
@@ -88,14 +138,70 @@ const TITLE_ACTIONS: Array[String] = [
 	"fire", "reload", "ability_1", "ability_2", "interact", "dash", "pause",
 ]
 
+## Menus are built on Godot's `ui_*` actions, and on this build their defaults are keyboard-only, so a
+## controller cannot confirm or back out of anything. These fill in the pad side only: the engine's own
+## events (Enter, Space, the arrows) are left alone, because menus still have to work with a keyboard.
+const UI_PAD_SPECS: Dictionary = {
+	"ui_accept": [{"type": "joy_button", "button": JOY_BUTTON_A}],
+	"ui_cancel": [{"type": "joy_button", "button": JOY_BUTTON_B}],
+	"ui_up": [{"type": "joy_button", "button": JOY_BUTTON_DPAD_UP}],
+	"ui_down": [{"type": "joy_button", "button": JOY_BUTTON_DPAD_DOWN}],
+	"ui_left": [{"type": "joy_button", "button": JOY_BUTTON_DPAD_LEFT}],
+	"ui_right": [{"type": "joy_button", "button": JOY_BUTTON_DPAD_RIGHT}],
+}
+
 ## Only the actions the player has rebound. Absence means "use the default", which is how a new action in
 ## a later version still works for an existing `bindings.cfg`.
 var _overrides: Dictionary = {}
 
+## True when the last input came from a gamepad. Everything that shows a prompt reads this, so the HUD
+## says "LB" on a pad and "Q" on a keyboard without either side needing to know the other exists.
+var _gamepad_in_use: bool = false
+
 
 func _ready() -> void:
+	# Device detection has to keep working in menus, which run while the tree is paused.
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	# A pad that is already connected is the likely input on a handheld, so start on pad prompts rather
+	# than waiting for the first stick movement. Any real input corrects it immediately.
+	_gamepad_in_use = not Input.get_connected_joypads().is_empty()
 	load_bindings()
 	register_all()
+
+
+## The right stick, deadzoned. Zero when there is no pad or the stick is at rest.
+##
+## Four actions rather than a raw axis read, so the stick is part of the same rebindable map as
+## everything else -- a player who wants to swap sticks, or aim with a second stick on a pad that has
+## one, gets it from the Controls panel.
+func aim_vector() -> Vector2:
+	return Input.get_vector(&"aim_left", &"aim_right", &"aim_up", &"aim_down",
+		Tuning.gamepad_aim_deadzone)
+
+
+func using_gamepad() -> bool:
+	return _gamepad_in_use
+
+
+## Last device wins. Keys and clicks switch to the mouse; anything from a pad switches to the pad. Mouse
+## *motion* switches too, with a small threshold, because a player who reaches for the mouse to aim has
+## not pressed anything yet.
+func _input(event: InputEvent) -> void:
+	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+		_set_device(true)
+	elif event is InputEventKey and (event as InputEventKey).pressed:
+		_set_device(false)
+	elif event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		_set_device(false)
+	elif event is InputEventMouseMotion and (event as InputEventMouseMotion).relative.length() > 1.0:
+		_set_device(false)
+
+
+func _set_device(gamepad: bool) -> void:
+	if _gamepad_in_use == gamepad:
+		return
+	_gamepad_in_use = gamepad
+	device_changed.emit(gamepad)
 
 
 #region registering
@@ -105,6 +211,28 @@ func _ready() -> void:
 func register_all() -> void:
 	for action: String in META:
 		_apply(action, specs_for(action))
+	_fill_ui_pad_bindings()
+
+
+## Adds only the missing pad events to the built-in menu actions, leaving the engine's keyboard events
+## untouched. Menus must work with both devices, and rebinding must not be able to break `ui_cancel`.
+func _fill_ui_pad_bindings() -> void:
+	for action: String in UI_PAD_SPECS:
+		if not InputMap.has_action(action):
+			InputMap.add_action(action)
+		for spec: Variant in UI_PAD_SPECS[action]:
+			if not (spec is Dictionary):
+				continue
+			var event: InputEvent = event_from_spec(spec)
+			if event == null:
+				continue
+			var present: bool = false
+			for existing: InputEvent in InputMap.action_get_events(action):
+				if events_match(existing, event):
+					present = true
+					break
+			if not present:
+				InputMap.action_add_event(action, event)
 
 
 ## The bindings an action should have right now: the player's, or the default.
@@ -114,22 +242,55 @@ func specs_for(action: String) -> Array:
 	return (DEFAULT_SPECS.get(action, []) as Array).duplicate(true)
 
 
-## Replaces one action's bindings in the InputMap. An action with no events would be silently unusable,
-## so an empty list is refused rather than applied.
+## Replaces one action's bindings with `events` outright. Used by tools and tests; the menu uses
+## `rebind()`, which keeps the other device's bindings.
 func set_action_events(action: String, events: Array[InputEvent]) -> void:
 	if not META.has(action):
 		return
-	var specs: Array = []
-	for event: InputEvent in events:
-		var spec: Dictionary = spec_from_event(event)
-		if not spec.is_empty():
-			specs.append(spec)
+	var specs: Array = _specs_from_events(events)
 	if specs.is_empty():
 		return
 	_overrides[action] = specs
 	_apply(action, specs)
 	save_bindings()
 	bindings_changed.emit()
+
+
+## Rebinds one action to a single event, replacing the bindings for *that device* and leaving the
+## other device alone.
+##
+## This matters once every action has a key and a pad binding: replacing everything would take the
+## mouse away from Fire when a pad player moves it to a face button, and take the pad away from a
+## keyboard player who presses a key. One action, one binding per device, is the rule the menu shows.
+func rebind(action: String, event: InputEvent) -> void:
+	if not META.has(action):
+		return
+	var new_spec: Dictionary = spec_from_event(event)
+	if new_spec.is_empty():
+		return
+	var want_pad: bool = _is_pad_event(event)
+	var specs: Array = []
+	for existing: InputEvent in InputMap.action_get_events(action):
+		if _is_pad_event(existing) != want_pad:
+			specs.append(spec_from_event(existing))
+	specs.append(new_spec)
+	_overrides[action] = specs
+	_apply(action, specs)
+	save_bindings()
+	bindings_changed.emit()
+
+
+static func _is_pad_event(event: InputEvent) -> bool:
+	return event is InputEventJoypadButton or event is InputEventJoypadMotion
+
+
+func _specs_from_events(events: Array[InputEvent]) -> Array:
+	var specs: Array = []
+	for event: InputEvent in events:
+		var spec: Dictionary = spec_from_event(event)
+		if not spec.is_empty():
+			specs.append(spec)
+	return specs
 
 
 ## Puts one action back to its shipped default.
@@ -194,6 +355,13 @@ static func events_match(a: InputEvent, b: InputEvent) -> bool:
 		return ka.physical_keycode != KEY_NONE and ka.physical_keycode == kb.physical_keycode
 	if a is InputEventMouseButton and b is InputEventMouseButton:
 		return (a as InputEventMouseButton).button_index == (b as InputEventMouseButton).button_index
+	if a is InputEventJoypadButton and b is InputEventJoypadButton:
+		return (a as InputEventJoypadButton).button_index == (b as InputEventJoypadButton).button_index
+	if a is InputEventJoypadMotion and b is InputEventJoypadMotion:
+		var ma: InputEventJoypadMotion = a
+		var mb: InputEventJoypadMotion = b
+		# The same axis pushed the other way is a different control.
+		return ma.axis == mb.axis and signf(ma.axis_value) == signf(mb.axis_value)
 	return false
 
 #endregion
@@ -201,7 +369,7 @@ static func events_match(a: InputEvent, b: InputEvent) -> bool:
 
 #region presentation
 
-## A binding as the player should read it: "W", "Shift", "LMB", "Wheel down".
+## A binding as the player should read it: "W", "Shift", "LMB", "Wheel down", "LB", "Right stick ->".
 static func describe(event: InputEvent) -> String:
 	if event is InputEventKey:
 		var key: InputEventKey = event
@@ -210,7 +378,67 @@ static func describe(event: InputEvent) -> String:
 		return text if not text.is_empty() else "?"
 	if event is InputEventMouseButton:
 		return mouse_name((event as InputEventMouseButton).button_index)
+	if event is InputEventJoypadButton:
+		return joy_button_name((event as InputEventJoypadButton).button_index)
+	if event is InputEventJoypadMotion:
+		var axis: InputEventJoypadMotion = event
+		return axis_name(axis.axis, axis.axis_value)
 	return "?"
+
+
+## Pad buttons, named the way they are printed on the pad rather than by Godot's enum.
+static func joy_button_name(button: JoyButton) -> String:
+	match button:
+		JOY_BUTTON_A:
+			return "A"
+		JOY_BUTTON_B:
+			return "B"
+		JOY_BUTTON_X:
+			return "X"
+		JOY_BUTTON_Y:
+			return "Y"
+		JOY_BUTTON_LEFT_SHOULDER:
+			return "LB"
+		JOY_BUTTON_RIGHT_SHOULDER:
+			return "RB"
+		JOY_BUTTON_BACK:
+			return "Back"
+		JOY_BUTTON_START:
+			return "Start"
+		JOY_BUTTON_LEFT_STICK:
+			return "L3"
+		JOY_BUTTON_RIGHT_STICK:
+			return "R3"
+		JOY_BUTTON_DPAD_UP:
+			return "D-pad up"
+		JOY_BUTTON_DPAD_DOWN:
+			return "D-pad down"
+		JOY_BUTTON_DPAD_LEFT:
+			return "D-pad left"
+		JOY_BUTTON_DPAD_RIGHT:
+			return "D-pad right"
+		_:
+			return "Pad %d" % int(button)
+
+
+## A stick or trigger direction. Triggers have no direction, so they are named once; sticks read as an
+## arrow so "Left stick left" does not need repeating in every row.
+static func axis_name(axis: JoyAxis, value: float) -> String:
+	match axis:
+		JOY_AXIS_LEFT_X:
+			return "Left stick " + ("right" if value > 0.0 else "left")
+		JOY_AXIS_LEFT_Y:
+			return "Left stick " + ("down" if value > 0.0 else "up")
+		JOY_AXIS_RIGHT_X:
+			return "Right stick " + ("right" if value > 0.0 else "left")
+		JOY_AXIS_RIGHT_Y:
+			return "Right stick " + ("down" if value > 0.0 else "up")
+		JOY_AXIS_TRIGGER_LEFT:
+			return "LT"
+		JOY_AXIS_TRIGGER_RIGHT:
+			return "RT"
+		_:
+			return "Axis %d" % int(axis)
 
 
 static func mouse_name(button: MouseButton) -> String:
@@ -241,6 +469,19 @@ func describe_action(action: String) -> String:
 	return " / ".join(parts) if not parts.is_empty() else "unbound"
 
 
+## One action for the device in hand, for a prompt: "Q" on a keyboard, "LB" on a pad. Falls back to the
+## first binding of any kind when the action has nothing for that device, so an unbound-on-pad action
+## still says something rather than nothing.
+func describe_for_device(action: String) -> String:
+	var want_pad: bool = _gamepad_in_use
+	for event: InputEvent in InputMap.action_get_events(action):
+		if want_pad and (event is InputEventJoypadButton or event is InputEventJoypadMotion):
+			return describe(event)
+		if not want_pad and (event is InputEventKey or event is InputEventMouseButton):
+			return describe(event)
+	return describe_action(action)
+
+
 func action_label(action: String) -> String:
 	var meta: Dictionary = META.get(action, {})
 	return String(meta.get("label", action))
@@ -268,11 +509,11 @@ func actions_in(group: String) -> Array[String]:
 
 
 ## The title screen's control table, as [what to press, what it does] pairs. Generated from the live map
-## so a rebind cannot leave this screen lying about the keys.
+## and from the device in hand, so a rebind or a controller cannot leave this screen lying about the keys.
 func title_rows() -> Array:
-	var rows: Array = [["Mouse", "Aim"]]
+	var rows: Array = [["Mouse" if not _gamepad_in_use else "Right stick", "Aim"]]
 	for action: String in TITLE_ACTIONS:
-		rows.append([describe_action(action), action_label(action)])
+		rows.append([describe_for_device(action), action_label(action)])
 	return rows
 
 
@@ -345,6 +586,23 @@ static func event_from_spec(spec: Dictionary) -> InputEvent:
 			var mouse := InputEventMouseButton.new()
 			mouse.button_index = button as MouseButton
 			return mouse
+		"joy_button":
+			var pad_button: int = int(spec.get("button", -1))
+			if pad_button < 0:
+				return null
+			var pressed := InputEventJoypadButton.new()
+			pressed.button_index = pad_button as JoyButton
+			pressed.pressed = true
+			return pressed
+		"joy_axis":
+			var axis_index: int = int(spec.get("axis", -1))
+			if axis_index < 0:
+				return null
+			var motion := InputEventJoypadMotion.new()
+			motion.axis = axis_index as JoyAxis
+			# The sign is what defines the direction; the magnitude is the player's to push.
+			motion.axis_value = 1.0 if float(spec.get("value", 1.0)) >= 0.0 else -1.0
+			return motion
 	return null
 
 
@@ -357,6 +615,15 @@ static func spec_from_event(event: InputEvent) -> Dictionary:
 		return {"type": "key", "code": int(code)}
 	if event is InputEventMouseButton:
 		return {"type": "mouse", "button": int((event as InputEventMouseButton).button_index)}
+	if event is InputEventJoypadButton:
+		return {"type": "joy_button", "button": int((event as InputEventJoypadButton).button_index)}
+	if event is InputEventJoypadMotion:
+		var axis: InputEventJoypadMotion = event
+		return {
+			"type": "joy_axis",
+			"axis": int(axis.axis),
+			"value": 1.0 if axis.axis_value >= 0.0 else -1.0,
+		}
 	return {}
 
 #endregion

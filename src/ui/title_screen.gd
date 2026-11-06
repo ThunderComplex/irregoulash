@@ -28,6 +28,14 @@ func _ready() -> void:
 	_build()
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	Progress.changed.connect(_refresh_continue)
+	GameInput.device_changed.connect(_on_device_changed)
+
+
+## The controls table is written for the device in hand, so switching between pad and keyboard rebuilds
+## it. Deferred through the same flag the resize path uses: a rebuild during input dispatch would free
+## the buttons mid-event.
+func _on_device_changed(_gamepad: bool) -> void:
+	_resize_pending = true
 
 
 ## Keeps Continue honest if the checkpoint changes while the title is up, so the button can

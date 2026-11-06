@@ -1,4 +1,4 @@
-﻿extends Node
+extends Node
 ## Dev-only harness. Runs a scripted scenario, takes screenshots and prints
 ## numeric diagnostics, then quits. Inert during a normal run.
 ##
@@ -594,6 +594,29 @@ const SCENARIOS: Dictionary = {
 		{
 			"ammo_pickup_test": true,
 			"wait": 0.2,
+		},
+	],
+	## Gamepad: stick movement and aiming, trigger fire, Start pause, menu navigation, device-aware
+	## prompts, and a controller binding through the settings panel. Run against any level.
+	"gamepad": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"gamepad_test": true,
+			"wait": 0.2,
+		},
+	],
+	## The title screen as a controller player sees it.
+	"title_pad": [
+		{
+			"pad_prompts": true,
+			"wait": 0.5,
+		},
+		{
+			"shot": "title_screen_pad",
+			"wait": 0.1,
 		},
 	],
 	## The settings menu and its rebinding list, as the player sees them.
@@ -2296,7 +2319,9 @@ func _rebind_test() -> void:
 	var ui_ok: bool = every_action and buttons.has("reload")
 	menu.call("_on_rebind_pressed", "reload")
 	menu.call("_try_bind", _key_event(KEY_J))
+	# Rebinding a key must leave the pad binding alone; that is the whole point of the per-device rule.
 	var ui_bound: String = GameInput.describe_action("reload")
+	var ui_ok_bound: bool = ui_bound.contains("J") and ui_bound.contains("X")
 	menu.call("_close_controls")
 	GameInput.reset_all()
 	menu.queue_free()
@@ -2306,7 +2331,7 @@ func _rebind_test() -> void:
 
 	var passed: bool = fires and old_key_dead and refused and after_reload == bound_text \
 		and after_reset == default_text and default_fires and title_follows \
-		and ui_ok and ui_bound == "J"
+		and ui_ok and ui_ok_bound
 	print("[probe] rebind: reload '%s' -> '%s' fires=%s, old key dead=%s; '%s' refused=%s; after reload '%s'; after reset '%s' fires=%s; title follows=%s; menu rows=%s bound '%s' -> %s" % [
 		default_text, bound_text, fires, old_key_dead,
 		GameInput.action_label(conflict) if refused else "none", refused,
@@ -2318,6 +2343,146 @@ func _key_event(code: Key) -> InputEventKey:
 	var event := InputEventKey.new()
 	event.physical_keycode = code
 	return event
+
+
+## Gamepad support, end to end. Injected as real joypad events through the input loop (the same path a
+## pad uses), so this exercises the bindings rather than the holder methods: a wrong button constant or a
+## missing default event fails here.
+## Gamepad support, end to end. Everything is injected as real joypad events through the input loop (the
+## same path a pad uses), so this exercises the bindings rather than the holder methods: a wrong button
+## constant or a missing default event fails here.
+func _gamepad_test() -> void:
+	var player := GameDirector.valid_player()
+	if player == null:
+		print("[probe] gamepad: no player")
+		return
+	var holder := player.abilities as AbilityHolder
+	if holder != null:
+		holder.slots.clear()
+		holder.add_ability("fire_wall")
+
+	# --- device switching and aiming on the right stick
+	_send_joy_axis(JOY_AXIS_RIGHT_X, 1.0)
+	await _joy_settle()
+	var on_pad: bool = GameInput.using_gamepad()
+	var aim_right: bool = player.aim_direction.x > 0.9
+	_send_joy_axis(JOY_AXIS_RIGHT_X, 0.0)
+	await _joy_settle()
+	# Released stick keeps the last aim rather than snapping back to the middle.
+	var aim_kept: bool = player.aim_direction.x > 0.9
+
+	# A push inside the deadzone must not move the aim.
+	var before_deadzone: Vector2 = player.aim_direction
+	_send_joy_axis(JOY_AXIS_RIGHT_X, 0.1)
+	await _joy_settle()
+	var deadzoned: bool = player.aim_direction.is_equal_approx(before_deadzone)
+	_send_joy_axis(JOY_AXIS_RIGHT_X, 0.0)
+	await _joy_settle()
+
+	# --- movement on the left stick
+	var start: Vector2 = player.global_position
+	_send_joy_axis(JOY_AXIS_LEFT_Y, 1.0)
+	for frame: int in 6:
+		await get_tree().physics_frame
+	var moved: bool = player.global_position.y > start.y + 4.0
+	_send_joy_axis(JOY_AXIS_LEFT_Y, 0.0)
+	await _joy_settle()
+
+	# --- fire on the trigger axis
+	_send_joy_axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)
+	await _joy_settle()
+	var fires: bool = Input.is_action_pressed(&"fire")
+	_send_joy_axis(JOY_AXIS_TRIGGER_RIGHT, 0.0)
+	await _joy_settle()
+
+	# --- prompts follow the pad, in the HUD and on the title screen
+	var prompt: String = GameInput.describe_for_device("ability_1")
+	var title_device: String = String((GameInput.title_rows()[0] as Array)[0])
+	var hud_prompt: bool = false
+	var level: Node = GameDirector.current_level
+	var hud: Node = level.get_node_or_null("HUD") if level != null else null
+	if hud != null:
+		var labels: Array = hud.get("_ability_labels")
+		if labels != null and not labels.is_empty():
+			hud_prompt = (labels[0] as Label).text.begins_with(prompt)
+	await _screenshot("gamepad_hud")
+
+	# --- Start pauses and resumes
+	_send_joy_button(JOY_BUTTON_START, true)
+	await _joy_settle()
+	var paused: bool = GameDirector.is_paused()
+	_send_joy_button(JOY_BUTTON_START, false)
+	_send_joy_button(JOY_BUTTON_START, true)
+	await _joy_settle()
+	var resumed: bool = not GameDirector.is_paused()
+	_send_joy_button(JOY_BUTTON_START, false)
+	await _joy_settle()
+
+	# --- the built-in UI actions a menu navigates with
+	_send_joy_button(JOY_BUTTON_A, true)
+	await _joy_settle()
+	var accept: bool = Input.is_action_pressed(&"ui_accept")
+	_send_joy_button(JOY_BUTTON_A, false)
+	_send_joy_button(JOY_BUTTON_DPAD_DOWN, true)
+	await _joy_settle()
+	var down: bool = Input.is_action_pressed(&"ui_down")
+	_send_joy_button(JOY_BUTTON_DPAD_DOWN, false)
+	await _joy_settle()
+
+	# --- a pad button rebinds through the same panel as a key
+	GameInput.reset_all()
+	var menu := SettingsMenu.new()
+	get_tree().root.add_child(menu)
+	await get_tree().process_frame
+	menu.call("_open_controls")
+	await get_tree().process_frame
+	menu.call("_on_rebind_pressed", "reload")
+	var pad_event := InputEventJoypadButton.new()
+	pad_event.button_index = JOY_BUTTON_DPAD_UP
+	pad_event.pressed = true
+	menu.call("_try_bind", pad_event)
+	var pad_bound: String = GameInput.describe_action("reload")
+	var pad_ok: bool = pad_bound.contains("D-pad up") and pad_bound.contains("R")
+	menu.call("_close_controls")
+	GameInput.reset_all()
+	menu.queue_free()
+	await get_tree().process_frame
+
+	# --- and any keyboard input switches the prompts back
+	_send_key(KEY_F, true)
+	await _joy_settle()
+	var back_to_keys: bool = not GameInput.using_gamepad()
+	_send_key(KEY_F, false)
+	await _joy_settle()
+
+	var passed: bool = on_pad and aim_right and aim_kept and deadzoned and moved and fires \
+		and prompt == "LB" and title_device == "Right stick" and hud_prompt \
+		and paused and resumed and accept and down and pad_ok and back_to_keys
+	print("[probe] gamepad: pad=%s aim right=%s kept=%s deadzone=%s moved=%s fire=%s prompt='%s' title='%s' hud=%s pause=%s resume=%s ui_accept=%s ui_down=%s pad bind='%s' back to keys=%s -> %s" % [
+		on_pad, aim_right, aim_kept, deadzoned, moved, fires, prompt, title_device, hud_prompt,
+		paused, resumed, accept, down, pad_bound, back_to_keys,
+		"PASS" if passed else "FAIL"])
+
+
+## Injected events are buffered until the next input flush, which happens around the physics step. One
+## physics frame and one idle frame is comfortably past it, and makes the assertions deterministic.
+func _joy_settle() -> void:
+	await get_tree().physics_frame
+	await get_tree().process_frame
+
+
+func _send_joy_axis(axis: JoyAxis, value: float) -> void:
+	var event := InputEventJoypadMotion.new()
+	event.axis = axis
+	event.axis_value = value
+	Input.parse_input_event(event)
+
+
+func _send_joy_button(button: JoyButton, pressed: bool) -> void:
+	var event := InputEventJoypadButton.new()
+	event.button_index = button
+	event.pressed = pressed
+	Input.parse_input_event(event)
 
 
 ## One crate raises *both* ability slots by a level, refuses at the cap (so it stays on the ground), and
@@ -3129,6 +3294,12 @@ func _run(scenario: String) -> void:
 			await _ability_upgrade_test()
 		if step.has("rebind_test"):
 			await _rebind_test()
+		if step.has("gamepad_test"):
+			await _gamepad_test()
+		if step.has("pad_prompts"):
+			# A push inside the deadzone: it moves nothing, but marks the pad as the last device so
+			# every prompt re-renders for a controller.
+			_send_joy_axis(JOY_AXIS_RIGHT_X, 0.05)
 		if step.has("clear_progress"):
 			Progress.clear()
 			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())

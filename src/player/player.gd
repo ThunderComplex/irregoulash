@@ -67,12 +67,18 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if _dead:
 		return
-	var mouse: Vector2 = get_global_mouse_position()
-	var to_mouse: Vector2 = mouse - global_position
 	if debug_aim != Vector2.ZERO:
 		aim_direction = debug_aim.normalized()
-	elif to_mouse.length_squared() > 1.0:
-		aim_direction = to_mouse.normalized()
+	else:
+		var stick: Vector2 = GameInput.aim_vector()
+		if stick != Vector2.ZERO:
+			# Pad aim. The last direction is kept when the stick returns to centre, so the cone does not
+			# snap back to the middle of the screen the moment the player lets go.
+			aim_direction = stick.normalized()
+		elif not GameInput.using_gamepad():
+			var to_mouse: Vector2 = get_global_mouse_position() - global_position
+			if to_mouse.length_squared() > 1.0:
+				aim_direction = to_mouse.normalized()
 	vision.aim_at(aim_direction)
 	gun_pivot.rotation = aim_direction.angle()
 	# Keep the gun the right way up when aiming leftwards.
@@ -216,6 +222,12 @@ func _update_footsteps(delta: float) -> void:
 
 
 func _update_camera_offset() -> void:
+	# The mouse version scales with how far the cursor is from the player; a stick has no cursor, so a
+	# pad gets a fixed nudge in the aim direction. The aim persists when the stick is released, which is
+	# what keeps the camera still instead of panning back to centre.
+	if GameInput.using_gamepad():
+		camera.position = aim_direction * Tuning.gamepad_camera_offset
+		return
 	var distance: float = get_global_mouse_position().distance_to(global_position)
 	var amount: float = minf(distance * Tuning.camera_aim_offset, Tuning.camera_aim_offset_max)
 	camera.position = aim_direction * amount

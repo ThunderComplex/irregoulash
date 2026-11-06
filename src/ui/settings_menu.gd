@@ -444,6 +444,22 @@ func _input(event: InputEvent) -> void:
 			return
 		get_viewport().set_input_as_handled()
 		_try_bind(mouse)
+		return
+	if event is InputEventJoypadButton:
+		var pad_button: InputEventJoypadButton = event
+		if not pad_button.pressed:
+			return
+		get_viewport().set_input_as_handled()
+		_try_bind(pad_button)
+		return
+	if event is InputEventJoypadMotion:
+		var motion: InputEventJoypadMotion = event
+		# A stick reports continuously; bind on the first push past the halfway point and ignore the
+		# drift on the way back.
+		if absf(motion.axis_value) < 0.6:
+			return
+		get_viewport().set_input_as_handled()
+		_try_bind(motion)
 
 
 func _try_bind(event: InputEvent) -> void:
@@ -456,7 +472,7 @@ func _try_bind(event: InputEvent) -> void:
 		_status("Already used by %s" % GameInput.action_label(conflict), Color(0.95, 0.55, 0.45))
 		_finish_capture()
 		return
-	GameInput.set_action_events(action, events)
+	GameInput.rebind(action, event)
 	_finish_capture()
 	_status("", Color(0.72, 0.8, 0.9))
 

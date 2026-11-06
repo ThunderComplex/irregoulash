@@ -14,7 +14,7 @@ Design reasoning lives in `docs/DESIGN_NOTES.md`; genuinely undecided questions 
 | 2 | Ability upgrade pickups (both slots +1) | 1 | small | done |
 | 3 | Campaign as one ordered table | -- | medium | done |
 | 4 | Rebindable input (keyboard and mouse) | -- | medium | done |
-| 5 | Gamepad support, including Steam Deck | 4 | large | queued |
+| 5 | Gamepad support, including Steam Deck | 4 | large | done |
 | 6 | Level select after finishing | 3 | medium | queued |
 | 7 | Steam release plumbing | 3, 4, 5, 6 | medium | queued |
 
@@ -272,6 +272,16 @@ map, and defaults restore in one click.
 ---
 
 ## 5. Gamepad support, including Steam Deck
+
+**Status: done.** Aim is four actions (`aim_up/down/left/right`, right stick by default), so it lives in
+the same rebindable map as everything else; the player keeps the last aim when the stick is released.
+Pad buttons and stick axes are in `DEFAULT_SPECS` side by side with keys, and the Controls panel
+captures `InputEventJoypadButton` and `InputEventJoypadMotion` into the same `bindings.cfg`. The player
+and HUD follow the last device used (`GameInput.using_gamepad()`), and the built-in `ui_*` actions get
+pad events added without disturbing their keyboard defaults, so menus are navigable with A/B and the
+D-pad. `1280x800` is in the resolution list. `--probe=gamepad` injects real joypad events through the
+input loop and checks movement, aim + deadzone + persistence, trigger fire, Start pause, UI navigation,
+device-aware prompts, and a pad-button rebind.
 
 **Goal.** The game is playable start to finish with only a controller, at 1280x800, with prompts that
 match the device in hand, and with pad buttons rebindable through task 4's UI.

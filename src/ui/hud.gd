@@ -149,7 +149,8 @@ func _update_abilities() -> void:
 		holder = _player.abilities as AbilityHolder
 	for i: int in _ability_labels.size():
 		var label: Label = _ability_labels[i]
-		var key_label: String = "Q" if i == 0 else "E"
+		# The prompt follows the device: "Q" on a keyboard, "LB" on a pad. It follows a rebind too.
+		var key_label: String = GameInput.describe_for_device("ability_%d" % (i + 1))
 		var slot: AbilitySlot = holder.slot_at(i) if holder != null else null
 		if slot == null or slot.data == null:
 			label.text = "%s  -" % key_label
@@ -189,9 +190,15 @@ func _update_weapons() -> void:
 	_ammo_text.modulate = Color(1.0, 0.45, 0.4) if slot.mag == 0 else Color.WHITE
 
 	var parts: Array[String] = []
+	var on_pad: bool = GameInput.using_gamepad()
 	for i: int in holder.slots.size():
 		var s: WeaponSlot = holder.slots[i]
-		var marker: String = ("[%d]" % (i + 1)) if i == holder.current else (" %d " % (i + 1))
+		if on_pad:
+			# There is no number key on a pad; the slot's own name is the marker.
+			parts.append(("[%s]" % s.data.display_name) if i == holder.current else s.data.display_name)
+			continue
+		var bind: String = GameInput.describe_for_device("switch_%d" % (i + 1))
+		var marker: String = ("[%s]" % bind) if i == holder.current else (" %s " % bind)
 		parts.append("%s %s" % [marker, s.data.display_name])
 	_slots_text.text = "  ".join(parts)
 
@@ -320,13 +327,18 @@ func _on_player_damaged(_amount: float, _source: Node, _hit: Vector2, _dir: Vect
 
 
 func _on_game_over(reason: String) -> void:
-	_show_overlay("dead", "YOU DIED", "%s\n\n%s\n\n[ Enter ]  restart this level\n[ Esc ]    back to title" % [
+	_show_overlay("dead", "YOU DIED", "%s\n\n%s\n\n[ %s ]  restart this level\n[ %s ]    back to title" % [
 		reason, GameDirector.stats_line(),
+		GameInput.describe_for_device("ui_accept"), GameInput.describe_for_device("ui_cancel"),
 	], Color(1.0, 0.42, 0.4))
 
 
 func _on_game_won() -> void:
-	_show_overlay("won", "YOU ESCAPED", "%s\n\n[ Enter ]  play again\n[ Esc ]    back to title" % GameDirector.stats_line(),
+	_show_overlay("won", "YOU ESCAPED",
+		"%s\n\n[ %s ]  play again\n[ %s ]    back to title" % [
+			GameDirector.stats_line(),
+			GameInput.describe_for_device("ui_accept"), GameInput.describe_for_device("ui_cancel"),
+		],
 		Color(0.6, 1.0, 0.7))
 
 
@@ -485,7 +497,7 @@ func _build() -> void:
 	# --- abilities, one line each, above the weapon readout. The key labels mirror
 	# GameInput's ability_1 / ability_2 bindings.
 	for i: int in AbilityHolder.MAX_SLOTS:
-		var key_label: String = "Q" if i == 0 else "E"
+		var key_label: String = GameInput.describe_for_device("ability_%d" % (i + 1))
 		var label := _label(_root, Control.PRESET_BOTTOM_RIGHT,
 			-420.0, -178.0 + float(i) * 24.0, -28.0, -154.0 + float(i) * 24.0, 15,
 			HORIZONTAL_ALIGNMENT_RIGHT, Color(0.72, 0.78, 0.9))

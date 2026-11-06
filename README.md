@@ -44,6 +44,24 @@ wins the run.
 
 All of these can be rebound in Settings → Controls; this table is the default.
 
+### Controller
+
+| Input | Action |
+|---|---|
+| Left stick | Move |
+| Right stick | Aim (last direction is kept when the stick is released) |
+| RT | Fire |
+| X | Reload |
+| Y | Interact |
+| B | Dash |
+| LB / RB | Ability 1 / 2 |
+| D-pad ← / → | Previous / next weapon |
+| Start | Pause |
+| D-pad + A / B | Menu navigation, confirm / back |
+
+Prompts follow whichever device you last used, and pad buttons are rebindable in the same
+Settings → Controls list. The default window list includes 1280×800 for the Steam Deck.
+
 Walk over weapons, ammo and medkits to pick them up.
 
 ### Debug keys
@@ -238,10 +256,11 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path . --import
   completable and linted, not tuned. Expect to want to move cover around.
 - **The HUD is built in code**, not as a scene, so it cannot be nudged around in
   the editor. That was a deliberate trade while the layout was still changing.
-- **No save/load and no gamepad yet.** Settings (window, resolution, vsync, volumes) persist
-  in `user://settings.cfg`. There is no save game. Gameplay actions are rebindable in the
-  settings menu, and the choices persist in `user://bindings.cfg`; `GameInput.DEFAULT_SPECS`
-  is the shipped default, so an unrebound action keeps tracking that table.
+- **No save/load.** Settings (window, resolution, vsync, volumes) persist in
+  `user://settings.cfg`. Gameplay actions are rebindable in the settings menu, and the choices
+  persist in `user://bindings.cfg`; `GameInput.DEFAULT_SPECS` is the shipped default, so an
+  unrebound action keeps tracking that table. Gamepad bindings live in the same file and the same
+  table.
 - Quitting a level prints `2 ObjectDB instances were leaked at exit` (an
   `AudioStreamWAV` and its playback). It is a shutdown-ordering artefact in Godot's
   audio mixer, not a gameplay leak — `AudioDirector._exit_tree()` stops every pooled

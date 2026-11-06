@@ -31,6 +31,7 @@ enum WindowMode {
 const COMMON_SIZES: Array[Vector2i] = [
 	Vector2i(1024, 768),
 	Vector2i(1280, 720),
+	Vector2i(1280, 800),
 	Vector2i(1366, 768),
 	Vector2i(1440, 900),
 	Vector2i(1600, 900),
