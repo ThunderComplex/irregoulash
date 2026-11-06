@@ -635,6 +635,17 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.1,
 		},
 	],
+	## The title screen's buttons live in a centred reference frame; on a window that is not 16:9 they
+	## used to drift from the labels because the menu ignored the frame's origin.
+	"title_menu_resize": [
+		{
+			"wait": 0.3,
+		},
+		{
+			"title_menu_resize_test": true,
+			"wait": 0.2,
+		},
+	],
 	## The pause menu is placed in pixels, unlike the anchored title and stats, so it has to re-centre on a
 	## resize -- including a width-only one, which does not change the layout scale.
 	"pause_resize": [
@@ -2673,6 +2684,46 @@ func _ui_layers_test() -> void:
 	print("[probe] ui layers: %s -> %s" % [detail, "PASS" if ok else "FAIL"])
 
 
+## The title screen's main menu after a resize. Everything on that screen is laid out in a centred
+## 1280x720 reference frame (`_origin` + point * `_scale`), but the menu is a `MenuList`, which is placed
+## in pixels -- so it has to be given the frame's origin or it drifts from the labels as soon as the
+## window is not exactly 16:9.
+func _title_menu_resize_test() -> void:
+	var title: Node = get_tree().current_scene
+	if title == null or not title.has_method("open_settings"):
+		print("[probe] title menu resize: no title screen")
+		return
+	var before: Vector2i = get_window().size
+	var reports: Array[String] = []
+	var ok: bool = true
+	# 16:9, a 4:3 window, and a width-only change at the same height.
+	for size: Vector2i in [Vector2i(1280, 720), Vector2i(1024, 768), Vector2i(1600, 720)]:
+		get_window().size = size
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var menu: Control = title.get("_main_menu")
+		var origin: Vector2 = title.get("_origin")
+		var scale: float = float(title.get("_scale"))
+		var expected := Rect2(origin + Vector2(400.0, 620.0) * scale,
+			Vector2(840.0, 2.0 * MenuList.ROW_HEIGHT) * scale)
+		var actual: Rect2 = menu.get_global_rect()
+		var dx: float = absf(actual.position.x - expected.position.x)
+		var dy: float = absf(actual.position.y - expected.position.y)
+		var size_ok: bool = actual.size.is_equal_approx(expected.size)
+		reports.append("%dx%d dx=%.0f dy=%.0f size=%s" % [size.x, size.y, dx, dy, size_ok])
+		ok = ok and dx <= 2.0 and dy <= 2.0 and size_ok
+
+	# A 4:3 window is where the drift is most visible, so that is the screenshot.
+	get_window().size = Vector2i(1024, 768)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _screenshot("title_menu_4x3")
+	get_window().size = before
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("[probe] title menu resize: %s -> %s" % ["; ".join(reports), "PASS" if ok else "FAIL"])
+
+
 ## The pause menu after a resize. Its buttons are a `MenuList`, placed in pixels from the viewport centre,
 ## while the title and stats above it are anchored -- so they used to move and it did not. Includes a
 ## width-only resize, which leaves the layout scale unchanged and used to skip the rebuild entirely.
@@ -3628,6 +3679,8 @@ func _run(scenario: String) -> void:
 			await _settings_resize_test()
 		if step.has("pause_resize_test"):
 			await _pause_resize_test()
+		if step.has("title_menu_resize_test"):
+			await _title_menu_resize_test()
 		if step.has("pad_prompts"):
 			# A push inside the deadzone: it moves nothing, but marks the pad as the last device so
 			# every prompt re-renders for a controller.

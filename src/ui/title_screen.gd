@@ -195,7 +195,7 @@ func _build() -> void:
 	# the control list and the "what to try" text both run down to just above it. Three columns rather
 	# than two because the level select adds a fifth entry after the campaign is finished.
 	_main_menu = MenuList.new()
-	_main_menu.configure(Rect2(400.0, 620.0, 840.0, 2.0 * MenuList.ROW_HEIGHT), _scale, 3)
+	_main_menu.configure(Rect2(400.0, 620.0, 840.0, 2.0 * MenuList.ROW_HEIGHT), _scale, 3, _origin)
 	_main_menu.add_item(&"new_game", "NEW GAME")
 	_main_menu.add_item(&"continue", Progress.continue_label(), Progress.has_progress())
 	_main_menu.add_item(&"level_select", "LEVEL SELECT", Progress.finished)

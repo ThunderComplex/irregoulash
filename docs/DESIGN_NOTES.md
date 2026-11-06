@@ -271,6 +271,11 @@ Also worth knowing:
   pixels must derive its position from the viewport on every rebuild, and the rebuild cannot be gated on
   the scale if the scale ignores one axis. `--probe=pause_resize` checks 16:9, a width-only change and
   two odd aspects; on the old guard the width-only case is off by exactly half the added width.
+  The title screen has the same shape in a different guise: its labels lay out in a *centred* 1280x720
+  frame (`_origin + point * scale`), and the main menu is a `MenuList` placed in pixels, so it was
+  offset by the frame's origin on any window that was not exactly 16:9 -- 96px down on a 4:3 window,
+  160px right on a wide one. `MenuList.configure` takes an `origin` now and the title passes its own;
+  `--probe=title_menu_resize` checks 16:9, 4:3 and a width-only change.
 - **A signal handler must not free the control that emitted it.** The resolution dropdown emits
   `item_selected`; its handler changes the window, which fires `size_changed` *synchronously*, and the
   settings menu's resize handler rebuilt the panel -- freeing the dropdown while it was still emitting.

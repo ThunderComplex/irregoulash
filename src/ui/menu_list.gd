@@ -21,13 +21,14 @@ var _buttons: Array[Button] = []
 var _ids: Array[StringName] = []
 
 
-## `rect` is in reference units; the list occupies that rectangle on screen. `columns` above 1
-## lays the items out as a grid, which is how four buttons fit in a title screen whose text
-## already fills the frame. Size the rectangle as rows * ROW_HEIGHT: the items divide it evenly.
-func configure(rect: Rect2, rect_scale: float, columns: int = 1) -> void:
+## `rect` is in reference units; the list occupies that rectangle on screen. `origin` is added to the
+## position *after* scaling, for a screen whose reference frame is centred rather than starting at 0,0:
+## the title screen lays out in a centred 1280x720 frame, so a menu placed without its origin drifts
+## from the labels beside it as soon as the window is not exactly 16:9.
+func configure(rect: Rect2, rect_scale: float, columns: int = 1, origin: Vector2 = Vector2.ZERO) -> void:
 	_scale = maxf(0.1, rect_scale)
 	_columns = maxi(1, columns)
-	position = rect.position * _scale
+	position = origin + rect.position * _scale
 	size = rect.size * _scale
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
