@@ -13,7 +13,7 @@ Design reasoning lives in `docs/DESIGN_NOTES.md`; genuinely undecided questions 
 | 1 | Carry abilities between levels | -- | small | done |
 | 2 | Ability upgrade pickups (both slots +1) | 1 | small | done |
 | 3 | Campaign as one ordered table | -- | medium | done |
-| 4 | Rebindable input (keyboard and mouse) | -- | medium | queued |
+| 4 | Rebindable input (keyboard and mouse) | -- | medium | done |
 | 5 | Gamepad support, including Steam Deck | 4 | large | queued |
 | 6 | Level select after finishing | 3 | medium | queued |
 | 7 | Steam release plumbing | 3, 4, 5, 6 | medium | queued |
@@ -215,6 +215,13 @@ warning.
 ---
 
 ## 4. Rebindable input (keyboard and mouse)
+
+**Status: done.** Defaults are data (`GameInput.DEFAULT_SPECS`) and an override is written per action to
+`user://bindings.cfg`; `register_all()` builds the map from both. The settings menu has a **Controls**
+panel (grouped, scrollable, one button per action, Esc backs out one level), conflicts are refused by
+name, and **Reset all controls** restores the shipped defaults. The title screen builds its table from
+the live map, so a rebind shows up there. `--probe=rebind` covers the whole path including a capture
+applied through the panel. Gamepad bindings are task 5's job and slot into the same store.
 
 **Goal.** Every gameplay action can be rebound in the settings menu, conflicts are impossible, the
 title screen shows the current bindings, and defaults can be restored.

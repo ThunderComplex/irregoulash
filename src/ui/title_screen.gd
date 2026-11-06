@@ -1,8 +1,8 @@
 extends Control
 ## Title screen. Also the project's main scene, so the game always starts here.
 ##
-## Doubles as the "how do I play this" screen: the control list is generated from
-## GameInput.CONTROLS_TEXT so it cannot drift out of date.
+## Doubles as the "how do I play this" screen: the control list is generated from the live input map, so
+## it cannot drift out of date and cannot lie after a rebind.
 ##
 ## The layout below is written in the coordinates of a 1280x720 frame and scaled to fit the
 ## window, so the same screen works on a small window and on a 4K monitor. It is rebuilt on
@@ -47,7 +47,7 @@ func _refresh_continue() -> void:
 func _process(_delta: float) -> void:
 	if _resize_pending:
 		_resize_pending = false
-		_rebuild()
+		rebuild()
 
 
 ## There is deliberately no `_unhandled_input` here any more: every action is a button, so
@@ -70,6 +70,10 @@ func open_settings() -> void:
 	if _settings_menu != null and is_instance_valid(_settings_menu):
 		return
 	_settings_menu = SettingsMenu.new()
+
+	if not _settings_menu.settings_closed.is_connected(rebuild):
+		_settings_menu.settings_closed.connect(rebuild)
+	
 	add_child(_settings_menu)
 
 
@@ -89,7 +93,7 @@ func _on_viewport_resized() -> void:
 
 ## Rebuilds everything except an open settings menu, which stays put. The main menu *is*
 ## rebuilt, so it is never the node left holding stale coordinates.
-func _rebuild() -> void:
+func rebuild() -> void:
 	for child: Node in get_children():
 		if child == _settings_menu:
 			continue
@@ -127,8 +131,8 @@ func _build() -> void:
 		"in development  --  line of sight is the whole game", 18,
 		Color(0.6, 0.68, 0.8))
 
-	_label(Vector2(84.0, 256.0), Vector2(520.0, 340.0), GameInput.CONTROLS_TEXT, 17,
-		Color(0.78, 0.84, 0.92))
+	# Generated from the live input map, so a rebind cannot leave this text lying about what the keys do.
+	_controls_block(Vector2(84.0, 256.0))
 
 	_label(Vector2(640.0, 256.0), Vector2(600.0, 300.0),
 		"""What to try
@@ -170,6 +174,47 @@ func _build() -> void:
 ## Reference frame -> screen pixels.
 func _to_screen(point: Vector2) -> Vector2:
 	return _origin + point * _scale
+
+
+## The controls block: two aligned columns generated from the live input map, so a rebind cannot leave
+## this screen lying about the keys. A grid rather than space-padded text, because the default font is
+## proportional and padded columns never line up.
+func _controls_block(position_: Vector2) -> void:
+	var box := VBoxContainer.new()
+	box.position = _to_screen(position_)
+	box.custom_minimum_size = Vector2(520.0, 0.0) * _scale
+	box.add_theme_constant_override("separation", maxi(1, int(round(12.0 * _scale))))
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(box)
+
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", maxi(1, int(round(20.0 * _scale))))
+	grid.add_theme_constant_override("v_separation", maxi(1, int(round(1.0 * _scale))))
+	box.add_child(grid)
+	for row: Array in GameInput.title_rows():
+		grid.add_child(_block_label(String(row[0]), 17, Color(0.78, 0.84, 0.92)))
+		grid.add_child(_block_label(String(row[1]), 17, Color(0.62, 0.68, 0.78)))
+
+	var hint := _block_label("Walk over weapons, ammo, medkits and keys to pick them up.", 15,
+		Color(0.55, 0.62, 0.72))
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(hint)
+
+	if OS.is_debug_build():
+		var debug := _block_label("Debug: " + GameInput.debug_short_text(), 14,
+			Color(0.45, 0.5, 0.58))
+		debug.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(debug)
+
+
+func _block_label(text: String, font_size: int, color: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", maxi(1, int(round(float(font_size) * _scale))))
+	label.modulate = color
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return label
 
 
 func _label(position_: Vector2, label_size: Vector2, text: String, font_size: int, color: Color,

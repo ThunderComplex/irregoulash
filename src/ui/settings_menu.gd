@@ -1,14 +1,19 @@
-class_name SettingsMenu
+﻿class_name SettingsMenu
 extends Control
 ## The settings menu. Opened from the title screen and from the pause overlay.
 ##
 ## Changes apply and persist the moment they are made -- there is no Apply button to forget,
 ## and no way to lose a change by backing out. Escape closes it.
 ##
+## "Controls" swaps the panel for the rebinding list (`GameInput` owns the bindings themselves); Esc
+## there returns here rather than closing everything.
+##
 ## Built in code like the HUD, and laid out in the coordinates of a 1280x720 frame scaled
 ## to fit the window, so it is complete and legible at any resolution. The footer reports
 ## the real window size, which is also the quickest way to *see* that the rest of the game
 ## coped with the change.
+
+signal settings_closed();
 
 const REFERENCE: Vector2 = Vector2(1280.0, 720.0)
 const PANEL_SIZE: Vector2 = Vector2(620.0, 540.0)
@@ -31,6 +36,14 @@ var _footer: Label = null
 ## Parallel to the resolution OptionButton's items.
 var _resolution_sizes: Array[Vector2i] = []
 
+## The rebinding panel, built on demand. Null while the normal settings rows are showing.
+var _controls_panel: Control = null
+## Action id -> the button showing (and changing) its binding.
+var _binding_buttons: Dictionary = {}
+## The action waiting for a key press, or "" when nothing is being captured.
+var _capture_action: String = ""
+var _controls_status: Label = null
+
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -41,6 +54,7 @@ func _ready() -> void:
 	_sync()
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	Settings.changed.connect(_sync)
+	GameInput.bindings_changed.connect(_refresh_bindings)
 
 
 func _process(_delta: float) -> void:
@@ -65,10 +79,15 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"ui_cancel"):
 		get_viewport().set_input_as_handled()
-		close()
+		# Esc backs out one level: capture, then the controls list, then the menu itself.
+		if _controls_panel != null:
+			_close_controls()
+		else:
+			close()
 
 
 func close() -> void:
+	settings_closed.emit()
 	AudioDirector.play(&"ui_click", -6.0)
 	queue_free()
 
@@ -88,6 +107,7 @@ func _on_viewport_resized() -> void:
 
 
 func _rebuild() -> void:
+	_close_controls()
 	_panel.free()
 	_panel = null
 	_build()
@@ -155,9 +175,17 @@ func _build() -> void:
 
 	# --- buttons. `y` is kept unscaled because every use below multiplies by `_scale`.
 	var y: float = ROW_TOP + 5.0 * ROW_HEIGHT + 22.0
+	var controls := Button.new()
+	controls.text = "Controls"
+	controls.position = Vector2(ROW_LEFT, y) * _scale
+	controls.size = Vector2(150.0, 38.0) * _scale
+	controls.add_theme_font_size_override("font_size", _font(17))
+	controls.pressed.connect(_open_controls)
+	_panel.add_child(controls)
+
 	var reset := Button.new()
 	reset.text = "Reset to defaults"
-	reset.position = Vector2(ROW_LEFT, ROW_TOP + 5.0 * ROW_HEIGHT + 22.0) * _scale
+	reset.position = Vector2(ROW_LEFT + 162.0, y) * _scale
 	reset.size = Vector2(210.0, 38.0) * _scale
 	reset.add_theme_font_size_override("font_size", _font(17))
 	reset.pressed.connect(_on_reset_pressed)
@@ -208,14 +236,15 @@ func _rect(parent: Control, position_: Vector2, rect_size: Vector2, color: Color
 	return rect
 
 
-func _label(position_: Vector2, text: String, font_size: int, color: Color) -> Label:
+func _label(position_: Vector2, text: String, font_size: int, color: Color,
+		parent: Control = null) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.position = position_ * _scale
 	label.add_theme_font_size_override("font_size", _font(font_size))
 	label.modulate = color
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_panel.add_child(label)
+	(parent if parent != null else _panel).add_child(label)
 	return label
 
 
@@ -278,5 +307,188 @@ func _on_sfx_changed(value: float) -> void:
 func _on_reset_pressed() -> void:
 	AudioDirector.play(&"ui_click", -6.0)
 	Settings.reset_defaults()
+
+#endregion
+
+
+#region controls
+
+## Swaps the settings rows for the rebinding list. A second panel rather than a tab strip: the settings
+## rows are a fixed five and the controls list is long enough to scroll, so they want different layouts.
+func _open_controls() -> void:
+	if _controls_panel != null:
+		return
+	AudioDirector.play(&"ui_click", -6.0)
+	_panel.visible = false
+
+	_controls_panel = Control.new()
+	_controls_panel.name = "ControlsPanel"
+	_controls_panel.position = _panel.position
+	_controls_panel.size = _panel.size
+	_controls_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_controls_panel)
+
+	_rect(_controls_panel, Vector2(-3.0, -3.0), PANEL_SIZE + Vector2(6.0, 6.0),
+		Color(0.16, 0.19, 0.24))
+	_rect(_controls_panel, Vector2.ZERO, PANEL_SIZE, Color(0.055, 0.065, 0.085, 0.98))
+	_label(Vector2(ROW_LEFT, 34.0), "CONTROLS", 30, Color(0.92, 0.96, 1.0), _controls_panel)
+
+	var scroll := ScrollContainer.new()
+	scroll.position = Vector2(ROW_LEFT, 84.0) * _scale
+	scroll.size = Vector2(PANEL_SIZE.x - ROW_LEFT - ROW_RIGHT, PANEL_SIZE.y - 84.0 - 108.0) * _scale
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_controls_panel.add_child(scroll)
+
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", _font(6))
+	scroll.add_child(list)
+
+	for group: String in GameInput.groups():
+		var heading := Label.new()
+		heading.text = group.to_upper()
+		heading.add_theme_font_size_override("font_size", _font(15))
+		heading.modulate = Color(0.55, 0.62, 0.72)
+		list.add_child(heading)
+		for action: String in GameInput.actions_in(group):
+			list.add_child(_binding_row(action))
+
+	_controls_status = _label(Vector2(ROW_LEFT, PANEL_SIZE.y - 92.0), "", 15,
+		Color(0.72, 0.8, 0.9), _controls_panel)
+	_controls_status.size = Vector2(PANEL_SIZE.x - ROW_LEFT - ROW_RIGHT, 24.0) * _scale
+	_controls_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	var reset_all := Button.new()
+	reset_all.text = "Reset all controls"
+	reset_all.position = Vector2(ROW_LEFT, PANEL_SIZE.y - 56.0) * _scale
+	reset_all.size = Vector2(210.0, 38.0) * _scale
+	reset_all.add_theme_font_size_override("font_size", _font(17))
+	reset_all.pressed.connect(_on_reset_controls_pressed)
+	_controls_panel.add_child(reset_all)
+
+	var back := Button.new()
+	back.text = "Back"
+	back.position = Vector2(PANEL_SIZE.x - ROW_RIGHT - 150.0, PANEL_SIZE.y - 56.0) * _scale
+	back.size = Vector2(150.0, 38.0) * _scale
+	back.add_theme_font_size_override("font_size", _font(17))
+	back.pressed.connect(_close_controls)
+	_controls_panel.add_child(back)
+
+
+func _close_controls() -> void:
+	_finish_capture()
+	if _controls_panel != null:
+		_controls_panel.queue_free()
+		_controls_panel = null
+	_controls_status = null
+	_binding_buttons.clear()
+	if _panel != null and is_instance_valid(_panel):
+		_panel.visible = true
+
+
+## One row: the action's name and a button showing what it is bound to. Pressing the button starts
+## capturing the next key or mouse button.
+func _binding_row(action: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", _font(8))
+
+	var label := Label.new()
+	label.text = GameInput.action_label(action)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("font_size", _font(17))
+	label.modulate = Color(0.78, 0.85, 0.93)
+	row.add_child(label)
+
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(190.0, 30.0) * _scale
+	button.add_theme_font_size_override("font_size", _font(16))
+	button.text = GameInput.describe_action(action)
+	button.pressed.connect(_on_rebind_pressed.bind(action))
+	row.add_child(button)
+
+	_binding_buttons[action] = button
+	return row
+
+
+func _on_rebind_pressed(action: String) -> void:
+	if not _capture_action.is_empty():
+		return
+	AudioDirector.play(&"ui_click", -12.0)
+	_capture_action = action
+	_status("Press a key or mouse button.   Esc cancels.", Color(0.72, 0.8, 0.9))
+	var button: Button = _binding_buttons.get(action)
+	if button != null and is_instance_valid(button):
+		button.text = "press a key..."
+
+
+## Capture runs in `_input`, not `_unhandled_input`: a focused Button would otherwise eat Space and
+## Enter as "activate", and those are keys the player may legitimately want to bind.
+func _input(event: InputEvent) -> void:
+	if _capture_action.is_empty():
+		return
+	if event is InputEventKey:
+		var key: InputEventKey = event
+		if not key.pressed or key.echo:
+			return
+		get_viewport().set_input_as_handled()
+		if key.keycode == KEY_ESCAPE or key.physical_keycode == KEY_ESCAPE:
+			_finish_capture()
+			_status("", Color(0.72, 0.8, 0.9))
+			return
+		_try_bind(key)
+		return
+	if event is InputEventMouseButton:
+		var mouse: InputEventMouseButton = event
+		# Release only: the click that opened the capture is still being released.
+		if not mouse.pressed:
+			return
+		get_viewport().set_input_as_handled()
+		_try_bind(mouse)
+
+
+func _try_bind(event: InputEvent) -> void:
+	var action: String = _capture_action
+	var events: Array[InputEvent] = [event]
+	var conflict: String = GameInput.conflict_for(action, events)
+	if not conflict.is_empty():
+		# Refused rather than accepted: two actions on one key is a bug the player cannot see, and the
+		# second one wins silently.
+		_status("Already used by %s" % GameInput.action_label(conflict), Color(0.95, 0.55, 0.45))
+		_finish_capture()
+		return
+	GameInput.set_action_events(action, events)
+	_finish_capture()
+	_status("", Color(0.72, 0.8, 0.9))
+
+
+## Ends a capture and puts the button's text back.
+func _finish_capture() -> void:
+	if _capture_action.is_empty():
+		return
+	var action: String = _capture_action
+	_capture_action = ""
+	var button: Button = _binding_buttons.get(action)
+	if button != null and is_instance_valid(button):
+		button.text = GameInput.describe_action(action)
+
+
+func _refresh_bindings() -> void:
+	for key: Variant in _binding_buttons:
+		var button: Button = _binding_buttons[key]
+		if is_instance_valid(button):
+			button.text = GameInput.describe_action(String(key))
+
+
+func _status(text: String, color: Color) -> void:
+	if _controls_status == null or not is_instance_valid(_controls_status):
+		return
+	_controls_status.text = text
+	_controls_status.modulate = color
+
+
+func _on_reset_controls_pressed() -> void:
+	AudioDirector.play(&"ui_click", -6.0)
+	GameInput.reset_all()
+	_status("Controls reset to defaults.", Color(0.6, 0.85, 0.6))
 
 #endregion

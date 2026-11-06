@@ -16,6 +16,8 @@ const SHOT_DIR: String = "res://dev/shots"
 ## afterwards. A dev tool must never eat a save.
 var _progress_existed: bool = false
 var _progress_backup: PackedByteArray = PackedByteArray()
+var _bindings_existed: bool = false
+var _bindings_backup: PackedByteArray = PackedByteArray()
 
 const SCENARIOS: Dictionary = {
 	"vision": [
@@ -594,6 +596,35 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.2,
 		},
 	],
+	## The settings menu and its rebinding list, as the player sees them.
+	"controls_menu": [
+		{
+			"open_settings": true,
+			"wait": 0.5,
+			"shot": "settings_rows",
+		},
+		{
+			"open_controls": true,
+			"wait": 0.3,
+			"shot": "settings_controls",
+		},
+		{
+			"close_menus": true,
+			"wait": 0.2,
+		},
+	],
+	## Rebinding: a new key fires, a conflict is refused, it survives a reload, reset restores it, and the
+	## title screen follows. Run against any level; the player's bindings file is restored afterwards.
+	"rebind": [
+		{
+			"god": true,
+			"wait": 0.4,
+		},
+		{
+			"rebind_test": true,
+			"wait": 0.2,
+		},
+	],
 	## One crate raises both ability slots, is not consumed when it cannot help, and shows on the HUD.
 	"ability_upgrade": [
 		{
@@ -1161,9 +1192,7 @@ func _input_summary() -> String:
 
 func _declared_actions() -> Array:
 	var out: Array = []
-	for key: Variant in GameInput.KEY_BINDINGS:
-		out.append(key)
-	for key: Variant in GameInput.MOUSE_BINDINGS:
+	for key: Variant in GameInput.META:
 		out.append(key)
 	for key: Variant in BUILT_IN_ACTIONS:
 		out.append(key)
@@ -2199,6 +2228,91 @@ func _reload_switch_test() -> void:
 		"PASS" if abandoned and finished else "FAIL"])
 
 
+## Rebinding, end to end: a new key really fires the action, the old one stops, a key another action owns
+## is refused, the choice survives a reload from disk, reset puts the default back, and the title screen's
+## generated text follows. The player's own bindings file is backed up and put back.
+func _rebind_test() -> void:
+	_backup_bindings()
+	var default_text: String = GameInput.describe_action("reload")
+
+	var to_k: Array[InputEvent] = [_key_event(KEY_K)]
+	GameInput.set_action_events("reload", to_k)
+	var bound_text: String = GameInput.describe_action("reload")
+
+	# The binding has to work through the real input path, not just look right. The injected event is
+	# handled by the input loop, so the state is read on the following frame.
+	_send_key(KEY_K, true)
+	await get_tree().process_frame
+	var fires: bool = Input.is_action_pressed(&"reload")
+	_send_key(KEY_K, false)
+	_send_key(KEY_R, true)
+	await get_tree().process_frame
+	var old_key_dead: bool = not Input.is_action_pressed(&"reload")
+	_send_key(KEY_R, false)
+	await get_tree().process_frame
+
+	# F is Interact; offering it for Reload must be refused, with the owner named.
+	var clash: Array[InputEvent] = [_key_event(KEY_F)]
+	var conflict: String = GameInput.conflict_for("reload", clash)
+	var refused: bool = not conflict.is_empty()
+
+	# What is on disk has to reproduce the binding, or a rebind lasts until the next launch.
+	GameInput.load_bindings()
+	GameInput.register_all()
+	var after_reload: String = GameInput.describe_action("reload")
+
+	GameInput.reset_all()
+	var after_reset: String = GameInput.describe_action("reload")
+	_send_key(KEY_R, true)
+	await get_tree().process_frame
+	var default_fires: bool = Input.is_action_pressed(&"reload")
+	_send_key(KEY_R, false)
+	await get_tree().process_frame
+
+	# ...and the title screen reads the live map rather than a hard-coded table.
+	GameInput.set_action_events("reload", to_k)
+	var title_follows: bool = false
+	for row: Array in GameInput.title_rows():
+		if String(row[1]) == "Reload":
+			title_follows = String(row[0]) == GameInput.describe_action("reload")
+	GameInput.reset_all()
+
+	# The menu wiring itself: every action gets a row, and a capture applied through the panel changes
+	# the binding. Built and driven directly rather than by synthesising clicks, so it is stable.
+	var menu := SettingsMenu.new()
+	get_tree().root.add_child(menu)
+	await get_tree().process_frame
+	menu.call("_open_controls")
+	await get_tree().process_frame
+	var buttons: Dictionary = menu.get("_binding_buttons")
+	var every_action: bool = buttons.size() == GameInput.META.size()
+	var ui_ok: bool = every_action and buttons.has("reload")
+	menu.call("_on_rebind_pressed", "reload")
+	menu.call("_try_bind", _key_event(KEY_J))
+	var ui_bound: String = GameInput.describe_action("reload")
+	menu.call("_close_controls")
+	GameInput.reset_all()
+	menu.queue_free()
+	await get_tree().process_frame
+
+	_restore_bindings()
+
+	var passed: bool = fires and old_key_dead and refused and after_reload == bound_text \
+		and after_reset == default_text and default_fires and title_follows \
+		and ui_ok and ui_bound == "J"
+	print("[probe] rebind: reload '%s' -> '%s' fires=%s, old key dead=%s; '%s' refused=%s; after reload '%s'; after reset '%s' fires=%s; title follows=%s; menu rows=%s bound '%s' -> %s" % [
+		default_text, bound_text, fires, old_key_dead,
+		GameInput.action_label(conflict) if refused else "none", refused,
+		after_reload, after_reset, default_fires, title_follows, every_action, ui_bound,
+		"PASS" if passed else "FAIL"])
+
+
+func _key_event(code: Key) -> InputEventKey:
+	var event := InputEventKey.new()
+	event.physical_keycode = code
+	return event
+
+
 ## One crate raises *both* ability slots by a level, refuses at the cap (so it stays on the ground), and
 ## the HUD shows the level. The cap matters as much as the upgrade: a crate that is consumed for nothing
 ## is worse than no crate.
@@ -2748,6 +2862,29 @@ func _backup_progress() -> void:
 	print("[probe] progress backed up (existed: %s)" % _progress_existed)
 
 
+## Same courtesy for the player's bindings: a test that rebinds must not leave a rebind behind.
+func _backup_bindings() -> void:
+	_bindings_existed = FileAccess.file_exists(GameInput.BINDINGS_PATH)
+	_bindings_backup = PackedByteArray()
+	if _bindings_existed:
+		_bindings_backup = FileAccess.get_file_as_bytes(GameInput.BINDINGS_PATH)
+
+
+func _restore_bindings() -> void:
+	if _bindings_existed:
+		var file := FileAccess.open(GameInput.BINDINGS_PATH, FileAccess.WRITE)
+		if file != null:
+			file.store_buffer(_bindings_backup)
+			file.close()
+	else:
+		var dir := DirAccess.open("user://")
+		if dir != null and dir.file_exists(GameInput.BINDINGS_FILE):
+			dir.remove(GameInput.BINDINGS_FILE)
+	GameInput.load_bindings()
+	GameInput.register_all()
+	print("[probe] bindings restored (file existed before: %s)" % _bindings_existed)
+
+
 ## Puts the checkpoint back exactly as it was found, and reports whether the file really is
 ## gone again. Reporting it matters: a silent failure here leaves a test-made save behind.
 func _restore_progress() -> void:
@@ -2926,6 +3063,14 @@ func _run(scenario: String) -> void:
 			var title: Node = get_tree().current_scene
 			if title != null and title.has_method("open_settings"):
 				title.call("open_settings")
+		if step.has("open_controls"):
+			# The rebinding list lives inside the settings menu; this is the "Controls" button, without
+			# having to find its pixel on screen.
+			for node: Node in _all_nodes(get_tree().root):
+				var menu := node as SettingsMenu
+				if menu != null:
+					menu.call("_open_controls")
+					break
 		if step.has("toggle_pause") and bool(step["toggle_pause"]):
 			GameDirector.toggle_pause()
 		# (`press_settings` used to live here. The settings keybind is gone, so there is nothing
@@ -2975,6 +3120,8 @@ func _run(scenario: String) -> void:
 			_ammo_pickup_test()
 		if step.has("ability_upgrade_test"):
 			await _ability_upgrade_test()
+		if step.has("rebind_test"):
+			await _rebind_test()
 		if step.has("clear_progress"):
 			Progress.clear()
 			print("[probe] progress cleared (file still exists: %s)" % Progress.file_exists())

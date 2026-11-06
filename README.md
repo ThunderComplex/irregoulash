@@ -236,9 +236,10 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path . --import
   completable and linted, not tuned. Expect to want to move cover around.
 - **The HUD is built in code**, not as a scene, so it cannot be nudged around in
   the editor. That was a deliberate trade while the layout was still changing.
-- **No save/load and no gamepad.** Settings (window, resolution, vsync, volumes) are the
-  exception: they persist in `user://settings.cfg`. There is no save game, and nothing is
-  rebound in-game -- keybinds live in `GameInput.KEY_BINDINGS`.
+- **No save/load and no gamepad yet.** Settings (window, resolution, vsync, volumes) persist
+  in `user://settings.cfg`. There is no save game. Gameplay actions are rebindable in the
+  settings menu, and the choices persist in `user://bindings.cfg`; `GameInput.DEFAULT_SPECS`
+  is the shipped default, so an unrebound action keeps tracking that table.
 - Quitting a level prints `2 ObjectDB instances were leaked at exit` (an
   `AudioStreamWAV` and its playback). It is a shutdown-ordering artefact in Godot's
   audio mixer, not a gameplay leak — `AudioDirector._exit_tree()` stops every pooled
