@@ -2260,11 +2260,7 @@ func _next_level_path() -> String:
 	var level: Node = GameDirector.current_level
 	if level == null:
 		return ""
-	for node: Node in _all_nodes(level):
-		var exit := node as ExitZone
-		if exit != null and exit.next_level != null:
-			return exit.next_level.resource_path
-	return ""
+	return CampaignLibrary.next_after(String(level.scene_file_path))
 
 
 ## Waits until `GameDirector.current_level` is a different node than `previous`, or gives up.
@@ -3300,28 +3296,42 @@ func _report_fire_wall() -> void:
 ## exist in a `--script` run, so every level script would fail to compile and the
 ## report would be nonsense.
 func _lint_levels() -> void:
-	var dir := DirAccess.open("res://src/levels")
-	if dir == null:
-		print("[probe] cannot open the level folder")
-		return
-	var files: Array[String] = []
-	for file: String in dir.get_files():
-		if file.begins_with("level_") and file.ends_with(".tscn"):
-			files.append("res://src/levels/%s" % file)
-	files.sort()
+	# The campaign table is the source of truth, so that is what gets checked. Scenes on disk that are
+	# not in it are named too: that is how a retired or forgotten level stays visible.
+	var campaign: Array[String] = CampaignLibrary.paths()
+	var registered: Dictionary = {}
+	for path: String in campaign:
+		registered[path] = true
+	for n: int in campaign.size():
+		print("[probe] campaign %d/%d  %s -> %s" % [
+			n + 1, campaign.size(), campaign[n].get_file(),
+			campaign[n + 1].get_file() if n + 1 < campaign.size() else "(ends the run)"])
+	for path: String in _level_scenes_on_disk():
+		if not registered.has(path):
+			print("[probe] %s: not in CampaignLibrary, so its exits end the run" % path.get_file())
 
 	var failures: int = 0
-	for path: String in files:
+	for problem: String in LevelLint.campaign():
+		print("[probe] campaign PROBLEM: %s" % problem)
+		failures += 1
+	# Registered levels first, then whatever else is on disk: a retired level still gets checked, and
+	# the line says which it is.
+	var checked: Array[String] = campaign.duplicate()
+	for path: String in _level_scenes_on_disk():
+		if not registered.has(path):
+			checked.append(path)
+	for path: String in checked:
 		var packed := load(path) as PackedScene
 		if packed == null:
 			print("[probe] %s: cannot load" % path)
 			failures += 1
 			continue
-		# Instantiated but never added to the tree: LevelLint needs no scene tree,
-		# so nothing runs just to be checked.
+		# Instantiated but never added to the tree: LevelLint needs no scene tree, so nothing runs just
+		# to be checked. The path is passed in because an instantiated node need not know its file.
 		var root: Node = packed.instantiate()
-		var report: Dictionary = LevelLint.run(root)
-		print("[probe] %s: %s" % [path.get_file(), report["summary"]])
+		var report: Dictionary = LevelLint.run(root, path)
+		var tag: String = "" if registered.has(path) else "  (not in the campaign)"
+		print("[probe] %s%s: %s" % [path.get_file(), tag, report["summary"]])
 		for note: String in report["notes"]:
 			print("[probe]   note: %s" % note)
 		var problems: Array = report["problems"]
@@ -3334,7 +3344,21 @@ func _lint_levels() -> void:
 			for line: String in report["map"]:
 				print("[probe]   %s" % line)
 		root.free()
-	print("[probe] lint: %d level(s) checked, %d problem(s)" % [files.size(), failures])
+	print("[probe] lint: %d level(s) checked (%d in the campaign), %d problem(s)" % [
+		checked.size(), campaign.size(), failures])
+
+
+## Every `level_*.tscn` in the folder, including ones that are not in the campaign.
+func _level_scenes_on_disk() -> Array[String]:
+	var out: Array[String] = []
+	var dir := DirAccess.open("res://src/levels")
+	if dir == null:
+		return out
+	for file: String in dir.get_files():
+		if file.begins_with("level_") and file.ends_with(".tscn"):
+			out.append("res://src/levels/%s" % file)
+	out.sort()
+	return out
 
 
 func _report_walls() -> void:

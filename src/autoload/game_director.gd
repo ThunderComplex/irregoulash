@@ -16,7 +16,6 @@ signal reveal_changed(revealed: bool)
 signal noise_made(position: Vector2, radius: float, source: Node, type: NoiseKind.Type)
 
 const TITLE_SCENE: String = "res://src/ui/title_screen.tscn"
-const FIRST_LEVEL: String = "res://src/levels/level_campaign_01.tscn"
 
 var current_level: Node = null
 var player: Node2D = null
@@ -93,7 +92,7 @@ func start_run() -> void:
 	reveal = false
 	debug_info = false
 	run_started.emit()
-	load_level(FIRST_LEVEL)
+	load_level(CampaignLibrary.first())
 
 
 ## Resume the recorded checkpoint: the level that was being played, with the loadout that was

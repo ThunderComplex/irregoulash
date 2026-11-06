@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://src/levels/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
@@ -6,7 +6,6 @@
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="4_enemy"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
-[ext_resource type="PackedScene" path="res://src/levels/level_02.tscn" id="7_next"]
 [ext_resource type="Script" path="res://src/levels/patrol_route.gd" id="8_route"]
 
 [node name="Level01" type="Node2D"]
@@ -14,7 +13,6 @@ script = ExtResource("1_level")
 level_title = "THE YARD"
 objective = "Get across the yard and find the way out."
 start_weapons = Array[String](["pistol"])
-next_level = ExtResource("7_next")
 
 [node name="Floor" type="Polygon2D" parent="."]
 z_index = -20
@@ -223,4 +221,3 @@ amount = 35
 
 [node name="Exit0" parent="." instance=ExtResource("6_exit")]
 position = Vector2(2272, 1632)
-next_level = ExtResource("7_next")

@@ -208,7 +208,6 @@ amount = 35
 
 [node name="Exit0" parent="." unique_id=1191661962 instance=ExtResource("6_exit")]
 position = Vector2(868, 92)
-is_final = true
 
 [node name="Nav" type="NavigationRegion2D" parent="." unique_id=1214858660]
 visible = false

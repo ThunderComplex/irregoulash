@@ -17,7 +17,11 @@ const MARGIN: float = 320.0
 
 
 ## Returns { "problems": Array[String], "notes": Array[String], "summary": String }.
-static func run(root: Node) -> Dictionary:
+##
+## `path` overrides where the level thinks it lives. The editor and the running game have it on the
+## scene root already; a checker that instantiates a scene from a file (the probe) passes it in, because
+## an instantiated node's `scene_file_path` is not guaranteed to be set.
+static func run(root: Node, path: String = "") -> Dictionary:
 	var problems: Array[String] = []
 	var notes: Array[String] = []
 
@@ -60,13 +64,17 @@ static func run(root: Node) -> Dictionary:
 	if exits.is_empty():
 		problems.append("no ExitZone: this level cannot be finished")
 
-	# --- exits that go nowhere
-	var level_next: Variant = root.get("next_level")
-	for exit: ExitZone in exits:
-		if exit.is_final:
-			continue
-		if exit.next_level == null and level_next == null:
-			problems.append("exit '%s' is not final and no next level is set (on the exit or the level)" % exit.name)
+	# --- the campaign: where this level sits, and whether it is registered at all
+	var scene_path: String = path if not path.is_empty() else String(root.scene_file_path)
+	if scene_path.is_empty():
+		notes.append("checked from memory (no scene path): campaign position unknown")
+	else:
+		var position: String = CampaignLibrary.position_text(scene_path)
+		if position.is_empty():
+			notes.append("this level is not in CampaignLibrary, so its exits end the run; "
+				+ "add '%s' to the list to place it in the campaign" % scene_path)
+		else:
+			notes.append("campaign position %s" % position)
 
 	# --- patrol routes
 	for route: PatrolRoute in routes:
@@ -182,6 +190,27 @@ static func run(root: Node) -> Dictionary:
 		# report.
 		"map": describe_grid(walls, blocked, reachable) if not problems.is_empty() else [],
 	}
+
+
+## Checks that only make sense across the whole campaign: the table itself, and that every level in it
+## can be loaded. Per-level checks are `run()`'s job; this is the "is the chain whole" question.
+##
+## The levels are instantiated but never added to the tree (same reason as `run`): nothing runs, so
+## checking a twelve-level campaign is cheap.
+static func campaign() -> Array[String]:
+	var problems: Array[String] = CampaignLibrary.problems()
+	if not problems.is_empty():
+		return problems
+	for path: String in CampaignLibrary.paths():
+		var packed := load(path) as PackedScene
+		if packed == null:
+			problems.append("'%s' is in the campaign but cannot be loaded as a scene" % path)
+			continue
+		var root: Node = packed.instantiate()
+		if not root.has_method("campaign_next"):
+			problems.append("'%s' is in the campaign but is not a Level" % path)
+		root.free()
+	return problems
 
 
 ## Dooring the navmesh: which of these doorways the baked mesh has no route through.

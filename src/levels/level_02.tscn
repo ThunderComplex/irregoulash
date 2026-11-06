@@ -7,7 +7,6 @@
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
 [ext_resource type="Script" uid="uid://tdmd7rqbsvoa" path="res://src/levels/patrol_route.gd" id="8_route"]
-[ext_resource type="PackedScene" uid="uid://c5jip6rvix4uf" path="res://src/levels/level_03.tscn" id="8_ryrsy"]
 
 [node name="Level02" type="Node2D" unique_id=1728145451]
 script = ExtResource("1_level")
@@ -211,4 +210,3 @@ weapon_id = "shotgun"
 
 [node name="Exit0" parent="." unique_id=1044457093 instance=ExtResource("6_exit")]
 position = Vector2(2208, 416)
-next_level = ExtResource("8_ryrsy")

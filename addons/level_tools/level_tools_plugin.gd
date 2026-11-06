@@ -1113,8 +1113,15 @@ func lint_level() -> void:
 	for note: String in report["notes"]:
 		print("  note: %s" % note)
 
+	# The chain lives in one table, so checking only the open level cannot see a level that is not in
+	# it, a duplicate, or a path that has been renamed.
+	var campaign_problems: Array[String] = LevelLint.campaign()
+	for problem: String in campaign_problems:
+		print_rich("  [color=salmon]campaign:[/color] %s" % problem)
+		push_warning("Campaign: %s" % problem)
+
 	var problems: Array = report["problems"]
-	if problems.is_empty():
+	if problems.is_empty() and campaign_problems.is_empty():
 		print_rich("  [color=lightgreen]clean[/color]")
 		return
 	for problem: String in problems:

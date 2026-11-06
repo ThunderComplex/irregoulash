@@ -26,7 +26,7 @@ extends SceneTree
 ##   L  lamp
 ##   -  pistol pickup   =  smg pickup   +  shotgun pickup
 ##   A  ammo pickup     %  medkit       U  weapon upgrade crate
-##   X  exit to the next level     Z  final exit (wins the run)
+##   X  exit (the campaign decides where it leads; the last level's exit ends the run)
 ##
 #endregion
 
@@ -111,7 +111,6 @@ const LEVELS: Array = [
 		"title": "THE YARD",
 		"objective": "Get across the yard and find the way out.",
 		"map": MAP_YARD,
-		"next": "level_02",
 		"weapons": ["pistol"],
 	},
 	{
@@ -120,7 +119,6 @@ const LEVELS: Array = [
 		"title": "THE DEPOT",
 		"objective": "You are inside the depot. Find the last door out.",
 		"map": MAP_DEPOT,
-		"next": "",
 		"weapons": ["pistol"],
 	},
 ]
@@ -252,7 +250,9 @@ func _collect_entities(grid: Array, width: int, height: int) -> Dictionary:
 				"-", "=", "+", "A", "U", "%":
 					out["pickups"].append({"cell": Vector2i(x, y), "char": ch})
 				"X", "Z":
-					out["exits"].append({"cell": Vector2i(x, y), "final": ch == "Z"})
+					# `Z` is still accepted so older maps parse; the campaign decides what an exit leads
+					# to now, so nothing about the character matters.
+					out["exits"].append({"cell": Vector2i(x, y)})
 				"1", "2", "3":
 					if not out["routes"].has(ch):
 						out["routes"][ch] = []
@@ -362,7 +362,6 @@ func _cell_center(cell: Vector2i) -> Vector2:
 
 func _write_scene(entry: Dictionary, width: int, height: int, walls: Array,
 		entities: Dictionary) -> String:
-	var next_id: String = String(entry["next"])
 	var lines: Array[String] = []
 	var resources: Array[String] = []
 	resources.append('[ext_resource type="Script" path="res://src/levels/level.gd" id="1_level"]')
@@ -371,9 +370,6 @@ func _write_scene(entry: Dictionary, width: int, height: int, walls: Array,
 	resources.append('[ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="4_enemy"]')
 	resources.append('[ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="5_pickup"]')
 	resources.append('[ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]')
-	var has_next: bool = not next_id.is_empty()
-	if has_next:
-		resources.append('[ext_resource type="PackedScene" path="res://src/levels/%s.tscn" id="7_next"]' % next_id)
 	var routes: Dictionary = entities["routes"]
 	if not routes.is_empty():
 		resources.append('[ext_resource type="Script" path="res://src/levels/patrol_route.gd" id="8_route"]')
@@ -393,8 +389,6 @@ func _write_scene(entry: Dictionary, width: int, height: int, walls: Array,
 	for w: Variant in weapons:
 		quoted.append('"%s"' % w)
 	lines.append("start_weapons = Array[String]([%s])" % ", ".join(quoted))
-	if has_next:
-		lines.append('next_level = ExtResource("7_next")')
 	lines.append("")
 
 	# --- floor (deliberately NO fog node here: a CanvasModulate in the scene turns
@@ -501,14 +495,9 @@ func _write_scene(entry: Dictionary, width: int, height: int, walls: Array,
 	# --- exits
 	var exits: Array = entities["exits"]
 	for n: int in exits.size():
-		var info: Dictionary = exits[n]
-		var cell: Vector2i = info["cell"]
+		var cell: Vector2i = (exits[n] as Dictionary)["cell"]
 		lines.append('[node name="Exit%d" parent="." instance=ExtResource("6_exit")]' % n)
 		lines.append("position = Vector2(%s, %s)" % [_num(_cell_center(cell).x), _num(_cell_center(cell).y)])
-		if bool(info["final"]) or not has_next:
-			lines.append("is_final = true")
-		elif has_next:
-			lines.append('next_level = ExtResource("7_next")')
 		lines.append("")
 
 	return "\n".join(lines)

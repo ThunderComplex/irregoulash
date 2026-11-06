@@ -10,7 +10,6 @@
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="8_cr2ci"]
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="9_bnbio"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="9_nfir1"]
-[ext_resource type="PackedScene" uid="uid://cccf6mus3fwso" path="res://src/levels/level_campaign_03.tscn" id="10_bnbio"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_bnbio"]
 shader = ExtResource("2_bvryq")
@@ -254,7 +253,6 @@ amount = 50
 
 [node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("9_nfir1")]
 position = Vector2(-528, 364)
-next_level = ExtResource("10_bnbio")
 
 [node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]
 visible = false

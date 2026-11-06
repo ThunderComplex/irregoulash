@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" uid="uid://cm18cddlcskw1" path="res://src/levels/level.gd" id="1_level"]
 [ext_resource type="Shader" uid="uid://pygep2sn14nj" path="res://src/levels/surface.gdshader" id="2_awj53"]
-[ext_resource type="PackedScene" uid="uid://bdsl36775kqdd" path="res://src/levels/level_campaign_02.tscn" id="2_un6eu"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
 [ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="3_lamp"]
 [ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_un6eu"]
@@ -206,7 +205,6 @@ amount = 50
 
 [node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("6_exit")]
 position = Vector2(1976, 488)
-next_level = ExtResource("2_un6eu")
 
 [node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]
 visible = false

@@ -94,4 +94,3 @@ amount = 35
 
 [node name="Exit0" parent="." instance=ExtResource("6_exit")]
 position = Vector2(1160, 384)
-is_final = true

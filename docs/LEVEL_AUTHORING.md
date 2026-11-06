@@ -107,7 +107,7 @@ it. Everything below is drawn in the editor by `@tool` code:
 | `Enemy` | body, a **facing wedge** (this is exactly the direction its vision cone follows), a faint outline of that cone, its archetype name, and either `wanders here` or a warning if its `patrol_route` is broken |
 | `PatrolRoute` | the path as a dashed line, **arrows for direction of travel**, numbered waypoints, and a link line from every enemy that patrols it |
 | `Pickup` | a symbol coloured by kind plus a label (`SMG`, `AMMO 40`, `MEDKIT 35`, `WEAPON UPGRADE`) |
-| `ExitZone` | a ring plus its destination (`TO: LEVEL_02`, or `FINAL EXIT: WINS THE RUN`) |
+| `ExitZone` | a ring plus its destination (`TO: THE DEPOT`, or `FINAL EXIT: WINS THE RUN`) |
 | `Lamp` | the fixture, its radius, and (thanks to a `GradientTexture2D` baked into `lamp.tscn`) a real light with real shadows |
 | `Level` | the **camera bounds** (how far the camera may follow), the spawn point, **the player's vision reach and cone** at the spawn, and a warning if there is no `ExitZone` |
 
@@ -347,11 +347,16 @@ make a level unplayable:
 
 - no `PlayerSpawn` marker (`Level` falls back to the origin and warns)
 - no `ExitZone`
-- an exit that is neither final nor has a `next_level`
+- the open level is not in `CampaignLibrary` (a note, not a problem: its exits then end
+  the run, which is how a level being authored behaves)
 - an enemy whose `patrol_route` does not resolve, or is not a `PatrolRoute`
 - a patrol route with fewer than two waypoints
 - any enemy, pickup, exit or spawn point sitting inside a wall
 - **content the player cannot actually walk to** (flood fill from the spawn)
+
+The whole campaign is checked too: every path in `CampaignLibrary` has to exist, appear
+once, and load as a `Level`. The command below also names any `level_*.tscn` on disk that
+is not in the campaign, so a retired level cannot pretend to be part of it.
 
 When it finds a reachability problem it also prints a small map — `#` wall, `.`
 walkable, ` ` sealed off — because that is the fastest way to see which room is
@@ -396,7 +401,7 @@ H  heavy, patrols route 1    h  heavy, wanders
 L  lamp
 -  pistol pickup   =  smg pickup   +  shotgun pickup
 A  ammo pickup     %  medkit       U  weapon upgrade crate
-X  exit to the next level     Z  final exit (wins the run)
+X  exit (the campaign decides where it leads; Z is accepted and means the same)
 ```
 
 Every uppercase enemy is wired to route 1; assigning one to route 2 or 3 is a
@@ -452,19 +457,40 @@ one-field edit in the editor afterwards.
 ### `ExitZone` — `src/levels/exit_zone.tscn`
 | Property | Meaning |
 |---|---|
-| `next_level` | scene to load when the player walks in. Leave empty to use the **level's** `next_level` instead, so several exits can share one target |
-| `is_final` | wins the run instead |
 | `radius` | how big the trigger is |
+| `beacon_range` | how far its landmark light reaches |
+
+Where an exit leads is **not a property**. Exits ask their level, the level asks
+`CampaignLibrary` (`src/campaign/campaign_library.gd`), and the campaign is the only
+place the chain exists. The last level's exit ends the run. A level that is not in the
+campaign behaves as if it were the last one, which is what makes trying a level on its
+own safe.
 
 ### `Level` — the scene root
 | Property | Meaning |
 |---|---|
 | `level_title`, `objective` | the banner and the line in the top-right |
-| `next_level` | what its non-final exits lead to |
 | `start_weapons` | loadout for a fresh run (weapons carried between levels persist) |
 | `auto_bounds`, `bounds_rect`, `bounds_margin`, `min_bound_size` | camera limits |
 | `fog_color`, `reveal_color` | the runtime fog, and its `F4` debug reveal |
 | `editor_lighting_preview`, `editor_preview_ambient` | the editor-only darkness preview |
+
+---
+
+## Putting a level into the campaign
+
+The chain is one list, `CampaignLibrary.LEVELS` in `src/campaign/campaign_library.gd`:
+
+```gdscript
+const LEVELS: Array[String] = [
+	"res://src/levels/level_campaign_01.tscn",
+	"res://src/levels/level_campaign_02.tscn",
+	# add the new scene path here, in play order
+]
+```
+
+Adding a level is that one line plus the scene. Exits need no wiring, and the linter
+reports an open level that is not listed.
 
 ---
 
@@ -474,9 +500,7 @@ one-field edit in the editor afterwards.
 2. Turn on the **wall brush**, select a `Walls` node, and draw the layout. Drag
    along an axis for corridors and walls, diagonally for rooms.
 3. Put a `PlayerSpawn` marker where the player starts.
-4. Add an `ExitZone`. Set its own `next_level`, or set `next_level` once on the
-   level root and let every non-final exit fall back to it. Leave `is_final` off
-   unless it is the last level.
+4. Add an `ExitZone`. That is the whole job: where it leads comes from the campaign.
 5. Add lamps — they are the player's only landmarks, and they define where enemies
    are visible.
 6. Add enemies with the **Place enemy** tool: pick an archetype, click to place it,

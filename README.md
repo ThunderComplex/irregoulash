@@ -141,6 +141,7 @@ src/common/              Layers, Shapes, Health, VisionTextures
 src/player/              player.gd/.tscn, vision_rig.gd
 src/weapons/             weapon_resource/slot/library, weapon_holder, projectile
 src/abilities/           ability_resource/slot/library/holder, casting, effects, damage_field
+src/campaign/            campaign_library.gd (the level chain, in order)
 src/items/               pickup.gd/.tscn (weapons, ammo, upgrades, medkits, keys, abilities)
 src/enemies/             enemy.gd/.tscn, enemy_archetype, enemy_library
 src/levels/              level.gd (level base), wall, door, lamp, exit_zone, patrol_route,

@@ -1,8 +1,9 @@
 @tool
 class_name ExitZone
 extends Area2D
-## The way out. Walk into it to finish the level; `is_final` marks the last one,
-## which wins the run.
+## The way out. Walk into it to finish the level. Where it leads is not stored here: the level asks
+## `CampaignLibrary` what comes next, so the chain exists in one place and an exit cannot point at the
+## wrong neighbour. The last level's exit ends the run.
 ##
 ## An exit nobody can find is a broken exit, so it carries its own lights and an
 ## unshaded marker that is visible through the fog from across a dark room. In the
@@ -11,16 +12,6 @@ extends Area2D
 
 signal entered(exit: ExitZone)
 
-@export var is_final: bool = false:
-	set(value):
-		is_final = value
-		if Engine.is_editor_hint():
-			queue_redraw()
-@export var next_level: PackedScene:
-	set(value):
-		next_level = value
-		if Engine.is_editor_hint():
-			queue_redraw()
 @export var radius: float = 46.0:
 	set(value):
 		radius = value
@@ -47,7 +38,31 @@ func _ready() -> void:
 
 
 func accent_color() -> Color:
-	return Color(1.0, 0.85, 0.35) if is_final else Color(0.45, 1.0, 0.6)
+	return Color(1.0, 0.85, 0.35) if _is_final() else Color(0.45, 1.0, 0.6)
+
+
+## The level this exit belongs to, found by walking up like `Wall.surface_style()` does for its style.
+## Duck-typed rather than cast, so the editor's placeholder objects are not asked for a method they do
+## not have.
+func _level() -> Node:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("campaign_next"):
+			return node
+		node = node.get_parent()
+	return null
+
+
+## Where this exit leads: the next level in the campaign, or "" when this is the last one.
+func _next_level() -> String:
+	var level := _level()
+	if level == null:
+		return ""
+	return String(level.call("campaign_next"))
+
+
+func _is_final() -> bool:
+	return _next_level().is_empty()
 
 
 func _build_collision() -> void:
@@ -96,7 +111,7 @@ func _build_art() -> void:
 	add_child(_marker)
 
 	_label = Label.new()
-	_label.text = "ESCAPE" if not is_final else "WAY OUT"
+	_label.text = "WAY OUT" if _is_final() else "ESCAPE"
 	_label.add_theme_font_size_override("font_size", 16)
 	_label.modulate = color
 	_label.z_index = Layers.Z_PICKUP + 2
@@ -142,17 +157,13 @@ func _enter(_player: Player) -> void:
 	_used = true
 	entered.emit(self)
 
-	if is_final:
+	var next: String = _next_level()
+	if next.is_empty():
 		GameDirector.notify_win()
 		return
 
 	GameDirector.notify_level_cleared()
-	var target: PackedScene = next_level
-	if target != null:
-		GameDirector.load_level(target.resource_path)
-	else:
-		GameDirector.announce_message("No next level set", Color(1.0, 0.5, 0.4))
-		GameDirector.notify_win()
+	GameDirector.load_level(next)
 
 
 #region editor gizmo
@@ -173,16 +184,15 @@ func _draw() -> void:
 		12, Color(tint, 0.95))
 
 
-## Where this exit goes, for the editor label.
+## Where this exit goes, for the editor label. The campaign is the authority, so this reads the same
+## thing a player would get -- no wiring to check by hand.
 func editor_label() -> String:
-	if is_final:
+	var next: String = _next_level()
+	if next.is_empty():
 		return "FINAL EXIT: WINS THE RUN"
-	var target: PackedScene = next_level
-	if target == null:
-		return "NO NEXT LEVEL SET"
-	var path: String = target.resource_path
-	if path.is_empty():
-		return "TO: (unsaved scene)"
-	return "TO: " + path.get_file().get_basename().to_upper()
+	var title: String = CampaignLibrary.title_of(next)
+	if title.is_empty():
+		title = next.get_file().get_basename()
+	return "TO: " + title.to_upper()
 
 #endregion

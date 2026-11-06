@@ -505,6 +505,21 @@ func level_bounds() -> Rect2:
 		rect.size.y = min_size.y
 	return rect
 
+
+## Where this level's exits lead: the next level in the campaign, or "" when this is the last one.
+## Exits ask their level rather than carrying a target of their own, so the chain exists in one place.
+func campaign_next() -> String:
+	return CampaignLibrary.next_after(String(scene_file_path))
+
+
+func is_final_level() -> bool:
+	return CampaignLibrary.is_final(String(scene_file_path))
+
+
+## "3 / 12" for menus and the linter; empty when this level is not part of the campaign.
+func campaign_position() -> String:
+	return CampaignLibrary.position_text(String(scene_file_path))
+
 #endregion
 
 

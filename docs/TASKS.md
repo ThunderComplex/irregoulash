@@ -12,7 +12,7 @@ Design reasoning lives in `docs/DESIGN_NOTES.md`; genuinely undecided questions 
 |---|------|------------|------|--------|
 | 1 | Carry abilities between levels | -- | small | done |
 | 2 | Ability upgrade pickups (both slots +1) | 1 | small | queued |
-| 3 | Campaign as one ordered table | -- | medium | queued |
+| 3 | Campaign as one ordered table | -- | medium | done |
 | 4 | Rebindable input (keyboard and mouse) | -- | medium | queued |
 | 5 | Gamepad support, including Steam Deck | 4 | large | queued |
 | 6 | Level select after finishing | 3 | medium | queued |
@@ -36,8 +36,8 @@ updated. Code that compiles is not a finished task.
 
 **Status: done.** `--probe=carry` passes (and fails with the restore removed). `AbilityHolder.serialize/deserialize`,
 `GameDirector.carried_abilities` / `snapshot_carried()`, `Level._spawn_player()`, and the `progress.cfg`
-`abilities` field are in place. `--probe=carry` reads an exit's `next_level`, so task 3 must re-point
-`_next_level_path()` at the campaign table when it lands.
+`abilities` field are in place. The probe now finds the next level through `CampaignLibrary` (task 3),
+not through an exit's export.
 
 **Goal.** An ability picked up in a level is still carried in the next one, and through Continue,
 including its upgrade level.
@@ -135,6 +135,11 @@ level.
 ---
 
 ## 3. Campaign as one ordered table
+
+**Status: done.** `CampaignLibrary.LEVELS` is the chain; `ExitZone` no longer exports `next_level`
+or `is_final`, and `--probe=lint` prints the campaign in order and checks every level in it (plus the
+ones on disk that are not). Verified with `--probe=flow` from `level_campaign_03`: two exits, then the
+victory screen.
 
 **Goal.** One list, in one file, is the authority on level order, the next level, and which level is
 last. Exits stop carrying targets, and adding a level is one line.
