@@ -32,15 +32,17 @@ wins the run.
 
 | Input | Action |
 |---|---|
-| `WASD` / arrows | Move (always screen-relative — `W` is up, never "toward the mouse") |
+| `WASD` | Move (always screen-relative — `W` is up, never "toward the mouse") |
 | Mouse | Aim; your vision cone follows the cursor |
 | Left mouse | Fire |
 | `R` | Reload |
 | `F` | Open / close a door (locked ones need a key) |
-| `Shift` / `Space` | Dash: fast, loud, and it smashes unlocked doors off their hinges |
+| `Shift` | Dash: fast, loud, and it smashes unlocked doors off their hinges |
 | `1` `2` `3` / wheel | Switch weapon |
 | Q / E | Use ability 1 / 2 |
 | `Esc` | Pause (opens the pause menu) |
+
+All of these can be rebound in Settings → Controls; this table is the default.
 
 Walk over weapons, ammo and medkits to pick them up.
 

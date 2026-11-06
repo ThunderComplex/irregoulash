@@ -2233,6 +2233,9 @@ func _reload_switch_test() -> void:
 ## generated text follows. The player's own bindings file is backed up and put back.
 func _rebind_test() -> void:
 	_backup_bindings()
+	# Start from the shipped defaults, whatever the player has bound, so the checks below have a known
+	# baseline. `_restore_bindings` puts their file back at the end.
+	GameInput.reset_all()
 	var default_text: String = GameInput.describe_action("reload")
 
 	var to_k: Array[InputEvent] = [_key_event(KEY_K)]
@@ -2251,8 +2254,12 @@ func _rebind_test() -> void:
 	_send_key(KEY_R, false)
 	await get_tree().process_frame
 
-	# F is Interact; offering it for Reload must be refused, with the owner named.
-	var clash: Array[InputEvent] = [_key_event(KEY_F)]
+	# Offer whatever key Interact currently uses: hard-coding F would assume a default the player may
+	# have changed, and this test would then be wrong about their game rather than about the code.
+	var clash: Array[InputEvent] = []
+	var interact_events: Array[InputEvent] = InputMap.action_get_events("interact")
+	if not interact_events.is_empty():
+		clash.append(interact_events[0])
 	var conflict: String = GameInput.conflict_for("reload", clash)
 	var refused: bool = not conflict.is_empty()
 
