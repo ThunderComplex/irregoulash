@@ -1,18 +1,30 @@
 extends Node
-## Procedurally synthesised sound effects.
+## Sound effects, played through a small pool of players (1D for UI/player sounds, 2D for world
+## sounds) by name: `play(&"door_open")`.
 ##
-## The WIP ships with zero audio assets, so every sound is generated once at
-## startup from noise bursts and sine blips, then played through a small pool of
-## players (1D for UI/player sounds, 2D for world sounds).
+## Every sound has a synthesised version, generated once at startup from noise bursts and sine blips,
+## so the game is never silent. A recorded file in `SFX_DIRECTORY` named after a sound replaces it:
+## `door_open.wav` (or `.ogg`, `.mp3`) is played instead of the synthesised door. Sounds can be
+## replaced one at a time, in any order.
 ##
-## Replacing this later is easy: swap `_build_bank()` for `load()` calls on real
-## .ogg files, keeping the same `play()` / `play_at()` API.
+## Numbered files are variants of one sound -- `footstep_1.wav`, `footstep_2.wav`, ... all play as
+## `footstep` -- and one is picked at random each time, never the same one twice in a row.
+
+## Recorded sound effects, named after the sound they replace (see the class description).
+const SFX_DIRECTORY: String = "res://assets/sfx/"
+const SFX_EXTENSIONS: Array[String] = ["wav", "ogg", "mp3"]
 
 const SAMPLE_RATE: int = 22050
 const POOL_1D: int = 14
 const POOL_2D: int = 28
 
+## The synthesised sounds, by name.
 var _bank: Dictionary = {}
+## Recorded sounds from `SFX_DIRECTORY`, by name: an array of one or more variants. Checked before
+## `_bank`.
+var _files: Dictionary = {}
+## The variant each recorded sound played last, so variety does not repeat itself.
+var _last_variant: Dictionary = {}
 var _pool_1d: Array[AudioStreamPlayer] = []
 var _pool_2d: Array[AudioStreamPlayer2D] = []
 var _steal_1d: int = 0
@@ -26,6 +38,7 @@ func _ready() -> void:
 	_rng.randomize()
 	_ensure_bus()
 	_build_bank()
+	_load_files()
 	_build_pools()
 
 
@@ -43,6 +56,7 @@ func _exit_tree() -> void:
 		p.stop()
 		p.stream = null
 	_bank.clear()
+	_files.clear()
 
 
 ## Give SFX their own bus so the volume slider (and future ducking) has a home. The
@@ -213,7 +227,7 @@ func _mix(parts: Array) -> PackedFloat32Array:
 
 ## Non-positional sound (player gun, UI, feedback).
 func play(sound: StringName, volume_db: float = 0.0, pitch: float = 1.0) -> void:
-	var stream: AudioStream = _bank.get(sound)
+	var stream: AudioStream = _stream_for(sound)
 	if stream == null:
 		return
 	var p: AudioStreamPlayer = _free_1d()
@@ -225,7 +239,7 @@ func play(sound: StringName, volume_db: float = 0.0, pitch: float = 1.0) -> void
 
 ## Positional sound in the world (enemy gunfire, footsteps, impacts).
 func play_at(sound: StringName, position: Vector2, volume_db: float = 0.0, pitch: float = 1.0) -> void:
-	var stream: AudioStream = _bank.get(sound)
+	var stream: AudioStream = _stream_for(sound)
 	if stream == null:
 		return
 	var p: AudioStreamPlayer2D = _free_2d()
@@ -234,6 +248,54 @@ func play_at(sound: StringName, position: Vector2, volume_db: float = 0.0, pitch
 	p.pitch_scale = pitch * _rng.randf_range(0.96, 1.04)
 	p.volume_db = volume_db
 	p.play()
+
+
+## What to play for `sound`: a recorded file when there is one (a random variant when there are
+## several), else the synthesised version, else null.
+func _stream_for(sound: StringName) -> AudioStream:
+	var variants: Variant = _files.get(sound)
+	if variants == null:
+		return _bank.get(sound)
+	var choices: Array = variants
+	if choices.size() == 1:
+		return choices[0]
+	# Never the same variant twice running: a repeated footstep is exactly what variants are for avoiding.
+	var last: int = int(_last_variant.get(sound, -1))
+	var pick: int = _rng.randi_range(0, choices.size() - 2)
+	if pick >= last and last >= 0:
+		pick += 1
+	_last_variant[sound] = pick
+	return choices[pick]
+
+
+## Loads every recorded sound in `SFX_DIRECTORY` over the synthesised bank. Listed through the
+## resource loader rather than the file system, so it finds the files in an exported game too.
+func _load_files() -> void:
+	_files.clear()
+	if not DirAccess.dir_exists_absolute(SFX_DIRECTORY):
+		return
+	var numbered := RegEx.create_from_string("^(.+)_(\\d+)$")
+	var names: Array[String] = []
+	for file: String in ResourceLoader.list_directory(SFX_DIRECTORY):
+		if file.ends_with("/") or not SFX_EXTENSIONS.has(file.get_extension().to_lower()):
+			continue
+		names.append(file)
+	# Sorted, so `footstep_2` comes before `footstep_10` and variant order does not depend on the disk.
+	names.sort_custom(func(a: String, b: String) -> bool: return a.naturalnocasecmp_to(b) < 0)
+	for file: String in names:
+		var stream := load(SFX_DIRECTORY.path_join(file)) as AudioStream
+		if stream == null:
+			push_warning("AudioDirector: %s is not a sound." % file)
+			continue
+		var sound_name: String = file.get_basename()
+		# `footstep_2` is a variant of `footstep` -- unless `footstep_2` is itself the name of a sound.
+		var variant: RegExMatch = numbered.search(sound_name)
+		if variant != null and not _bank.has(StringName(sound_name)):
+			sound_name = variant.get_string(1)
+		var key := StringName(sound_name)
+		if not _files.has(key):
+			_files[key] = []
+		(_files[key] as Array).append(stream)
 
 
 func _free_1d() -> AudioStreamPlayer:
@@ -260,10 +322,13 @@ func debug_summary() -> String:
 			playing += 1
 	var longest: float = 0.0
 	for key: Variant in _bank:
-		var stream: AudioStreamWAV = _bank[key]
+		var stream: AudioStream = _stream_for(key)
 		longest = maxf(longest, stream.get_length())
-	return "bank=%d pool=%d+%d playing=%d longest=%.2fs" % [
-		_bank.size(), _pool_1d.size(), _pool_2d.size(), playing, longest,
+	var recorded: int = 0
+	for key: Variant in _files:
+		recorded += (_files[key] as Array).size()
+	return "bank=%d recorded=%d sounds/%d files pool=%d+%d playing=%d longest=%.2fs" % [
+		_bank.size(), _files.size(), recorded, _pool_1d.size(), _pool_2d.size(), playing, longest,
 	]
 
 #endregion
