@@ -6,7 +6,12 @@ extends Node
 ## therefore never be lit by the lights it occludes. That means "how lit is this wall" cannot be read
 ## from the lighting system directly -- so instead we photograph the lighting:
 ##
-##   * a white plate covers the level, on a render layer nothing else uses;
+##   * a white plate covers the level, on a render layer nothing else uses. It is a grid of tiles, not one
+##     rectangle: Godot lights any one canvas item with at most 16 lights and silently drops the rest,
+##     and a level-sized plate is reached by *every* light in the level -- each lamp, each pickup's glow,
+##     the exit and the player's own sight. A level with 17 lost lights at random, the player's sight
+##     among them, and walls stopped revealing until the player walked somewhere that changed which ones
+##     were dropped. A tile is only reached by the lights near it;
 ##   * a `SubViewport` sharing this level's `world_2d` renders that plate with a camera culled to that
 ##     layer only, so what it sees is the plate being lit;
 ##   * the wall shader samples the result in world space and multiplies its own colour by it.
@@ -23,6 +28,9 @@ extends Node
 const WORLD_PER_TEXEL: float = 4.0
 ## How often the mask is refreshed, in seconds.
 const UPDATE_INTERVAL: float = 0.1
+## Size of one tile of the plate, in world pixels. Small enough that no tile is reached by 16 lights
+## (lamps reach about 300px, a pickup's glow 130px), large enough to be few.
+const PLATE_TILE: float = 512.0
 ## Visibility layer used only by the mask's plate. The plate has to sit on the same canvas as the lights
 ## -- a `CanvasLayer` would isolate it from them -- so the *main* viewport has this bit cleared instead,
 ## which is what keeps a full-screen white rectangle out of the game.
@@ -44,7 +52,8 @@ var world_rect: Rect2 = Rect2()
 
 var _viewport: SubViewport = null
 var _camera: Camera2D = null
-var _plate: ColorRect = null
+var _plate: Node2D = null
+var _plate_tiles: Array[ColorRect] = []
 var _image_texture: ImageTexture = null
 var _cooldown: float = 0.0
 ## Set while a one-shot editor sample is pending, so repeated edits coalesce into one sample.
@@ -93,12 +102,8 @@ func _build() -> void:
 	_camera.enabled = true
 	_viewport.add_child(_camera)
 
-	_plate = ColorRect.new()
+	_plate = Node2D.new()
 	_plate.name = "LightPlate"
-	_plate.color = Color.WHITE
-	_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Lit by every light that matters, but rendered only into this viewport.
-	_plate.light_mask = 1
 	_plate.visibility_layer = 1 << CULL_BIT
 	_viewport.add_child(_plate)
 
@@ -112,8 +117,7 @@ func _resize() -> void:
 	_camera.zoom = Vector2(float(_viewport.size.x) / world_rect.size.x,
 		float(_viewport.size.y) / world_rect.size.y)
 	_camera.global_position = world_rect.get_center()
-	_plate.position = world_rect.position
-	_plate.size = world_rect.size
+	_layout_plate()
 
 	var size := Vector2i(
 		maxi(1, int(round(world_rect.size.x / WORLD_PER_TEXEL))),
@@ -125,6 +129,30 @@ func _resize() -> void:
 		if _image_texture != null:
 			texture = null
 			_image_texture = null
+
+
+## Covers `world_rect` with plate tiles, reusing the ones already there. Tiles meet edge to edge, and a
+## light is computed the same way on either side of an edge, so the seams cannot show.
+func _layout_plate() -> void:
+	var columns: int = maxi(1, ceili(world_rect.size.x / PLATE_TILE))
+	var rows: int = maxi(1, ceili(world_rect.size.y / PLATE_TILE))
+	while _plate_tiles.size() < columns * rows:
+		var tile := ColorRect.new()
+		tile.color = Color.WHITE
+		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Lit by every light that matters, but rendered only into this viewport.
+		tile.light_mask = 1
+		tile.visibility_layer = 1 << CULL_BIT
+		_plate.add_child(tile)
+		_plate_tiles.append(tile)
+	while _plate_tiles.size() > columns * rows:
+		_plate_tiles.pop_back().queue_free()
+	for row: int in rows:
+		for column: int in columns:
+			var tile: ColorRect = _plate_tiles[row * columns + column]
+			var corner := world_rect.position + Vector2(float(column), float(row)) * PLATE_TILE
+			tile.position = corner
+			tile.size = (world_rect.end - corner).min(Vector2(PLATE_TILE, PLATE_TILE))
 
 
 func _process(delta: float) -> void:
