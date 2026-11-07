@@ -81,7 +81,7 @@ func _process(_delta: float) -> void:
 		# resolution change here would fail with an engine error. Say that rather than letting
 		# the player press a button that cannot work. Run the game un-embedded (or export it)
 		# to use these two rows for real.
-		_footer.text = "window %d x %d     embedded in the editor: window mode and resolution are fixed" % [
+		_footer.text = "window %d x %d\nembedded in the editor: window mode and resolution are fixed" % [
 			settings_size.x, settings_size.y,
 		]
 		_footer.text += "\n[ ESC ] close, changes are saved as you make them"
@@ -216,10 +216,15 @@ func _build() -> void:
 	done.pressed.connect(close)
 	_panel.add_child(done)
 
-	_footer = _label(Vector2(0.0, PANEL_SIZE.y - 44.0), "", 15, Color(0.55, 0.62, 0.72))
-	# Two lines' worth: the embedded case adds a line explaining the two fixed rows.
-	_footer.size = Vector2(PANEL_SIZE.x, 44.0) * _scale
+	# All the space between the buttons and the panel's bottom edge, with the text sitting at the bottom of
+	# it: one line normally, three when embedded in the editor (the two fixed rows get a line explaining
+	# them, and the close hint moves to its own). A fixed two-line box let the third line hang out of the
+	# panel.
+	var footer_top: float = y + 38.0 + 8.0
+	_footer = _label(Vector2(0.0, footer_top), "", 15, Color(0.55, 0.62, 0.72))
+	_footer.size = Vector2(PANEL_SIZE.x, PANEL_SIZE.y - 12.0 - footer_top) * _scale
 	_footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_footer.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 
 
 ## Adds a labelled row and returns its label, so a volume row can update its own text.
@@ -310,6 +315,8 @@ func _sync() -> void:
 	_mode_button.disabled = embedded
 	_resolution_button.disabled = embedded or not Settings.resolution_is_relevant()
 	_vsync_button.button_pressed = Settings.vsync_enabled
+	# The switch's own text says which way it is; it used to read "on" whichever way it was set.
+	_vsync_button.text = "on" if Settings.vsync_enabled else "off"
 	_sync_fps()
 	_master_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.master_volume_db))
 	_sfx_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.sfx_volume_db))

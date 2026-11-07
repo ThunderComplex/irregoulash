@@ -151,7 +151,6 @@ func _build_bank() -> void:
 	]))
 	
 
-
 func _wav(samples: PackedFloat32Array) -> AudioStreamWAV:
 	var bytes := PackedByteArray()
 	bytes.resize(samples.size() * 2)
