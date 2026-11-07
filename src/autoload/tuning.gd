@@ -98,7 +98,7 @@ extends Node
 ## Extra inaccuracy (degrees) added to enemy shots at max range.
 @export var enemy_extra_spread: float = 7.0
 ## How long the terrain remembers a bullet hole.
-@export var decal_lifetime: float = 12.0
+@export var decal_lifetime: float = 60.0
 #endregion
 
 #region Audio

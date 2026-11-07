@@ -386,7 +386,7 @@ func _tick_alert(delta: float) -> void:
 	if _can_shoot(player.global_position):
 		_shoot_at(player.global_position)
 	
-	_shout_cd += delta	
+	_shout_cd += delta
 	if archetype.shouts and _shout_cd >= Tuning.shout_cooldown:
 		_shout()
 		_shout_cd = 0
@@ -972,7 +972,7 @@ func _explode() -> void:
 	var parent: Node = GameDirector.spawn_parent()
 	if parent == null:
 		return
-	var push: Vector2 = _last_hit_direction if _last_hit_direction.length_squared() > 0.0001 		else Vector2.from_angle(_facing + PI)
+	var push: Vector2 = _last_hit_direction if _last_hit_direction.length_squared() > 0.0001 else Vector2.from_angle(_facing + PI)
 	FxDirector.blood_decal(global_position, archetype.radius * 1.3, true)
 	FxDirector.blood(global_position, push)
 	for i: int in 2:

@@ -12,8 +12,8 @@ const TRAIL_SPACING: float = 9.0
 const TRAIL_MIN_SPEED: float = 45.0
 ## Below these it counts as at rest.
 const REST_SPEED: float = 6.0
-const REST_SPIN: float = 0.4
-
+const REST_SPIN: float = 0.6
+ 
 ## Roughly how big the piece is, in world pixels: it scales the blood it leaves.
 var size: float = 6.0
 ## How much it still bleeds, 1 down to a floor: trails are heaviest right after the explosion.
