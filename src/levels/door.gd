@@ -19,6 +19,8 @@ extends Node2D
 
 signal changed()
 
+## Tint over a textured door's art while it is locked: a hint, the lock plate being the real sign.
+const LOCKED_TINT: Color = Color(1.0, 0.8, 0.78)
 ## How far outside a leaf's face the lighting is read: clear of the leaf's own shadow.
 const REVEAL_PROBE: float = 10.0
 
@@ -355,7 +357,21 @@ func _build_leaf_art() -> void:
 		corners[0], Vector2(size.x * 0.5, -size.y), corners[1],
 		corners[2], Vector2(size.x * 0.5, 0.0), corners[3],
 	])
-	panel.color = Color(0.44, 0.30, 0.34) if locked else Color(0.52, 0.36, 0.22)
+	var texture: Texture2D = door_texture()
+	if texture != null:
+		# Stretched over the leaf: the art is one object (a frame, a handle), not a surface to tile.
+		var art := Vector2(texture.get_size())
+		panel.texture = texture
+		panel.uv = PackedVector2Array([
+			Vector2(0.0, 0.0), Vector2(art.x * 0.5, 0.0), Vector2(art.x, 0.0),
+			Vector2(art.x, art.y), Vector2(art.x * 0.5, art.y), Vector2(0.0, art.y),
+		])
+		# Drawn at about a quarter of its size, so through its mipmaps; and only tinted when locked, which
+		# the lock plate already says.
+		panel.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		panel.color = LOCKED_TINT if locked else Color.WHITE
+	else:
+		panel.color = Color(0.44, 0.30, 0.34) if locked else Color(0.52, 0.36, 0.22)
 	panel.z_index = Layers.Z_WALL
 	_art.add_child(panel)
 	_panel = panel
@@ -383,6 +399,18 @@ func _build_leaf_art() -> void:
 		_art.add_child(plate)
 		_lock_plate = plate
 	_apply_reveal()
+
+
+## The door art of the level's wall style (`SurfaceStyle.door`), or null for the plain panel. Found by
+## walking up to the level, the same way a wall finds its style.
+func door_texture() -> Texture2D:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("wall_surface"):
+			var style: SurfaceStyle = node.call("wall_surface")
+			return style.door if style != null else null
+		node = node.get_parent()
+	return null
 
 
 #region reveal
@@ -646,7 +674,12 @@ func _draw() -> void:
 		return
 	var tint: Color = Color(1.0, 0.78, 0.35) if starts_locked else Color(0.85, 0.75, 0.55)
 	var rect := Rect2(-size * 0.5, size)
-	draw_rect(rect, Color(tint, 0.18))
+	# The door as it will look, when the level's wall style has door art.
+	var texture: Texture2D = door_texture()
+	if texture != null:
+		draw_texture_rect(texture, rect, false, LOCKED_TINT if starts_locked else Color.WHITE)
+	else:
+		draw_rect(rect, Color(tint, 0.18))
 	draw_rect(rect, Color(tint, 0.85), false, 2.0)
 	# The hinge corner, so the direction the leaf swings is obvious before running the level, and the
 	# middle of the free edge it swings to.

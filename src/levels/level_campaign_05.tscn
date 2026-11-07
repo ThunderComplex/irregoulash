@@ -55,28 +55,28 @@ metadata/_edit_lock_ = true
 [node name="Walls" type="Node2D" parent="." unique_id=325946596]
 
 [node name="DrawnWall1" parent="Walls" unique_id=1635538576 instance=ExtResource("4_20rif")]
-position = Vector2(176, -368)
-size = Vector2(352, 32)
+position = Vector2(160, -368)
+size = Vector2(384, 32)
 
 [node name="DrawnWall2" parent="Walls" unique_id=2076445679 instance=ExtResource("4_20rif")]
-position = Vector2(-80, -208)
-size = Vector2(864, 32)
+position = Vector2(-80, -216)
+size = Vector2(864, 16)
 
 [node name="DrawnWall3" parent="Walls" unique_id=2049563599 instance=ExtResource("4_20rif")]
 position = Vector2(800, -368)
 size = Vector2(704, 32)
 
 [node name="DrawnWall4" parent="Walls" unique_id=1755556313 instance=ExtResource("4_20rif")]
-position = Vector2(672, -208)
-size = Vector2(448, 32)
+position = Vector2(672, -216)
+size = Vector2(448, 16)
 
 [node name="DrawnWall5" parent="Walls" unique_id=620993711 instance=ExtResource("4_20rif")]
-position = Vector2(-16, -352)
-size = Vector2(32, 64)
+position = Vector2(-24, -336)
+size = Vector2(16, 32)
 
 [node name="DrawnWall6" parent="Walls" unique_id=1999865157 instance=ExtResource("4_20rif")]
-position = Vector2(656, -336)
-size = Vector2(32, 32)
+position = Vector2(648, -336)
+size = Vector2(16, 32)
 
 [node name="DrawnWall7" parent="Walls" unique_id=1002945693 instance=ExtResource("4_20rif")]
 position = Vector2(336, -496)
@@ -111,8 +111,8 @@ position = Vector2(272, -928)
 size = Vector2(32, 320)
 
 [node name="DrawnWall15" parent="Walls" unique_id=1945742972 instance=ExtResource("4_20rif")]
-position = Vector2(528, -960)
-size = Vector2(32, 384)
+position = Vector2(520, -960)
+size = Vector2(16, 384)
 
 [node name="DrawnWall16" parent="Walls" unique_id=1146252825 instance=ExtResource("4_20rif")]
 position = Vector2(48, -1104)
@@ -171,12 +171,12 @@ position = Vector2(1296, -112)
 size = Vector2(32, 224)
 
 [node name="DrawnWall31" parent="Walls" unique_id=690885854 instance=ExtResource("4_20rif")]
-position = Vector2(240, 96)
-size = Vector2(32, 576)
+position = Vector2(240, 88.03998)
+size = Vector2(32, 591.92004)
 
 [node name="DrawnWall32" parent="Walls" unique_id=934473415 instance=ExtResource("4_20rif")]
-position = Vector2(528, 80)
-size = Vector2(32, 544)
+position = Vector2(528, 71.93117)
+size = Vector2(32, 560.13763)
 
 [node name="DrawnWall33" parent="Walls" unique_id=1477923459 instance=ExtResource("4_20rif")]
 position = Vector2(640, 368)
@@ -513,27 +513,32 @@ metadata/navmesh_hash = 585443658
 [node name="Doors" type="Node2D" parent="." unique_id=789437148]
 
 [node name="Door1" parent="Doors" unique_id=1738910811 instance=ExtResource("11_pu0ch")]
-position = Vector2(400, -368)
+position = Vector2(400, -360)
 rotation = 3.1415927
+size = Vector2(96, 16)
 
 [node name="Door2" parent="Doors" unique_id=158387239 instance=ExtResource("11_pu0ch")]
-position = Vector2(400, -208)
+position = Vector2(400, -215)
+size = Vector2(96, 16)
 
 [node name="Door3" parent="Doors" unique_id=942638767 instance=ExtResource("11_pu0ch")]
-position = Vector2(-17, -272)
+position = Vector2(-24, -272)
 rotation = 1.5707964
+size = Vector2(96, 16)
 
 [node name="Door4" parent="Doors" unique_id=1848251224 instance=ExtResource("11_pu0ch")]
-position = Vector2(656, -272)
+position = Vector2(648, -272)
 rotation = -1.5707964
+size = Vector2(96, 16)
 
 [node name="Door5" parent="Doors" unique_id=1036026411 instance=ExtResource("11_pu0ch")]
 position = Vector2(400, -976)
 starts_locked = true
 
 [node name="Door6" parent="Doors" unique_id=327162640 instance=ExtResource("11_pu0ch")]
-position = Vector2(528, -1200)
+position = Vector2(520, -1200)
 rotation = 1.5707964
+size = Vector2(96, 16)
 
 [node name="Door7" parent="Doors" unique_id=17600321 instance=ExtResource("11_pu0ch")]
 position = Vector2(-1264, -336)

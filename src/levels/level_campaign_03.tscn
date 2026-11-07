@@ -11,7 +11,7 @@
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="9_7rdmg"]
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="10_e1ttf"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_ouuhi"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_mpawk"]
 shader = ExtResource("2_ouuhi")
 shader_parameter/albedo = ExtResource("3_pay1d")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -46,7 +46,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_ouuhi")
+material = SubResource("ShaderMaterial_mpawk")
 position = Vector2(1216, 128)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-4781.0264, -4621.0264, 4781.0264, -4621.0264, 4781.0264, 4621.0264, -4781.0264, 4621.0264)
@@ -127,8 +127,8 @@ position = Vector2(2400, 128)
 size = Vector2(64, 2112)
 
 [node name="DrawnWall19" parent="Walls" unique_id=1433327408 instance=ExtResource("4_3cmly")]
-position = Vector2(1598.6079, 880)
-size = Vector2(317.21582, 32)
+position = Vector2(1598.6079, 888)
+size = Vector2(317.21582, 16)
 
 [node name="Routes" type="Node2D" parent="." unique_id=1220520183]
 
@@ -250,18 +250,21 @@ patrol_route = NodePath("../../Routes/Guard4Route")
 [node name="Pickups" type="Node2D" parent="." unique_id=330227706]
 
 [node name="Pickup0" parent="Pickups" unique_id=134755550 instance=ExtResource("8_d6smo")]
+texture_filter = 4
 position = Vector2(769, 441)
 kind = "upgrade"
 weapon_id = "pistol"
 amount = 1
 
 [node name="Pickup1" parent="Pickups" unique_id=524142137 instance=ExtResource("8_d6smo")]
+texture_filter = 4
 position = Vector2(1111, -139)
 kind = "health"
 weapon_id = "pistol"
 amount = 25
 
 [node name="Pickup2" parent="Pickups" unique_id=1806799060 instance=ExtResource("8_d6smo")]
+texture_filter = 4
 position = Vector2(2265, -781)
 kind = "key"
 weapon_id = "pistol"
@@ -278,6 +281,7 @@ metadata/navmesh_hash = 641997582
 [node name="Doors" type="Node2D" parent="." unique_id=789437148]
 
 [node name="Door1" parent="Doors" unique_id=585273270 instance=ExtResource("10_e1ttf")]
-position = Vector2(1806, 881)
+position = Vector2(1807, 888)
 rotation = 3.1415927
+size = Vector2(96, 16)
 starts_locked = true

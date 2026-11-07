@@ -93,6 +93,16 @@ var id: StringName = &"plain"
 		emit_changed()
 
 
+## Doors in a level with this wall style. Drawn lying horizontally, hinge on the left, and stretched
+## to each door's size: 384x128 matches the walls' detail for the standard 96x32 door. No texture keeps
+## the plain panel. Ignored for floors.
+@export_group("Door")
+@export var door: Texture2D = null:
+	set(value):
+		door = value
+		emit_changed()
+
+
 func is_textured() -> bool:
 	return albedo != null
 

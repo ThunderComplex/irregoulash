@@ -1267,6 +1267,41 @@ const SCENARIOS: Dictionary = {
 			"report": true,
 		},
 	],
+	## Door art follows the level's wall style: an unlocked and a locked door in the wood style, then two
+	## more after switching the lab to wood_2, then one opened to see the art swing with the leaf. Run
+	## against `dev/surface_lab.tscn` (whose wall style is wood).
+	"door_textures": [
+		{
+			"god": true,
+			"reveal": true,
+			"zoom": 3.0,
+			"aim": Vector2(0.0, 1.0),
+			"spawn_door": {"at": Vector2(650.0, 650.0), "locked": false, "rotation": 0.0},
+		},
+		{
+			"spawn_door": {"at": Vector2(770.0, 650.0), "locked": true, "rotation": 0.0},
+			"wait": 0.4,
+			"shot": "door_textures_01_wood",
+		},
+		{
+			# Its own step: within a step, doors are spawned before level properties are set.
+			"level_enemy_color": {"wall_surface_id": "wood_2"},
+		},
+		{
+			"spawn_door": {"at": Vector2(650.0, 700.0), "locked": false, "rotation": 0.0},
+		},
+		{
+			"spawn_door": {"at": Vector2(770.0, 700.0), "locked": true, "rotation": 0.0},
+			"wait": 0.4,
+			"shot": "door_textures_02_wood_2",
+		},
+		{
+			"teleport": Vector2(650.0, 735.0),
+			"interact_door": true,
+			"wait": 0.6,
+			"shot": "door_textures_03_opened",
+		},
+	],
 	## Every pickup kind's art in a row, away from the player so none is picked up. Run against
 	## `dev/surface_lab.tscn`.
 	"pickup_sprites": [

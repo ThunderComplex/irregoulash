@@ -2,6 +2,7 @@
 
 [ext_resource type="Texture2D" uid="uid://db7wjtwpdq55s" path="res://assets/textures/wall_2.png" id="1_38pkh"]
 [ext_resource type="Script" uid="uid://d2ex1yop57mn1" path="res://src/levels/surface_style.gd" id="1_shd7h"]
+[ext_resource type="Texture2D" uid="uid://dlvyr2b4wts5l" path="res://assets/textures/door_2.png" id="2_door"]
 
 [resource]
 script = ExtResource("1_shd7h")
@@ -14,3 +15,4 @@ base_band = 0.0
 base_strength = 0.0
 breakup_amount = 0.45
 breakup_scale = 0.27
+door = ExtResource("2_door")

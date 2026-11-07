@@ -237,43 +237,51 @@ patrol_route = NodePath("../../Routes/Guard1Route")
 [node name="Pickups" type="Node2D" parent="." unique_id=330227706]
 
 [node name="Pickup0" parent="Pickups" unique_id=134755550 instance=ExtResource("9_hdi75")]
+texture_filter = 4
 position = Vector2(-1684, -432)
 kind = "ability"
 weapon_id = "pistol"
 amount = 1
 
 [node name="Pickup1" parent="Pickups" unique_id=520285047 instance=ExtResource("9_hdi75")]
+texture_filter = 4
 position = Vector2(-951, -516)
 kind = "ammo"
 weapon_id = "pistol"
 amount = 20
 
 [node name="Pickup2" parent="Pickups" unique_id=207979302 instance=ExtResource("9_hdi75")]
+texture_filter = 4
 position = Vector2(-951, -314)
 kind = "ammo"
 amount = 40
 
 [node name="Pickup4" parent="Pickups" unique_id=300749443 instance=ExtResource("9_hdi75")]
+texture_filter = 4
 position = Vector2(-1385, 525)
 kind = "ammo"
 amount = 20
 
 [node name="Pickup5" parent="Pickups" unique_id=371173599 instance=ExtResource("9_hdi75")]
+texture_filter = 4
 position = Vector2(-1999, 33)
 kind = "upgrade"
 amount = 20
 
 [node name="Pickup6" parent="Pickups" unique_id=1681972650 instance=ExtResource("9_hdi75")]
+texture_filter = 4
 position = Vector2(1011, 675)
 kind = "health"
 amount = 50
 
 [node name="Pickup3" parent="Pickups" unique_id=791926239 instance=ExtResource("9_hdi75")]
+texture_filter = 4
 position = Vector2(-952, -414)
 kind = "health"
 amount = 50
 
 [node name="Pickup7" parent="Pickups" unique_id=525553011 instance=ExtResource("9_hdi75")]
+texture_filter = 4
 position = Vector2(-990, -516)
 kind = "ability_upgrade"
 amount = 1

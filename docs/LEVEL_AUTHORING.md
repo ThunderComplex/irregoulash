@@ -265,6 +265,11 @@ level, undoably. **Duplicate** copies the selected style so you can try a variat
 original. Styles are plain `.tres` files, so renaming or deleting one in the FileSystem dock works too.
 A level asking for a style that no longer exists draws it as `plain`.
 
+A wall style can also carry **door art** (`door` on the style): every door in a level with that wall
+style shows it. Draw it lying horizontally with the hinge on the left; it is stretched to each door's
+size, and 384×128 matches the walls' detail for the standard 96×32 door. A style without door art
+keeps plain doors. Locked doors show the same art with a reddish tint and the lock plate.
+
 `dev/surface_lab.tscn` (run it, and use `--probe=surface_lab`
 for screenshots) shows one of each shape: a long wall, a medium one, a thin stub, a thick block, a
 corner, and a lamp pool on the floor.
