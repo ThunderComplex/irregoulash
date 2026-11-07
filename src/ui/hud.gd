@@ -9,6 +9,14 @@ extends CanvasLayer
 ## it means the HUD can never be half-broken by a scene that was edited in a
 ## hurry. Swap it for a .tscn whenever the layout stops changing.
 
+## Reload bar size, in the HUD's 720-tall units like every other dimension, so it grows with the screen.
+const RELOAD_BAR_SIZE: Vector2 = Vector2(50.0, 2.0)
+## How far below the pointer's tip the bar sits, in real screen pixels: the system pointer does not grow
+## with the HUD, so neither does the gap that keeps the bar clear of it.
+const RELOAD_BAR_GAP: float = 28.0
+## With a gamepad there is no pointer; the bar sits this far below the player instead (HUD units).
+const RELOAD_BAR_UNDER_PLAYER: float = 34.0
+
 const FEED_LIFE: float = 4.0
 const FEED_MAX: int = 4
 
@@ -34,6 +42,8 @@ var _keys_text: Label
 var _weapon_name: Label
 var _ammo_text: Label
 var _slots_text: Label
+## The reload bar follows the mouse pointer (see `_place_reload_bar`): the eyes are on the cursor while
+## fighting, and a bar in the corner of a large screen is easy to lose track of.
 var _reload_bar: ColorRect
 var _reload_bg: ColorRect
 var _ability_labels: Array[Label] = []
@@ -206,7 +216,25 @@ func _update_weapons() -> void:
 	_reload_bar.visible = reloading
 	_reload_bg.visible = reloading
 	if reloading:
-		_reload_bar.size.x = 150.0 * holder.reload_progress() * _scale
+		_reload_bar.size.x = _reload_bg.size.x * holder.reload_progress()
+		_place_reload_bar()
+
+
+## Centres the reload bar just below the mouse pointer, or below the player on a gamepad, and keeps it on
+## screen near the edges.
+func _place_reload_bar() -> void:
+	var screen: Vector2 = get_viewport().get_visible_rect().size
+	var anchor: Vector2
+	if GameInput.using_gamepad() and _player != null and is_instance_valid(_player):
+		anchor = _player.get_global_transform_with_canvas().origin \
+			+ Vector2(0.0, RELOAD_BAR_UNDER_PLAYER * _scale)
+	else:
+		anchor = get_viewport().get_mouse_position() + Vector2(0.0, RELOAD_BAR_GAP)
+	var size: Vector2 = _reload_bg.size
+	var at: Vector2 = anchor - Vector2(size.x * 0.5, 0.0)
+	at.x = clampf(at.x, 0.0, maxf(0.0, screen.x - size.x))
+	at.y = clampf(at.y, 0.0, maxf(0.0, screen.y - size.y))
+	_reload_bg.position = at
 
 
 func _poll_world() -> void:
@@ -496,9 +524,11 @@ func _build() -> void:
 		HORIZONTAL_ALIGNMENT_RIGHT, Color.WHITE)
 	_slots_text = _label(_root, Control.PRESET_BOTTOM_RIGHT, -420.0, -50.0, -28.0, -30.0, 15,
 		HORIZONTAL_ALIGNMENT_RIGHT, Color(0.7, 0.76, 0.84))
-	_reload_bg = _rect(_root, Control.PRESET_BOTTOM_RIGHT, -180.0, -26.0, -30.0, -20.0,
+	# Positioned every frame while reloading (`_place_reload_bar`); the fill is a child of the background
+	# so moving one moves both.
+	_reload_bg = _rect(_root, Control.PRESET_TOP_LEFT, 0.0, 0.0, RELOAD_BAR_SIZE.x, RELOAD_BAR_SIZE.y,
 		Color(0.1, 0.11, 0.13, 0.9))
-	_reload_bar = _rect(_root, Control.PRESET_BOTTOM_RIGHT, -180.0, -26.0, -180.0, -20.0,
+	_reload_bar = _rect(_reload_bg, Control.PRESET_TOP_LEFT, 0.0, 0.0, 0.0, RELOAD_BAR_SIZE.y,
 		Color(0.95, 0.85, 0.45))
 
 	# --- abilities, one line each, above the weapon readout. The key labels mirror

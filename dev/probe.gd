@@ -1267,6 +1267,24 @@ const SCENARIOS: Dictionary = {
 			"report": true,
 		},
 	],
+	## The reload bar follows the mouse pointer, centred just below it, and stays on screen at the edges.
+	## Run against `dev/surface_lab.tscn`.
+	"reload_bar": [
+		{
+			"god": true,
+			"mouse_at": Vector2(0.7, 0.35),
+			"start_reload": true,
+			"wait": 0.3,
+			"hud_reload_report": true,
+			"shot": "reload_bar_01_pointer",
+		},
+		{
+			"mouse_at": Vector2(0.995, 0.99),
+			"wait": 0.1,
+			"hud_reload_report": true,
+			"shot": "reload_bar_02_corner",
+		},
+	],
 	## Ammo for a weapon whose reserve is full stays on the ground and says why; with room, it is taken.
 	## Run against `dev/surface_lab.tscn`.
 	"ammo_prompt": [
@@ -4075,6 +4093,16 @@ func _run(scenario: String) -> void:
 		if step.has("retry_level"):
 			print("[probe] retry level")
 			GameDirector.retry_level()
+		if step.has("mouse_at"):
+			# Puts the pointer at a fraction of the window (0..1 on each axis).
+			var where: Vector2 = step["mouse_at"]
+			Input.warp_mouse(Vector2(get_viewport().get_visible_rect().size) * where)
+		if step.has("start_reload"):
+			var reloader: Player = GameDirector.valid_player()
+			if reloader != null:
+				var gun: WeaponSlot = (reloader.weapons as WeaponHolder).slot()
+				gun.mag = 0
+				(reloader.weapons as WeaponHolder).reload()
 		if step.has("weapon_reserve"):
 			# A number of rounds for the weapon in hand's reserve, or "full".
 			var stocked: Player = GameDirector.valid_player()
@@ -4201,6 +4229,14 @@ func _run(scenario: String) -> void:
 				if String(effect["mode"]) == "float" and is_instance_valid(node):
 					lines.append("\"%s\"" % (node.get_child(0) as Label).text)
 			print("[probe]   floating: %s" % (", ".join(lines) if not lines.is_empty() else "nothing"))
+		if step.has("hud_reload_report"):
+			var hud: Node = GameDirector.current_level.get_node_or_null("HUD") if GameDirector.current_level else null
+			var bar_bg := hud.get("_reload_bg") as ColorRect if hud != null else null
+			if bar_bg != null:
+				print("[probe]   reload bar: visible=%s at %s size %s, fill %.0f%%, pointer %s, screen %s" % [
+					bar_bg.visible, bar_bg.position.round(), bar_bg.size.round(),
+					100.0 * (hud.get("_reload_bar") as ColorRect).size.x / maxf(1.0, bar_bg.size.x),
+					get_viewport().get_mouse_position().round(), get_viewport().get_visible_rect().size])
 		if step.has("weapon_report"):
 			var wielder: Player = GameDirector.valid_player()
 			var in_hand: WeaponSlot = (wielder.weapons as WeaponHolder).slot() if wielder != null else null

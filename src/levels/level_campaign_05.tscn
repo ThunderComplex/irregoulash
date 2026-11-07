@@ -360,48 +360,6 @@ kind = "ammo"
 weapon_id = "shotgun"
 amount = 20
 
-[node name="Pickup6" parent="Pickups" unique_id=87410946 instance=ExtResource("9_fl7ju")]
-position = Vector2(259, -290)
-kind = "health"
-weapon_id = "shotgun"
-amount = 20
-
-[node name="Pickup12" parent="Pickups" unique_id=988949973 instance=ExtResource("9_fl7ju")]
-position = Vector2(107, -295)
-kind = "ability"
-weapon_id = "shotgun"
-amount = 20
-
-[node name="Pickup7" parent="Pickups" unique_id=1796683080 instance=ExtResource("9_fl7ju")]
-position = Vector2(332, -291)
-kind = "key"
-weapon_id = "pistol"
-amount = 20
-
-[node name="Pickup8" parent="Pickups" unique_id=526660679 instance=ExtResource("9_fl7ju")]
-position = Vector2(395, -292)
-kind = "ammo"
-weapon_id = "pistol"
-amount = 20
-
-[node name="Pickup9" parent="Pickups" unique_id=194359635 instance=ExtResource("9_fl7ju")]
-position = Vector2(470, -291)
-kind = "ammo"
-weapon_id = "pistol"
-amount = 20
-
-[node name="Pickup10" parent="Pickups" unique_id=2025363368 instance=ExtResource("9_fl7ju")]
-position = Vector2(545, -292)
-kind = "ammo"
-weapon_id = "pistol"
-amount = 20
-
-[node name="Pickup11" parent="Pickups" unique_id=878195525 instance=ExtResource("9_fl7ju")]
-position = Vector2(598, -293)
-kind = "ammo"
-weapon_id = "pistol"
-amount = 20
-
 [node name="Pickup1" parent="Pickups" unique_id=412555963 instance=ExtResource("9_fl7ju")]
 position = Vector2(1349, -716)
 kind = "key"
