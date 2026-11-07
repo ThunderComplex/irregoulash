@@ -1,0 +1,291 @@
+[gd_scene format=3 uid="uid://dik4xiacvmdyo"]
+
+[ext_resource type="Script" uid="uid://cm18cddlcskw1" path="res://src/levels/level.gd" id="1_dyf3r"]
+[ext_resource type="Shader" uid="uid://pygep2sn14nj" path="res://src/levels/surface.gdshader" id="2_d3bcg"]
+[ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_7e70o"]
+[ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="4_20rif"]
+[ext_resource type="Script" uid="uid://42vdeppvwt1a" path="res://src/levels/wall.gd" id="5_n854u"]
+[ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="6_tlo4c"]
+[ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="9_fl7ju"]
+[ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="10_0e5da"]
+[ext_resource type="Script" uid="uid://bwyqmbm64vyms" path="res://src/levels/door.gd" id="10_dyf3r"]
+[ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="11_pu0ch"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_n854u"]
+shader = ExtResource("2_d3bcg")
+shader_parameter/albedo = ExtResource("3_7e70o")
+shader_parameter/tile_world = Vector2(96, 96)
+shader_parameter/tint = Color(0.5, 0.5, 0.5, 1)
+shader_parameter/breakup_amount = 0.0
+shader_parameter/breakup_scale = 0.0
+shader_parameter/breakup_mask_scale = 6.0
+shader_parameter/size_world = Vector2(7161.0103, 6681.0103)
+shader_parameter/rim_width = 0.0
+shader_parameter/rim_boost = 0.0
+shader_parameter/rim_ao_width = 0.0
+shader_parameter/rim_ao_strength = 0.0
+shader_parameter/base_band = 0.0
+shader_parameter/base_strength = 0.0
+
+[sub_resource type="NavigationPolygon" id="NavigationPolygon_n854u"]
+vertices = PackedVector2Array(370, -174, 718, -114, -78, -114, -18, -174, 658, -334, 658, -402, 718, -462, -78, -462, -18, -242, 430, -402, 430, -334, 370, -242, 370, -334, -18, -334, -18, -402, 370, -402)
+polygons = Array[PackedInt32Array]([PackedInt32Array(0, 1, 2, 3), PackedInt32Array(4, 5, 6, 1), PackedInt32Array(3, 2, 7, 8), PackedInt32Array(7, 6, 5, 9), PackedInt32Array(10, 4, 1, 0, 11), PackedInt32Array(10, 11, 12, 9), PackedInt32Array(12, 11, 8, 13), PackedInt32Array(13, 8, 7), PackedInt32Array(14, 13, 7), PackedInt32Array(9, 12, 15), PackedInt32Array(7, 9, 15), PackedInt32Array(14, 7, 15)])
+outlines = Array[PackedVector2Array]([PackedVector2Array(-96, -480, 736, -480, 736, -96, -96, -96)])
+parsed_geometry_type = 1
+source_geometry_mode = 1
+source_geometry_group_name = &"wall"
+agent_radius = 18.0
+
+[node name="LevelCampaign" type="Node2D" unique_id=60981112]
+script = ExtResource("1_dyf3r")
+level_title = "Campaign 5"
+objective = "Get to the exit"
+bounds_rect = Rect2(-900, -600, 2000, 2000)
+wall_surface_id = "wood_2"
+floor_surface_id = "stone_tile_floor"
+
+[node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
+z_index = -20
+material = SubResource("ShaderMaterial_n854u")
+position = Vector2(608, -592)
+color = Color(0.5, 0.5, 0.5, 1)
+polygon = PackedVector2Array(-3580.5051, -3340.5051, 3580.5051, -3340.5051, 3580.5051, 3340.5051, -3580.5051, 3340.5051)
+metadata/_edit_lock_ = true
+
+[node name="Walls" type="Node2D" parent="." unique_id=325946596]
+
+[node name="DrawnWall1" type="StaticBody2D" parent="Walls" unique_id=1635538576 instance=ExtResource("4_20rif")]
+position = Vector2(176, -368)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(352, 32)
+
+[node name="DrawnWall2" type="StaticBody2D" parent="Walls" unique_id=2076445679 instance=ExtResource("4_20rif")]
+position = Vector2(160, -208)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(384, 32)
+
+[node name="DrawnWall3" type="StaticBody2D" parent="Walls" unique_id=2049563599 instance=ExtResource("4_20rif")]
+position = Vector2(800, -368)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(704, 32)
+
+[node name="DrawnWall4" parent="Walls" unique_id=1755556313 instance=ExtResource("4_20rif")]
+position = Vector2(672, -208)
+size = Vector2(448, 32)
+
+[node name="DrawnWall5" type="StaticBody2D" parent="Walls" unique_id=620993711 instance=ExtResource("4_20rif")]
+position = Vector2(-16, -352)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 64)
+
+[node name="DrawnWall6" parent="Walls" unique_id=1999865157 instance=ExtResource("4_20rif")]
+position = Vector2(656, -336)
+size = Vector2(32, 32)
+
+[node name="DrawnWall7" type="StaticBody2D" parent="Walls" unique_id=1002945693 instance=ExtResource("4_20rif")]
+position = Vector2(336, -496)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 224)
+
+[node name="DrawnWall8" type="StaticBody2D" parent="Walls" unique_id=1502343933 instance=ExtResource("4_20rif")]
+position = Vector2(464, -496)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 224)
+
+[node name="DrawnWall9" type="StaticBody2D" parent="Walls" unique_id=54202932 instance=ExtResource("4_20rif")]
+position = Vector2(176, -624)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(352, 32)
+
+[node name="DrawnWall10" type="StaticBody2D" parent="Walls" unique_id=471832565 instance=ExtResource("4_20rif")]
+position = Vector2(608, -624)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(320, 32)
+
+[node name="DrawnWall11" type="StaticBody2D" parent="Walls" unique_id=834756669 instance=ExtResource("4_20rif")]
+position = Vector2(16, -800)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 320)
+
+[node name="DrawnWall12" type="StaticBody2D" parent="Walls" unique_id=886802796 instance=ExtResource("4_20rif")]
+position = Vector2(784, -928)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 640)
+
+[node name="DrawnWall13" type="StaticBody2D" parent="Walls" unique_id=1185859641 instance=ExtResource("4_20rif")]
+position = Vector2(400, -784)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(224, 32)
+
+[node name="DrawnWall14" type="StaticBody2D" parent="Walls" unique_id=2106043133 instance=ExtResource("4_20rif")]
+position = Vector2(272, -928)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 320)
+
+[node name="DrawnWall15" type="StaticBody2D" parent="Walls" unique_id=1945742972 instance=ExtResource("4_20rif")]
+position = Vector2(528, -960)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 384)
+
+[node name="DrawnWall16" type="StaticBody2D" parent="Walls" unique_id=1146252825 instance=ExtResource("4_20rif")]
+position = Vector2(48, -1104)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(480, 32)
+
+[node name="DrawnWall17" type="StaticBody2D" parent="Walls" unique_id=1932901579 instance=ExtResource("4_20rif")]
+position = Vector2(-144, -976)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(352, 32)
+
+[node name="DrawnWall18" type="StaticBody2D" parent="Walls" unique_id=430059102 instance=ExtResource("4_20rif")]
+position = Vector2(-304, -1136)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 288)
+
+[node name="DrawnWall19" type="StaticBody2D" parent="Walls" unique_id=2100877653 instance=ExtResource("4_20rif")]
+position = Vector2(256, -1264)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(1088, 32)
+
+[node name="DrawnWall20" type="StaticBody2D" parent="Walls" unique_id=652335481 instance=ExtResource("4_20rif")]
+position = Vector2(320, -976)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(64, 32)
+
+[node name="DrawnWall21" type="StaticBody2D" parent="Walls" unique_id=1906862160 instance=ExtResource("4_20rif")]
+position = Vector2(480, -976)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(64, 32)
+
+[node name="DrawnWall22" type="StaticBody2D" parent="Walls" unique_id=1172182152 instance=ExtResource("4_20rif")]
+position = Vector2(912, -80)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 288)
+
+[node name="DrawnWall23" type="StaticBody2D" parent="Walls" unique_id=1824295297 instance=ExtResource("4_20rif")]
+position = Vector2(1168, -208)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(224, 32)
+
+[node name="DrawnWall24" type="StaticBody2D" parent="Walls" unique_id=661191072 instance=ExtResource("4_20rif")]
+position = Vector2(1168, -560)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 416)
+
+[node name="DrawnWall25" type="StaticBody2D" parent="Walls" unique_id=1885397515 instance=ExtResource("4_20rif")]
+position = Vector2(1200, 80)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(608, 32)
+
+[node name="DrawnWall26" type="StaticBody2D" parent="Walls" unique_id=1854116059 instance=ExtResource("4_20rif")]
+position = Vector2(1520, -336)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 864)
+
+[node name="DrawnWall27" type="StaticBody2D" parent="Walls" unique_id=1954043383 instance=ExtResource("4_20rif")]
+position = Vector2(1344, -784)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(384, 32)
+
+[node name="DrawnWall28" type="StaticBody2D" parent="Walls" unique_id=1790559456 instance=ExtResource("4_20rif")]
+position = Vector2(1344, -560)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(128, 160)
+
+[node name="DrawnWall29" type="StaticBody2D" parent="Walls" unique_id=617111517 instance=ExtResource("4_20rif")]
+position = Vector2(1296, -112)
+collision_mask = 0
+script = ExtResource("5_n854u")
+size = Vector2(32, 224)
+
+[node name="Routes" type="Node2D" parent="." unique_id=1220520183]
+
+[node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
+position = Vector2(169, -287)
+
+[node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
+
+[node name="Lamp0" parent="Lamps" unique_id=1065493755 instance=ExtResource("6_tlo4c")]
+position = Vector2(1912, -368)
+radius = 300.0
+energy = 0.8
+flicker_amount = 0.2
+
+[node name="Enemies" type="Node2D" parent="." unique_id=1203562756]
+
+[node name="Pickups" type="Node2D" parent="." unique_id=330227706]
+
+[node name="Pickup0" parent="Pickups" unique_id=134755550 instance=ExtResource("9_fl7ju")]
+position = Vector2(400, -863)
+kind = "ability"
+weapon_id = "pistol"
+amount = 1
+
+[node name="Pickup1" parent="Pickups" unique_id=412555963 instance=ExtResource("9_fl7ju")]
+position = Vector2(1349, -716)
+kind = "key"
+weapon_id = "pistol"
+amount = 1
+
+[node name="Exit0" parent="." unique_id=1298354064 instance=ExtResource("10_0e5da")]
+position = Vector2(1882, -204)
+
+[node name="Nav" type="NavigationRegion2D" parent="." unique_id=1800606963]
+visible = false
+navigation_polygon = SubResource("NavigationPolygon_n854u")
+metadata/navmesh_hash = 1500439931
+
+[node name="Doors" type="Node2D" parent="." unique_id=789437148]
+
+[node name="Door1" type="Node2D" parent="Doors" unique_id=1738910811 instance=ExtResource("11_pu0ch")]
+position = Vector2(400, -368)
+rotation = 3.1415927
+script = ExtResource("10_dyf3r")
+
+[node name="Door2" parent="Doors" unique_id=158387239 instance=ExtResource("11_pu0ch")]
+position = Vector2(400, -208)
+
+[node name="Door3" type="Node2D" parent="Doors" unique_id=942638767 instance=ExtResource("11_pu0ch")]
+position = Vector2(-17, -272)
+rotation = 1.5707964
+script = ExtResource("10_dyf3r")
+
+[node name="Door4" parent="Doors" unique_id=1848251224 instance=ExtResource("11_pu0ch")]
+position = Vector2(656, -272)
+rotation = -1.5707964
+
+[node name="Door5" type="Node2D" parent="Doors" unique_id=1036026411 instance=ExtResource("11_pu0ch")]
+position = Vector2(400, -976)
+script = ExtResource("10_dyf3r")
+starts_locked = true
+
+[node name="Door6" type="Node2D" parent="Doors" unique_id=327162640 instance=ExtResource("11_pu0ch")]
+position = Vector2(528, -1200)
+rotation = 1.5707964
+script = ExtResource("10_dyf3r")

@@ -15,6 +15,7 @@ const LEVELS: Array[String] = [
 	"res://src/levels/level_campaign_02.tscn",
 	"res://src/levels/level_campaign_03.tscn",
 	"res://src/levels/level_campaign_04.tscn",
+	"res://src/levels/level_campaign_05.tscn",
 ]
 
 ## `level_title` per path, read from the scene once. Only menus and level-select need it.
