@@ -82,6 +82,7 @@ func use_ability(index: int) -> bool:
 
 	var data: AbilityResource = slot.data
 	var target: Vector2 = resolve_target(data)
+	var aimed: Vector2 = target
 	if data.targeting != AbilityResource.Targeting.SELF:
 		# Moved out of a wall it clips rather than refused (see `AbilityCasting.placement`).
 		target = AbilityCasting.placement(_player, target, data)
@@ -89,8 +90,8 @@ func use_ability(index: int) -> bool:
 			# Refused before anything is spent: the player is not charged a cooldown for
 			# a wall of fire that has nowhere to stand, even nudged.
 			AudioDirector.play(&"cast_refused", -6.0)
-			GameDirector.announce_message("%s: no room there" % data.display_name.to_upper(),
-				Color(1.0, 0.6, 0.5))
+			# Said where it was aimed, which is where the problem is.
+			FxDirector.float_text(aimed, "NO ROOM", Color(1.0, 0.6, 0.5))
 			cast_refused.emit(index, "no room")
 			return false
 

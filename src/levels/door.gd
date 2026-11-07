@@ -631,7 +631,9 @@ func _refused(by: Node, bump: bool = false) -> void:
 		radius = Tuning.noise_door_smash_locked
 		FxDirector.shake(0.12)
 	else:
-		GameDirector.announce_message("LOCKED - you need a key", Color(0.95, 0.85, 0.5))
+		# Said at the door rather than in the message feed.
+		FxDirector.float_text(global_position + Vector2(0.0, -30.0), "LOCKED - needs a key",
+			Color(0.95, 0.85, 0.5))
 	GameDirector.make_noise(global_position, radius, NoiseKind.Type.DOOR_LOCKED, by)
 
 #endregion

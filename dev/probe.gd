@@ -1267,6 +1267,42 @@ const SCENARIOS: Dictionary = {
 			"report": true,
 		},
 	],
+	## Ammo for a weapon whose reserve is full stays on the ground and says why; with room, it is taken.
+	## Run against `dev/surface_lab.tscn`.
+	"ammo_prompt": [
+		{
+			"god": true,
+			"weapon_reserve": "full",
+			"spawn_pickup": {"kind": "ammo", "amount": 12},
+			"wait": 0.4,
+			"weapon_report": true,
+			"pickup_report": true,
+		},
+		{
+			"weapon_reserve": 0,
+			"wait": 0.3,
+			"weapon_report": true,
+			"pickup_report": true,
+			"float_report": true,
+		},
+	],
+	## A medkit at full health stays on the ground and says why; once hurt, it is taken. Run against
+	## `dev/surface_lab.tscn`.
+	"medkit_prompt": [
+		{
+			"god": true,
+			"spawn_pickup": {"kind": "health", "amount": 15},
+			"wait": 0.4,
+			"pickup_report": true,
+		},
+		{
+			"god": false,
+			"hurt_player": 30.0,
+			"wait": 0.3,
+			"pickup_report": true,
+			"float_report": true,
+		},
+	],
 	## Pickups that cannot be taken explain themselves over their own heads instead of in the message
 	## feed: an ability upgrade with no abilities, the same at the level cap, and an ability already
 	## carried. Run against `dev/surface_lab.tscn`.
@@ -1331,6 +1367,57 @@ const SCENARIOS: Dictionary = {
 			"pickup_report": true,
 			"announce_report": true,
 			"shot": "weapon_upgrade_02_maxed",
+		},
+	],
+	## Every gameplay message is said where it happens, as a short floating line, and none reaches the
+	## message feed: ammo, health, a key, a weapon, an ability swap and a locked door. Run against
+	## `dev/surface_lab.tscn`.
+	"pickup_floats": [
+		{
+			# A locked door just north, tried before any key has been picked up.
+			"clear_announce": true,
+			"teleport": Vector2(698.0, 575.0),
+			"spawn_door": {"at": Vector2(698.0, 520.0), "locked": true, "rotation": 0.0},
+			"wait": 0.3,
+			"interact_door": true,
+		},
+		{
+			"wait": 0.2,
+			"float_report": true,
+		},
+		{
+			"spawn_pickup": {"kind": "ammo", "amount": 12},
+			"wait": 0.2,
+			"float_report": true,
+		},
+		{
+			"hurt_player": 30.0,
+			"spawn_pickup": {"kind": "health", "amount": 15},
+			"wait": 0.2,
+			"float_report": true,
+		},
+		{
+			"spawn_pickup": {"kind": "key"},
+			"wait": 0.2,
+			"float_report": true,
+		},
+		{
+			"spawn_pickup": {"kind": "weapon", "weapon_id": "smg"},
+			"wait": 1.2,
+			"float_report": true,
+		},
+		{
+			"set_abilities": ["fire_wall", "fire_tempest"],
+			"spawn_pickup": {"kind": "ability", "ability_id": "lightning_bolt"},
+			"wait": 0.3,
+		},
+		{
+			# Its own step: the pickup has to have made its offer before the key is pressed.
+			"press_slot": 0,
+			"wait": 0.2,
+			"report": true,
+			"float_report": true,
+			"announce_report": true,
 		},
 	],
 	## The legs' heading and reach while backing away from the aim, sampled over a stride.
@@ -3988,11 +4075,22 @@ func _run(scenario: String) -> void:
 		if step.has("retry_level"):
 			print("[probe] retry level")
 			GameDirector.retry_level()
+		if step.has("weapon_reserve"):
+			# A number of rounds for the weapon in hand's reserve, or "full".
+			var stocked: Player = GameDirector.valid_player()
+			var stock: WeaponSlot = (stocked.weapons as WeaponHolder).slot() if stocked != null else null
+			if stock != null:
+				stock.reserve = stock.data.reserve_max if str(step["weapon_reserve"]) == "full" \
+					else int(step["weapon_reserve"])
 		if step.has("weapon_level"):
 			var armed: Player = GameDirector.valid_player()
 			var held: WeaponSlot = (armed.weapons as WeaponHolder).slot() if armed != null else null
 			if held != null:
 				held.level = int(step["weapon_level"])
+		if step.has("hurt_player"):
+			var hurt: Player = GameDirector.valid_player()
+			if hurt != null:
+				hurt.health.take_damage(float(step["hurt_player"]), null, hurt.global_position, Vector2.RIGHT)
 		if step.has("ability_levels"):
 			var leveller: Player = GameDirector.valid_player()
 			if leveller != null:
@@ -4095,18 +4193,27 @@ func _run(scenario: String) -> void:
 		if step.has("death_report"):
 			print("[probe]   game over shown %d time(s); player alive=%s" % [_game_overs,
 				GameDirector.valid_player() != null and not GameDirector.valid_player().is_dead()])
+		if step.has("float_report"):
+			# The floating lines currently on screen, newest last.
+			var lines: Array[String] = []
+			for effect: Dictionary in FxDirector.get("_effects"):
+				var node: Node = effect["node"]
+				if String(effect["mode"]) == "float" and is_instance_valid(node):
+					lines.append("\"%s\"" % (node.get_child(0) as Label).text)
+			print("[probe]   floating: %s" % (", ".join(lines) if not lines.is_empty() else "nothing"))
 		if step.has("weapon_report"):
 			var wielder: Player = GameDirector.valid_player()
 			var in_hand: WeaponSlot = (wielder.weapons as WeaponHolder).slot() if wielder != null else null
 			if in_hand != null:
-				print("[probe]   weapon in hand: %s level %d" % [in_hand.data.id, in_hand.level])
+				print("[probe]   weapon in hand: %s level %d reserve %d/%d" % [in_hand.data.id, in_hand.level,
+					in_hand.reserve, in_hand.data.reserve_max])
 		if step.has("pickup_report"):
 			var looker: Player = GameDirector.valid_player()
 			var offer: Pickup = (looker.abilities as AbilityHolder).swap_offer if looker != null else null
 			print("[probe]   swap offer: %s" % ("none" if offer == null else offer.ability_id))
 			for node: Node in _all_nodes(GameDirector.spawn_parent()):
 				var lying := node as Pickup
-				if lying == null or not (lying.kind.begins_with("ability") or lying.kind == "upgrade") \
+				if lying == null or not (lying.kind.begins_with("ability") or lying.kind in ["upgrade", "health", "ammo"]) \
 						or looker == null:
 					continue
 				if lying.global_position.distance_to(looker.global_position) > 300.0:

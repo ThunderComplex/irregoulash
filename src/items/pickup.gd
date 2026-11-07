@@ -167,6 +167,10 @@ func _process(delta: float) -> void:
 		_update_upgrade_prompt(standing)
 	elif kind == "upgrade":
 		_update_weapon_upgrade_prompt(standing)
+	elif kind == "health":
+		_update_health_prompt(standing)
+	elif kind == "ammo":
+		_update_ammo_prompt(standing)
 	if standing != null:
 		_try_collect(standing)
 
@@ -206,17 +210,19 @@ func _try_collect(player: Player) -> void:
 
 	match kind:
 		"ammo":
-			if holder == null:
+			if holder == null or not _would_refill(holder):
+				# Not consumed; the prompt over the pickup says why (`_update_ammo_prompt`).
 				return
 			holder.add_ammo(amount)
 			AudioDirector.play_at(&"pickup", global_position, -4.0)
-			GameDirector.announce_message("+%d ammo" % amount, _pickup_color())
+			_float("+%d AMMO" % amount)
 		"health":
-			if player.health.current >= player.health.max_health * 0.98:
+			if not _would_heal(player):
+				# Not consumed; the prompt over the medkit says why (`_update_health_prompt`).
 				return
 			player.health.heal(float(amount))
 			AudioDirector.play_at(&"upgrade", global_position, -5.0)
-			GameDirector.announce_message("+%d health" % amount, _pickup_color())
+			_float("+%d HEALTH" % amount)
 		"upgrade":
 			if holder == null:
 				return
@@ -226,8 +232,7 @@ func _try_collect(player: Player) -> void:
 				return
 			AudioDirector.play_at(&"upgrade", global_position, -3.0)
 			var raised: WeaponSlot = holder.slot()
-			FxDirector.float_text(global_position + Vector2(0.0, -26.0),
-				"%s +%d" % [raised.data.display_name.to_upper(), raised.level], _pickup_color())
+			_float("%s +%d" % [raised.data.display_name.to_upper(), raised.level])
 		"ability_upgrade":
 			if ability_holder == null:
 				return
@@ -236,22 +241,20 @@ func _try_collect(player: Player) -> void:
 				# prompt over the pickup says which (`_update_upgrade_prompt`).
 				return
 			AudioDirector.play_at(&"upgrade", global_position, -3.0)
-			FxDirector.float_text(global_position + Vector2(0.0, -26.0), "ABILITIES UPGRADED", _pickup_color())
+			_float("ABILITIES UPGRADED")
 		"weapon":
 			if holder == null:
 				return
 			var is_new: bool = holder.add_weapon(weapon_id, weapon_ammo, true)
 			AudioDirector.play_at(&"pickup_weapon", global_position, -3.0)
-			if is_new:
-				FxDirector.float_text(global_position + Vector2(0.0, -26.0), "PICKED UP %s" % WeaponLibrary.by_id(weapon_id).display_name, _pickup_color())
-			else:
-				FxDirector.float_text(global_position + Vector2(0.0, -26.0), "+AMMO for %s" % WeaponLibrary.by_id(weapon_id).display_name, _pickup_color())
+			var weapon_name: String = WeaponLibrary.by_id(weapon_id).display_name
+			_float("PICKED UP %s" % weapon_name if is_new else "+AMMO for %s" % weapon_name)
 		"key":
 			# Always exactly one key. Deliberately not `amount`: an ammo pickup's default of 24
 			# would silently hand out 24 keys the moment someone switched the kind.
 			player.add_key(1)
 			AudioDirector.play_at(&"pickup_ability", global_position, -4.0)
-			GameDirector.announce_message("+KEY  (%d)" % player.keys, _pickup_color())
+			_float("+KEY  (%d)" % player.keys)
 		"ability":
 			if ability_holder == null:
 				return
@@ -264,9 +267,15 @@ func _try_collect(player: Player) -> void:
 				# the slot to give up while standing here. The prompt over the pickup says so.
 				return
 			ability_holder.replace_slot(ability_holder.slots.size(), _make_slot())
-			FxDirector.float_text(global_position + Vector2(0.0, -26.0), "GAINED ABILITY %s" % ability.display_name, _pickup_color())
+			_float("GAINED ABILITY %s" % ability.display_name)
 			AudioDirector.play_at(&"pickup_ability", global_position, -3.0)
 	_collect()
+
+
+## What this pickup just gave you, said where it happened: a short line rising from the pickup rather than
+## an entry in the message feed.
+func _float(text: String) -> void:
+	FxDirector.float_text(global_position + Vector2(0.0, -26.0), text, _pickup_color())
 
 
 func _collect() -> void:
@@ -293,12 +302,11 @@ func swap_into(holder: AbilityHolder, index: int) -> void:
 	var old: AbilitySlot = holder.replace_slot(index, _make_slot())
 	AudioDirector.play_at(&"pickup_ability", global_position, -3.0)
 	FxDirector.flash_light(global_position, _pickup_color(), 1.0, 150.0, 0.25)
+	_float("GAINED ABILITY %s" % gained.display_name)
 	if old == null or old.data == null:
-		GameDirector.announce_message("GAINED ABILITY %s" % gained.display_name, _pickup_color())
 		_collect()
 		return
-	GameDirector.announce_message("%s  (dropped %s)" % [gained.display_name.to_upper(),
-		old.data.display_name], _pickup_color())
+	# What was given up needs no message: it is lying right here, with a prompt offering it back.
 	ability_id = String(old.data.id)
 	ability_level = old.level
 	_ability_cooldown = old.cooldown_left
@@ -327,6 +335,39 @@ func _update_swap_offer(standing: Player) -> void:
 	_withdraw_offer()
 	if holder != null and holder.has_ability(ability_id):
 		_show_prompt("%s\nalready carried" % _ability_title())
+
+
+## Ammo goes to the weapon in hand, so it is left on the ground when that weapon's reserve is full (or
+## there is no weapon), and says so while the player stands on it. Switching weapons can make it useful.
+func _update_ammo_prompt(standing: Player) -> void:
+	var holder: WeaponHolder = standing.weapons as WeaponHolder if standing != null else null
+	var held: WeaponSlot = holder.slot() if holder != null else null
+	if holder == null or _collected or _would_refill(holder):
+		_hide_prompt()
+	elif held == null or held.data == null:
+		_show_prompt("No weapon to load")
+	else:
+		_show_prompt("%s already full" % held.data.display_name)
+
+
+## Whether ammo would go anywhere: a weapon in hand with room in its reserve.
+func _would_refill(holder: WeaponHolder) -> bool:
+	var held: WeaponSlot = holder.slot()
+	return held != null and held.data != null and held.reserve < held.data.reserve_max
+
+
+## A medkit is left on the ground for a player at full health, and says so while they stand on it.
+func _update_health_prompt(standing: Player) -> void:
+	if standing == null or _collected or _would_heal(standing):
+		_hide_prompt()
+	else:
+		_show_prompt("Already at full health")
+
+
+## Whether a medkit would do anything for `player`. Nearly full counts as full, so a scratch does not use
+## up a whole medkit.
+func _would_heal(player: Player) -> bool:
+	return player.health.current < player.health.max_health * 0.98
 
 
 ## A weapon upgrade that would do nothing explains why while the player stands on it. It upgrades the
