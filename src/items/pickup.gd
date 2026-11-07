@@ -9,6 +9,10 @@ extends Area2D
 ##
 ## In the editor each pickup draws a gizmo coloured by kind and labelled with what
 ## it gives you, so pickups can be read and placed without running the level.
+##
+## An ability pickup found with both ability slots full is not refused: standing on it offers a swap,
+## and pressing a slot's key puts this ability in that slot. The pickup then becomes the ability that was
+## dropped, upgrades and cooldown included, so a swap can always be taken back.
 
 @export_enum("weapon", "ammo", "upgrade", "health", "ability", "ability_upgrade", "key") var kind: String = "weapon":
 	set(value):
@@ -23,6 +27,12 @@ extends Area2D
 @export_enum("fire_wall", "fire_tempest", "lightning_bolt") var ability_id: String = "fire_wall":
 	set(value):
 		ability_id = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+## Upgrade level of an ability pickup (0 for a fresh one). A dropped ability keeps the level it had.
+@export_range(0, 3) var ability_level: int = 0:
+	set(value):
+		ability_level = value
 		if Engine.is_editor_hint():
 			queue_redraw()
 @export var amount: int = 24:
@@ -43,6 +53,14 @@ var _t: float = 0.0
 var _light: PointLight2D = null
 var _marker: Polygon2D = null
 var _collected: bool = false
+## Seconds left on a dropped ability's cooldown. It keeps running on the ground, so swapping an ability out
+## and back in neither costs nor saves a cooldown.
+var _ability_cooldown: float = 0.0
+## The holder this pickup is currently offering a swap to, and the prompt that says so.
+var _offered_to: AbilityHolder = null
+var _prompt: Label = null
+## Whether "already carried" has been said for the player standing here, so it is said once per visit.
+var _told: bool = false
 
 
 func _ready() -> void:
@@ -131,13 +149,22 @@ func _process(delta: float) -> void:
 	if _marker != null:
 		_marker.scale = Vector2.ONE * (0.9 + pulse * 0.18)
 
+	_ability_cooldown = maxf(0.0, _ability_cooldown - delta)
+
 	# Also poll: a weapon dropped by a dying enemy can land underneath the player.
+	var standing: Player = null
 	if not _collected:
 		for body: Node2D in get_overlapping_bodies():
 			var player := body as Player
 			if player != null and not player.is_dead():
-				_try_collect(player)
-				return
+				standing = player
+				break
+	if standing == null:
+		_told = false
+	if kind == "ability":
+		_update_swap_offer(standing)
+	if standing != null:
+		_try_collect(standing)
 
 
 func _pickup_color() -> Color:
@@ -229,13 +256,17 @@ func _try_collect(player: Player) -> void:
 			if ability_holder == null:
 				return
 			var ability: AbilityResource = AbilityLibrary.by_id(ability_id)
-			if not ability_holder.add_ability(ability_id):
-				# Not consumed: either it is already in the slots or they are full, and
-				# leaving it on the ground keeps the choice the player's.
-				GameDirector.announce_message("%s: %s" % [ability.display_name.to_upper(),
-					"already carried" if ability_holder.has_ability(String(ability.id))
-					else "ability slots full"], _pickup_color())
+			if ability_holder.has_ability(String(ability.id)):
+				if not _told:
+					_told = true
+					GameDirector.announce_message("%s: already carried" % ability.display_name.to_upper(),
+						_pickup_color())
 				return
+			if ability_holder.is_full():
+				# Not taken automatically: with both slots full it is a choice, made by pressing the key of
+				# the slot to give up while standing here. The prompt over the pickup says so.
+				return
+			ability_holder.replace_slot(ability_holder.slots.size(), _make_slot())
 			GameDirector.announce_message("GAINED ABILITY %s" % ability.display_name, _pickup_color())
 			AudioDirector.play_at(&"pickup_ability", global_position, -3.0)
 	_collect()
@@ -243,9 +274,110 @@ func _try_collect(player: Player) -> void:
 
 func _collect() -> void:
 	_collected = true
+	_withdraw_offer()
 	FxDirector.flash_light(global_position, _pickup_color(), 1.0, 150.0, 0.25)
 	FxDirector.spark_burst(global_position, Vector2.UP, 8, _pickup_color(), 150.0, 0.3)
 	queue_free()
+
+
+#region ability swap
+
+## Whether standing here and pressing a slot key should swap this ability in.
+func can_swap_into(holder: AbilityHolder) -> bool:
+	return (kind == "ability" and not _collected and holder != null and holder.is_full()
+		and not holder.has_ability(ability_id))
+
+
+## Puts this ability in slot `index` and leaves the one it replaces lying here instead.
+func swap_into(holder: AbilityHolder, index: int) -> void:
+	if not can_swap_into(holder):
+		return
+	var gained: AbilityResource = AbilityLibrary.by_id(ability_id)
+	var old: AbilitySlot = holder.replace_slot(index, _make_slot())
+	AudioDirector.play_at(&"pickup_ability", global_position, -3.0)
+	FxDirector.flash_light(global_position, _pickup_color(), 1.0, 150.0, 0.25)
+	if old == null or old.data == null:
+		GameDirector.announce_message("GAINED ABILITY %s" % gained.display_name, _pickup_color())
+		_collect()
+		return
+	GameDirector.announce_message("%s  (dropped %s)" % [gained.display_name.to_upper(),
+		old.data.display_name], _pickup_color())
+	ability_id = String(old.data.id)
+	ability_level = old.level
+	_ability_cooldown = old.cooldown_left
+	# The prompt now offers the dropped ability back.
+	_update_swap_offer(holder.get_parent() as Player)
+
+
+func _make_slot() -> AbilitySlot:
+	var slot := AbilitySlot.new(AbilityLibrary.by_id(ability_id))
+	slot.level = clampi(ability_level, 0, AbilitySlot.MAX_LEVEL)
+	slot.cooldown_left = _ability_cooldown
+	return slot
+
+
+## Offers the swap to whoever is standing here, or withdraws it when they step off.
+func _update_swap_offer(standing: Player) -> void:
+	var holder: AbilityHolder = standing.abilities as AbilityHolder if standing != null else null
+	if holder != null and can_swap_into(holder):
+		if _offered_to != null and _offered_to != holder:
+			_withdraw_offer()
+		_offered_to = holder
+		holder.swap_offer = self
+		_show_prompt(holder)
+	else:
+		_withdraw_offer()
+
+
+func _withdraw_offer() -> void:
+	if _offered_to != null and is_instance_valid(_offered_to) and _offered_to.swap_offer == self:
+		_offered_to.swap_offer = null
+	_offered_to = null
+	if _prompt != null:
+		_prompt.visible = false
+
+
+func _exit_tree() -> void:
+	if not Engine.is_editor_hint():
+		_withdraw_offer()
+
+
+## The prompt over the pickup: what is on offer, and which key gives up which slot. It follows the
+## device and any rebinding, like the HUD does.
+func _show_prompt(holder: AbilityHolder) -> void:
+	if _prompt == null:
+		_prompt = Label.new()
+		_prompt.name = "SwapPrompt"
+		_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_prompt.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		_prompt.size = Vector2(360.0, 48.0)
+		_prompt.position = Vector2(-180.0, -78.0)
+		_prompt.add_theme_font_size_override("font_size", 13)
+		_prompt.add_theme_constant_override("outline_size", 5)
+		_prompt.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+		_prompt.add_theme_color_override("font_color", _pickup_color().lightened(0.35))
+		# Readable in the dark, and above walls and actors.
+		_prompt.material = FxDirector.unshaded_material()
+		_prompt.z_as_relative = false
+		_prompt.z_index = Layers.Z_FX + 5
+		_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_prompt)
+	var offered: AbilityResource = AbilityLibrary.by_id(ability_id)
+	var title: String = offered.display_name.to_upper()
+	if ability_level > 0:
+		title += "  " + "+".repeat(ability_level)
+	var choices: Array[String] = []
+	for index: int in AbilityHolder.MAX_SLOTS:
+		var slot: AbilitySlot = holder.slot_at(index)
+		if slot != null and slot.data != null:
+			choices.append("[%s] drop %s" % [GameInput.describe_for_device("ability_%d" % (index + 1)),
+				slot.data.display_name])
+	var text: String = "%s\n%s" % [title, "    ".join(choices)]
+	if _prompt.text != text:
+		_prompt.text = text
+	_prompt.visible = true
+
+#endregion
 
 
 #region editor gizmo
@@ -294,7 +426,8 @@ func editor_label() -> String:
 		"weapon":
 			return WeaponLibrary.by_id(weapon_id).display_name
 		"ability":
-			return AbilityLibrary.by_id(ability_id).display_name
+			var name_text: String = AbilityLibrary.by_id(ability_id).display_name
+			return name_text + (" " + "+".repeat(ability_level) if ability_level > 0 else "")
 		"key":
 			return "KEY"
 		_:

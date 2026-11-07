@@ -457,9 +457,15 @@ editor gizmo is drawn in the colour the enemy will have, level shift included.
 |---|---|
 | `kind` | `weapon`, `ammo`, `upgrade`, `health`, `ability`, `ability_upgrade` or `key` |
 | `ability_id` | `fire_wall`, `fire_tempest`, `lightning_bolt` (for `kind = ability`) |
+| `ability_level` | upgrade level an ability pickup comes with (0–3; for `kind = ability`) |
 | (`key` pickups) | always give exactly one key; there is nothing to configure |
 | `weapon_id` | `pistol`, `smg`, `shotgun` (for `kind = weapon`). Picking up a weapon you already carry gives it ammo instead, and leaves the weapon in hand alone; only a weapon picked up for the first time takes the hand |
 | `amount` | ammo rounds, or health restored |
+
+The player has **two ability slots**, always. An ability pickup found with both full is not refused:
+standing on it shows a prompt, and pressing a slot's key swaps that slot for it. The ability given up
+is left lying where the pickup was, with its upgrades and its cooldown (which keeps running), so a swap
+can always be taken back — and a level can offer abilities the player has to choose between.
 
 `kind = upgrade` raises **the weapon in hand**; `kind = ability_upgrade` raises **both ability
 slots**. Both stop at level 3, and both are left on the ground when they cannot help, so an

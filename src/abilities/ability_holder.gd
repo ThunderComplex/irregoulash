@@ -7,6 +7,8 @@ extends Node2D
 ## a library entry plus one small effect script, with no change in here -- which is the
 ## only reason the weapon analogy stays worth having.
 
+## Always two. More abilities than slots is the point: carrying one means choosing it over another, and a
+## pickup found with both slots full is swapped in place (see `swap_offer`) rather than through a menu.
 const MAX_SLOTS: int = 2
 
 signal ability_gained(slot: AbilitySlot, index: int)
@@ -16,6 +18,10 @@ var slots: Array[AbilitySlot] = []
 ## When finite, overrides the mouse cursor as the casting target. Only the dev probe sets
 ## this, so scripted casts are deterministic.
 var debug_target: Vector2 = Vector2.INF
+## An ability pickup the player is standing on that could replace one of the slots. While there is one,
+## a slot's key swaps that slot for it instead of casting. The pickup sets and clears this itself, as the
+## player steps on and off it.
+var swap_offer: Pickup = null
 
 var _player: Player = null
 
@@ -34,9 +40,18 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not _can_act():
 		return
 	if event.is_action_pressed(&"ability_1"):
-		use_ability(0)
+		press_slot(0)
 	elif event.is_action_pressed(&"ability_2"):
-		use_ability(1)
+		press_slot(1)
+
+
+## What a slot's key does: swap that slot for the ability on the ground when standing on one that could
+## replace it, otherwise cast it.
+func press_slot(index: int) -> void:
+	if swap_offer != null and is_instance_valid(swap_offer) and swap_offer.can_swap_into(self):
+		swap_offer.swap_into(self, index)
+		return
+	use_ability(index)
 
 
 func _can_act() -> bool:
@@ -135,6 +150,25 @@ func add_ability(id: String) -> bool:
 	slots.append(AbilitySlot.new(data))
 	ability_gained.emit(slots.back(), slots.size() - 1)
 	return true
+
+
+## Puts `slot` in place of whatever is at `index` and returns what was there (null for an empty slot).
+func replace_slot(index: int, slot: AbilitySlot) -> AbilitySlot:
+	if index < 0 or index >= MAX_SLOTS:
+		return null
+	if index >= slots.size():
+		slots.append(slot)
+		index = slots.size() - 1
+		ability_gained.emit(slot, index)
+		return null
+	var old: AbilitySlot = slots[index]
+	slots[index] = slot
+	ability_gained.emit(slot, index)
+	return old
+
+
+func is_full() -> bool:
+	return slots.size() >= MAX_SLOTS
 
 
 func has_ability(id: String) -> bool:

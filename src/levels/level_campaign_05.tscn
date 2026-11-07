@@ -4,14 +4,12 @@
 [ext_resource type="Shader" uid="uid://pygep2sn14nj" path="res://src/levels/surface.gdshader" id="2_d3bcg"]
 [ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_7e70o"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="4_20rif"]
-[ext_resource type="Script" uid="uid://42vdeppvwt1a" path="res://src/levels/wall.gd" id="5_n854u"]
 [ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="6_tlo4c"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="9_fl7ju"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="10_0e5da"]
-[ext_resource type="Script" uid="uid://bwyqmbm64vyms" path="res://src/levels/door.gd" id="10_dyf3r"]
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="11_pu0ch"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_n854u"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rlj77"]
 shader = ExtResource("2_d3bcg")
 shader_parameter/albedo = ExtResource("3_7e70o")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -46,7 +44,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_n854u")
+material = SubResource("ShaderMaterial_rlj77")
 position = Vector2(608, -592)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-3580.5051, -3340.5051, 3580.5051, -3340.5051, 3580.5051, 3340.5051, -3580.5051, 3340.5051)
@@ -54,174 +52,120 @@ metadata/_edit_lock_ = true
 
 [node name="Walls" type="Node2D" parent="." unique_id=325946596]
 
-[node name="DrawnWall1" type="StaticBody2D" parent="Walls" unique_id=1635538576 instance=ExtResource("4_20rif")]
+[node name="DrawnWall1" parent="Walls" unique_id=1635538576 instance=ExtResource("4_20rif")]
 position = Vector2(176, -368)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(352, 32)
 
-[node name="DrawnWall2" type="StaticBody2D" parent="Walls" unique_id=2076445679 instance=ExtResource("4_20rif")]
+[node name="DrawnWall2" parent="Walls" unique_id=2076445679 instance=ExtResource("4_20rif")]
 position = Vector2(160, -208)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(384, 32)
 
-[node name="DrawnWall3" type="StaticBody2D" parent="Walls" unique_id=2049563599 instance=ExtResource("4_20rif")]
+[node name="DrawnWall3" parent="Walls" unique_id=2049563599 instance=ExtResource("4_20rif")]
 position = Vector2(800, -368)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(704, 32)
 
 [node name="DrawnWall4" parent="Walls" unique_id=1755556313 instance=ExtResource("4_20rif")]
 position = Vector2(672, -208)
 size = Vector2(448, 32)
 
-[node name="DrawnWall5" type="StaticBody2D" parent="Walls" unique_id=620993711 instance=ExtResource("4_20rif")]
+[node name="DrawnWall5" parent="Walls" unique_id=620993711 instance=ExtResource("4_20rif")]
 position = Vector2(-16, -352)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 64)
 
 [node name="DrawnWall6" parent="Walls" unique_id=1999865157 instance=ExtResource("4_20rif")]
 position = Vector2(656, -336)
 size = Vector2(32, 32)
 
-[node name="DrawnWall7" type="StaticBody2D" parent="Walls" unique_id=1002945693 instance=ExtResource("4_20rif")]
+[node name="DrawnWall7" parent="Walls" unique_id=1002945693 instance=ExtResource("4_20rif")]
 position = Vector2(336, -496)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 224)
 
-[node name="DrawnWall8" type="StaticBody2D" parent="Walls" unique_id=1502343933 instance=ExtResource("4_20rif")]
+[node name="DrawnWall8" parent="Walls" unique_id=1502343933 instance=ExtResource("4_20rif")]
 position = Vector2(464, -496)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 224)
 
-[node name="DrawnWall9" type="StaticBody2D" parent="Walls" unique_id=54202932 instance=ExtResource("4_20rif")]
+[node name="DrawnWall9" parent="Walls" unique_id=54202932 instance=ExtResource("4_20rif")]
 position = Vector2(176, -624)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(352, 32)
 
-[node name="DrawnWall10" type="StaticBody2D" parent="Walls" unique_id=471832565 instance=ExtResource("4_20rif")]
+[node name="DrawnWall10" parent="Walls" unique_id=471832565 instance=ExtResource("4_20rif")]
 position = Vector2(608, -624)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(320, 32)
 
-[node name="DrawnWall11" type="StaticBody2D" parent="Walls" unique_id=834756669 instance=ExtResource("4_20rif")]
+[node name="DrawnWall11" parent="Walls" unique_id=834756669 instance=ExtResource("4_20rif")]
 position = Vector2(16, -800)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 320)
 
-[node name="DrawnWall12" type="StaticBody2D" parent="Walls" unique_id=886802796 instance=ExtResource("4_20rif")]
+[node name="DrawnWall12" parent="Walls" unique_id=886802796 instance=ExtResource("4_20rif")]
 position = Vector2(784, -928)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 640)
 
-[node name="DrawnWall13" type="StaticBody2D" parent="Walls" unique_id=1185859641 instance=ExtResource("4_20rif")]
+[node name="DrawnWall13" parent="Walls" unique_id=1185859641 instance=ExtResource("4_20rif")]
 position = Vector2(400, -784)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(224, 32)
 
-[node name="DrawnWall14" type="StaticBody2D" parent="Walls" unique_id=2106043133 instance=ExtResource("4_20rif")]
+[node name="DrawnWall14" parent="Walls" unique_id=2106043133 instance=ExtResource("4_20rif")]
 position = Vector2(272, -928)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 320)
 
-[node name="DrawnWall15" type="StaticBody2D" parent="Walls" unique_id=1945742972 instance=ExtResource("4_20rif")]
+[node name="DrawnWall15" parent="Walls" unique_id=1945742972 instance=ExtResource("4_20rif")]
 position = Vector2(528, -960)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 384)
 
-[node name="DrawnWall16" type="StaticBody2D" parent="Walls" unique_id=1146252825 instance=ExtResource("4_20rif")]
+[node name="DrawnWall16" parent="Walls" unique_id=1146252825 instance=ExtResource("4_20rif")]
 position = Vector2(48, -1104)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(480, 32)
 
-[node name="DrawnWall17" type="StaticBody2D" parent="Walls" unique_id=1932901579 instance=ExtResource("4_20rif")]
+[node name="DrawnWall17" parent="Walls" unique_id=1932901579 instance=ExtResource("4_20rif")]
 position = Vector2(-144, -976)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(352, 32)
 
-[node name="DrawnWall18" type="StaticBody2D" parent="Walls" unique_id=430059102 instance=ExtResource("4_20rif")]
+[node name="DrawnWall18" parent="Walls" unique_id=430059102 instance=ExtResource("4_20rif")]
 position = Vector2(-304, -1136)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 288)
 
-[node name="DrawnWall19" type="StaticBody2D" parent="Walls" unique_id=2100877653 instance=ExtResource("4_20rif")]
+[node name="DrawnWall19" parent="Walls" unique_id=2100877653 instance=ExtResource("4_20rif")]
 position = Vector2(256, -1264)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(1088, 32)
 
-[node name="DrawnWall20" type="StaticBody2D" parent="Walls" unique_id=652335481 instance=ExtResource("4_20rif")]
+[node name="DrawnWall20" parent="Walls" unique_id=652335481 instance=ExtResource("4_20rif")]
 position = Vector2(320, -976)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(64, 32)
 
-[node name="DrawnWall21" type="StaticBody2D" parent="Walls" unique_id=1906862160 instance=ExtResource("4_20rif")]
+[node name="DrawnWall21" parent="Walls" unique_id=1906862160 instance=ExtResource("4_20rif")]
 position = Vector2(480, -976)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(64, 32)
 
-[node name="DrawnWall22" type="StaticBody2D" parent="Walls" unique_id=1172182152 instance=ExtResource("4_20rif")]
+[node name="DrawnWall22" parent="Walls" unique_id=1172182152 instance=ExtResource("4_20rif")]
 position = Vector2(912, -80)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 288)
 
-[node name="DrawnWall23" type="StaticBody2D" parent="Walls" unique_id=1824295297 instance=ExtResource("4_20rif")]
+[node name="DrawnWall23" parent="Walls" unique_id=1824295297 instance=ExtResource("4_20rif")]
 position = Vector2(1168, -208)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(224, 32)
 
-[node name="DrawnWall24" type="StaticBody2D" parent="Walls" unique_id=661191072 instance=ExtResource("4_20rif")]
+[node name="DrawnWall24" parent="Walls" unique_id=661191072 instance=ExtResource("4_20rif")]
 position = Vector2(1168, -560)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 416)
 
-[node name="DrawnWall25" type="StaticBody2D" parent="Walls" unique_id=1885397515 instance=ExtResource("4_20rif")]
+[node name="DrawnWall25" parent="Walls" unique_id=1885397515 instance=ExtResource("4_20rif")]
 position = Vector2(1200, 80)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(608, 32)
 
-[node name="DrawnWall26" type="StaticBody2D" parent="Walls" unique_id=1854116059 instance=ExtResource("4_20rif")]
+[node name="DrawnWall26" parent="Walls" unique_id=1854116059 instance=ExtResource("4_20rif")]
 position = Vector2(1520, -336)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 864)
 
-[node name="DrawnWall27" type="StaticBody2D" parent="Walls" unique_id=1954043383 instance=ExtResource("4_20rif")]
+[node name="DrawnWall27" parent="Walls" unique_id=1954043383 instance=ExtResource("4_20rif")]
 position = Vector2(1344, -784)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(384, 32)
 
-[node name="DrawnWall28" type="StaticBody2D" parent="Walls" unique_id=1790559456 instance=ExtResource("4_20rif")]
+[node name="DrawnWall28" parent="Walls" unique_id=1790559456 instance=ExtResource("4_20rif")]
 position = Vector2(1344, -560)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(128, 160)
 
-[node name="DrawnWall29" type="StaticBody2D" parent="Walls" unique_id=617111517 instance=ExtResource("4_20rif")]
+[node name="DrawnWall29" parent="Walls" unique_id=617111517 instance=ExtResource("4_20rif")]
 position = Vector2(1296, -112)
-collision_mask = 0
-script = ExtResource("5_n854u")
 size = Vector2(32, 224)
 
 [node name="Routes" type="Node2D" parent="." unique_id=1220520183]
@@ -247,6 +191,26 @@ kind = "ability"
 weapon_id = "pistol"
 amount = 1
 
+[node name="Pickup2" parent="Pickups" unique_id=264204540 instance=ExtResource("9_fl7ju")]
+position = Vector2(259, -292)
+kind = "ability"
+weapon_id = "pistol"
+amount = 1
+
+[node name="Pickup3" parent="Pickups" unique_id=1243167540 instance=ExtResource("9_fl7ju")]
+position = Vector2(343, -289)
+kind = "ability"
+weapon_id = "pistol"
+ability_id = "fire_tempest"
+amount = 1
+
+[node name="Pickup4" parent="Pickups" unique_id=475887834 instance=ExtResource("9_fl7ju")]
+position = Vector2(425, -288)
+kind = "ability"
+weapon_id = "pistol"
+ability_id = "lightning_bolt"
+amount = 1
+
 [node name="Pickup1" parent="Pickups" unique_id=412555963 instance=ExtResource("9_fl7ju")]
 position = Vector2(1349, -716)
 kind = "key"
@@ -263,29 +227,25 @@ metadata/navmesh_hash = 1500439931
 
 [node name="Doors" type="Node2D" parent="." unique_id=789437148]
 
-[node name="Door1" type="Node2D" parent="Doors" unique_id=1738910811 instance=ExtResource("11_pu0ch")]
+[node name="Door1" parent="Doors" unique_id=1738910811 instance=ExtResource("11_pu0ch")]
 position = Vector2(400, -368)
 rotation = 3.1415927
-script = ExtResource("10_dyf3r")
 
 [node name="Door2" parent="Doors" unique_id=158387239 instance=ExtResource("11_pu0ch")]
 position = Vector2(400, -208)
 
-[node name="Door3" type="Node2D" parent="Doors" unique_id=942638767 instance=ExtResource("11_pu0ch")]
+[node name="Door3" parent="Doors" unique_id=942638767 instance=ExtResource("11_pu0ch")]
 position = Vector2(-17, -272)
 rotation = 1.5707964
-script = ExtResource("10_dyf3r")
 
 [node name="Door4" parent="Doors" unique_id=1848251224 instance=ExtResource("11_pu0ch")]
 position = Vector2(656, -272)
 rotation = -1.5707964
 
-[node name="Door5" type="Node2D" parent="Doors" unique_id=1036026411 instance=ExtResource("11_pu0ch")]
+[node name="Door5" parent="Doors" unique_id=1036026411 instance=ExtResource("11_pu0ch")]
 position = Vector2(400, -976)
-script = ExtResource("10_dyf3r")
 starts_locked = true
 
-[node name="Door6" type="Node2D" parent="Doors" unique_id=327162640 instance=ExtResource("11_pu0ch")]
+[node name="Door6" parent="Doors" unique_id=327162640 instance=ExtResource("11_pu0ch")]
 position = Vector2(528, -1200)
 rotation = 1.5707964
-script = ExtResource("10_dyf3r")

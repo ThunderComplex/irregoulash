@@ -1216,6 +1216,57 @@ const SCENARIOS: Dictionary = {
 			"shot": "enemy_colors_02_level_shift",
 		},
 	],
+	## Swapping abilities on the ground: with both slots full, standing on an ability pickup offers it,
+	## a slot key swaps it in, the dropped one lies where the pickup was (upgrades and cooldown kept), and
+	## off the pickup the same key casts again. Run against `dev/surface_lab.tscn`.
+	"ability_swap": [
+		{
+			"god": true,
+			"set_abilities": ["fire_wall", "fire_tempest"],
+			"wait": 0.3,
+		},
+		{
+			# Put the fire wall on cooldown, so the swap can be seen to keep it.
+			"cast_ability": 0,
+			"ability_target": Vector2(860.0, 601.0),
+			"wait": 0.3,
+			"report": true,
+		},
+		{
+			"spawn_pickup": {"kind": "ability", "ability_id": "lightning_bolt", "ability_level": 2},
+			"wait": 0.3,
+			"report": true,
+			"pickup_report": true,
+			"shot": "ability_swap_01_offer",
+		},
+		{
+			# Slot 1's key: the lightning bolt takes the fire wall's place, the fire wall is left here.
+			"press_slot": 0,
+			"wait": 0.3,
+			"report": true,
+			"pickup_report": true,
+			"shot": "ability_swap_02_swapped",
+		},
+		{
+			# And back again: the fire wall's cooldown kept running on the ground.
+			"press_slot": 0,
+			"wait": 0.3,
+			"report": true,
+			"pickup_report": true,
+		},
+		{
+			# Off the pickup, the same key casts.
+			"teleport": Vector2(698.0, 470.0),
+			"wait": 0.3,
+			"pickup_report": true,
+		},
+		{
+			"press_slot": 1,
+			"ability_target": Vector2(698.0, 360.0),
+			"wait": 0.3,
+			"report": true,
+		},
+	],
 	## The legs' heading and reach while backing away from the aim, sampled over a stride.
 	"rig_backpedal": [
 		{"god": true, "aim": Vector2(1.0, 0.0), "keys_press": ["move_left"], "wait": 0.3, "rig_report": true},
@@ -3871,6 +3922,23 @@ func _run(scenario: String) -> void:
 		if step.has("retry_level"):
 			print("[probe] retry level")
 			GameDirector.retry_level()
+		if step.has("spawn_pickup"):
+			# A pickup at the player's feet, configured from the step's dictionary.
+			var finder: Player = GameDirector.valid_player()
+			if finder != null:
+				var dropped := (load("res://src/items/pickup.tscn") as PackedScene).instantiate() as Pickup
+				for setting: String in (step["spawn_pickup"] as Dictionary):
+					dropped.set(setting, step["spawn_pickup"][setting])
+				GameDirector.spawn_parent().add_child(dropped)
+				dropped.global_position = finder.global_position
+		if step.has("press_slot"):
+			# What pressing an ability key does: swap when standing on an offer, else cast.
+			var presser: Player = GameDirector.valid_player()
+			if presser != null and step.has("ability_target"):
+				(presser.abilities as AbilityHolder).debug_target = step["ability_target"]
+			if presser != null:
+				print("[probe] press ability key %d" % (int(step["press_slot"]) + 1))
+				(presser.abilities as AbilityHolder).press_slot(int(step["press_slot"]))
 		if step.has("emit_noise"):
 			# A noise of a given type, made by the player at the player's position.
 			var spec: Dictionary = step["emit_noise"]
@@ -3951,6 +4019,20 @@ func _run(scenario: String) -> void:
 		if step.has("death_report"):
 			print("[probe]   game over shown %d time(s); player alive=%s" % [_game_overs,
 				GameDirector.valid_player() != null and not GameDirector.valid_player().is_dead()])
+		if step.has("pickup_report"):
+			var looker: Player = GameDirector.valid_player()
+			var offer: Pickup = (looker.abilities as AbilityHolder).swap_offer if looker != null else null
+			print("[probe]   swap offer: %s" % ("none" if offer == null else offer.ability_id))
+			for node: Node in _all_nodes(GameDirector.spawn_parent()):
+				var lying := node as Pickup
+				if lying == null or lying.kind != "ability" or looker == null:
+					continue
+				if lying.global_position.distance_to(looker.global_position) > 300.0:
+					continue
+				var prompt := lying.get_node_or_null("SwapPrompt") as Label
+				print("[probe]   ability pickup %s level %d cooldown %.1f  prompt: %s" % [lying.ability_id,
+					lying.ability_level, float(lying.get("_ability_cooldown")),
+					("\"%s\"" % prompt.text.replace("\n", " | ")) if prompt != null and prompt.visible else "hidden"])
 		if step.has("track_enemies"):
 			# Every enemy's state and what it is heading for: the quickest way to see why a guard
 			# went somewhere unexpected.
