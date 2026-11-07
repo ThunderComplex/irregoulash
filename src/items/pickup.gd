@@ -13,6 +13,10 @@ extends Area2D
 ## An ability pickup found with both ability slots full is not refused: standing on it offers a swap,
 ## and pressing a slot's key puts this ability in that slot. The pickup then becomes the ability that was
 ## dropped, upgrades and cooldown included, so a swap can always be taken back.
+##
+## A pickup that cannot be taken says so in a prompt over itself, shown while the player stands on it,
+## rather than in an announcement: the reason belongs to the thing on the floor, and the message feed is
+## kept for what matters.
 
 @export_enum("weapon", "ammo", "upgrade", "health", "ability", "ability_upgrade", "key") var kind: String = "weapon":
 	set(value):
@@ -59,8 +63,6 @@ var _ability_cooldown: float = 0.0
 ## The holder this pickup is currently offering a swap to, and the prompt that says so.
 var _offered_to: AbilityHolder = null
 var _prompt: Label = null
-## Whether "already carried" has been said for the player standing here, so it is said once per visit.
-var _told: bool = false
 
 
 func _ready() -> void:
@@ -159,10 +161,10 @@ func _process(delta: float) -> void:
 			if player != null and not player.is_dead():
 				standing = player
 				break
-	if standing == null:
-		_told = false
 	if kind == "ability":
 		_update_swap_offer(standing)
+	elif kind == "ability_upgrade":
+		_update_upgrade_prompt(standing)
 	if standing != null:
 		_try_collect(standing)
 
@@ -228,10 +230,8 @@ func _try_collect(player: Player) -> void:
 			if ability_holder == null:
 				return
 			if not ability_holder.upgrade_all():
-				# Not consumed: either there is nothing to raise, or everything is already at the cap.
-				GameDirector.announce_message("ABILITIES: %s" % (
-					"NONE CARRIED" if ability_holder.slots.is_empty() else "MAXED"),
-					_pickup_color())
+				# Not consumed: either there is nothing to raise, or everything is already at the cap. The
+				# prompt over the pickup says which (`_update_upgrade_prompt`).
 				return
 			AudioDirector.play_at(&"upgrade", global_position, -3.0)
 			GameDirector.announce_message("ABILITIES UPGRADED", _pickup_color())
@@ -257,10 +257,7 @@ func _try_collect(player: Player) -> void:
 				return
 			var ability: AbilityResource = AbilityLibrary.by_id(ability_id)
 			if ability_holder.has_ability(String(ability.id)):
-				if not _told:
-					_told = true
-					GameDirector.announce_message("%s: already carried" % ability.display_name.to_upper(),
-						_pickup_color())
+				# Left where it is; the prompt over it says why (`_update_swap_offer`).
 				return
 			if ability_holder.is_full():
 				# Not taken automatically: with both slots full it is a choice, made by pressing the key of
@@ -280,7 +277,7 @@ func _collect() -> void:
 	queue_free()
 
 
-#region ability swap
+#region prompts and ability swap
 
 ## Whether standing here and pressing a slot key should swap this ability in.
 func can_swap_into(holder: AbilityHolder) -> bool:
@@ -316,7 +313,8 @@ func _make_slot() -> AbilitySlot:
 	return slot
 
 
-## Offers the swap to whoever is standing here, or withdraws it when they step off.
+## Offers the swap to whoever is standing here, or withdraws it when they step off. Standing on an
+## ability already carried gets a prompt saying so instead.
 func _update_swap_offer(standing: Player) -> void:
 	var holder: AbilityHolder = standing.abilities as AbilityHolder if standing != null else null
 	if holder != null and can_swap_into(holder):
@@ -324,17 +322,31 @@ func _update_swap_offer(standing: Player) -> void:
 			_withdraw_offer()
 		_offered_to = holder
 		holder.swap_offer = self
-		_show_prompt(holder)
+		_show_swap_prompt(holder)
+		return
+	_withdraw_offer()
+	if holder != null and holder.has_ability(ability_id):
+		_show_prompt("%s\nalready carried" % _ability_title())
+
+
+## An ability upgrade that would do nothing explains why while the player stands on it.
+func _update_upgrade_prompt(standing: Player) -> void:
+	var holder: AbilityHolder = standing.abilities as AbilityHolder if standing != null else null
+	if holder == null or _collected:
+		_hide_prompt()
+	elif holder.slots.is_empty():
+		_show_prompt("No abilities to upgrade")
+	elif not holder.can_upgrade_any():
+		_show_prompt("Abilities at max level")
 	else:
-		_withdraw_offer()
+		_hide_prompt()
 
 
 func _withdraw_offer() -> void:
 	if _offered_to != null and is_instance_valid(_offered_to) and _offered_to.swap_offer == self:
 		_offered_to.swap_offer = null
 	_offered_to = null
-	if _prompt != null:
-		_prompt.visible = false
+	_hide_prompt()
 
 
 func _exit_tree() -> void:
@@ -342,9 +354,27 @@ func _exit_tree() -> void:
 		_withdraw_offer()
 
 
-## The prompt over the pickup: what is on offer, and which key gives up which slot. It follows the
-## device and any rebinding, like the HUD does.
-func _show_prompt(holder: AbilityHolder) -> void:
+## The swap prompt: what is on offer, and which key gives up which slot. It follows the device and any
+## rebinding, like the HUD does.
+func _show_swap_prompt(holder: AbilityHolder) -> void:
+	var choices: Array[String] = []
+	for index: int in AbilityHolder.MAX_SLOTS:
+		var slot: AbilitySlot = holder.slot_at(index)
+		if slot != null and slot.data != null:
+			choices.append("[%s] drop %s" % [GameInput.describe_for_device("ability_%d" % (index + 1)),
+				slot.data.display_name])
+	_show_prompt("%s\n%s" % [_ability_title(), "    ".join(choices)])
+
+
+func _ability_title() -> String:
+	var title: String = AbilityLibrary.by_id(ability_id).display_name.to_upper()
+	if ability_level > 0:
+		title += "  " + "+".repeat(ability_level)
+	return title
+
+
+## A line or two over the pickup, readable in the dark: what it is, and why it was or was not taken.
+func _show_prompt(text: String) -> void:
 	if _prompt == null:
 		_prompt = Label.new()
 		_prompt.name = "SwapPrompt"
@@ -362,20 +392,14 @@ func _show_prompt(holder: AbilityHolder) -> void:
 		_prompt.z_index = Layers.Z_FX + 5
 		_prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(_prompt)
-	var offered: AbilityResource = AbilityLibrary.by_id(ability_id)
-	var title: String = offered.display_name.to_upper()
-	if ability_level > 0:
-		title += "  " + "+".repeat(ability_level)
-	var choices: Array[String] = []
-	for index: int in AbilityHolder.MAX_SLOTS:
-		var slot: AbilitySlot = holder.slot_at(index)
-		if slot != null and slot.data != null:
-			choices.append("[%s] drop %s" % [GameInput.describe_for_device("ability_%d" % (index + 1)),
-				slot.data.display_name])
-	var text: String = "%s\n%s" % [title, "    ".join(choices)]
 	if _prompt.text != text:
 		_prompt.text = text
 	_prompt.visible = true
+
+
+func _hide_prompt() -> void:
+	if _prompt != null:
+		_prompt.visible = false
 
 #endregion
 

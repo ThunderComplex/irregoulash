@@ -1267,6 +1267,48 @@ const SCENARIOS: Dictionary = {
 			"report": true,
 		},
 	],
+	## Pickups that cannot be taken explain themselves over their own heads instead of in the message
+	## feed: an ability upgrade with no abilities, the same at the level cap, and an ability already
+	## carried. Run against `dev/surface_lab.tscn`.
+	"pickup_prompts": [
+		{
+			"god": true,
+			"set_abilities": [],
+			"clear_announce": true,
+			"spawn_pickup": {"kind": "ability_upgrade"},
+			"wait": 0.4,
+			"pickup_report": true,
+			"announce_report": true,
+			"shot": "pickup_prompts_01_no_abilities",
+		},
+		{
+			# Something to raise: taken as before.
+			"set_abilities": ["fire_wall"],
+			"clear_announce": true,
+			"wait": 0.3,
+			"report": true,
+			"pickup_report": true,
+		},
+		{
+			"ability_levels": 3,
+			"clear_announce": true,
+			"spawn_pickup": {"kind": "ability_upgrade"},
+			"wait": 0.4,
+			"pickup_report": true,
+			"announce_report": true,
+		},
+		{
+			"clear_announce": true,
+			"teleport": Vector2(698.0, 470.0),
+			"wait": 0.2,
+		},
+		{
+			"spawn_pickup": {"kind": "ability", "ability_id": "fire_wall"},
+			"wait": 0.4,
+			"pickup_report": true,
+			"announce_report": true,
+		},
+	],
 	## The legs' heading and reach while backing away from the aim, sampled over a stride.
 	"rig_backpedal": [
 		{"god": true, "aim": Vector2(1.0, 0.0), "keys_press": ["move_left"], "wait": 0.3, "rig_report": true},
@@ -3922,6 +3964,11 @@ func _run(scenario: String) -> void:
 		if step.has("retry_level"):
 			print("[probe] retry level")
 			GameDirector.retry_level()
+		if step.has("ability_levels"):
+			var leveller: Player = GameDirector.valid_player()
+			if leveller != null:
+				for slot: AbilitySlot in (leveller.abilities as AbilityHolder).slots:
+					slot.level = int(step["ability_levels"])
 		if step.has("spawn_pickup"):
 			# A pickup at the player's feet, configured from the step's dictionary.
 			var finder: Player = GameDirector.valid_player()
@@ -4025,12 +4072,12 @@ func _run(scenario: String) -> void:
 			print("[probe]   swap offer: %s" % ("none" if offer == null else offer.ability_id))
 			for node: Node in _all_nodes(GameDirector.spawn_parent()):
 				var lying := node as Pickup
-				if lying == null or lying.kind != "ability" or looker == null:
+				if lying == null or not lying.kind.begins_with("ability") or looker == null:
 					continue
 				if lying.global_position.distance_to(looker.global_position) > 300.0:
 					continue
 				var prompt := lying.get_node_or_null("SwapPrompt") as Label
-				print("[probe]   ability pickup %s level %d cooldown %.1f  prompt: %s" % [lying.ability_id,
+				print("[probe]   %s pickup %s level %d cooldown %.1f  prompt: %s" % [lying.kind, lying.ability_id,
 					lying.ability_level, float(lying.get("_ability_cooldown")),
 					("\"%s\"" % prompt.text.replace("\n", " | ")) if prompt != null and prompt.visible else "hidden"])
 		if step.has("track_enemies"):

@@ -197,6 +197,14 @@ func grant_all() -> void:
 ## Both slots, rather than a chosen one: the player has two abilities and no "current" one, so "which
 ## ability does this upgrade" has no good answer without a selection UI. Raising both is explicit and
 ## wastes nothing.
+## Whether an ability upgrade would do anything: at least one carried ability below the cap.
+func can_upgrade_any() -> bool:
+	for slot: AbilitySlot in slots:
+		if slot.level < AbilitySlot.MAX_LEVEL:
+			return true
+	return false
+
+
 func upgrade_all() -> bool:
 	var raised: bool = false
 	for slot: AbilitySlot in slots:
