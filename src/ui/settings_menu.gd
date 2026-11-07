@@ -16,7 +16,9 @@ extends Control
 signal settings_closed();
 
 const REFERENCE: Vector2 = Vector2(1280.0, 720.0)
-const PANEL_SIZE: Vector2 = Vector2(620.0, 540.0)
+const PANEL_SIZE: Vector2 = Vector2(620.0, 594.0)
+## Width of the number field beside the frame rate slider.
+const FPS_FIELD_WIDTH: float = 96.0
 const ROW_LEFT: float = 44.0
 const CONTROL_WIDTH: float = 300.0
 const ROW_RIGHT: float = 44.0
@@ -33,6 +35,11 @@ var _panel: Control = null
 var _mode_button: OptionButton = null
 var _resolution_button: OptionButton = null
 var _vsync_button: CheckButton = null
+## The frame rate cap: a slider whose last notch past `FPS_CAP_MAX` means "unlimited", and a field to
+## type an exact number into.
+var _fps_slider: HSlider = null
+var _fps_field: LineEdit = null
+var _fps_label: Label = null
 var _master_slider: HSlider = null
 var _sfx_slider: HSlider = null
 var _master_label: Label = null
@@ -173,16 +180,18 @@ func _build() -> void:
 	_vsync_button.toggled.connect(_on_vsync_toggled)
 	_add_row("Vertical sync", _vsync_button, 2)
 
+	_fps_label = _add_row("Frame rate cap", _build_fps_control(), 3)
+
 	_master_slider = _slider()
-	_master_label = _add_row("Master volume", _master_slider, 3)
+	_master_label = _add_row("Master volume", _master_slider, 4)
 	_master_slider.value_changed.connect(_on_master_changed)
 
 	_sfx_slider = _slider()
-	_sfx_label = _add_row("Sound effects", _sfx_slider, 4)
+	_sfx_label = _add_row("Sound effects", _sfx_slider, 5)
 	_sfx_slider.value_changed.connect(_on_sfx_changed)
 
 	# --- buttons. `y` is kept unscaled because every use below multiplies by `_scale`.
-	var y: float = ROW_TOP + 5.0 * ROW_HEIGHT + 22.0
+	var y: float = ROW_TOP + 6.0 * ROW_HEIGHT + 22.0
 	var controls := Button.new()
 	controls.text = "Controls"
 	controls.position = Vector2(ROW_LEFT, y) * _scale
@@ -224,6 +233,29 @@ func _add_row(text: String, control: Control, index: int) -> Label:
 		control.add_theme_font_size_override("font_size", _font(17))
 	_panel.add_child(control)
 	return label
+
+
+## The slider and the number field side by side. The slider's notch past `FPS_CAP_MAX` is "unlimited",
+## so the whole range is reachable by dragging alone.
+func _build_fps_control() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(round(10.0 * _scale)))
+	_fps_slider = HSlider.new()
+	_fps_slider.min_value = GameSettings.FPS_CAP_MIN
+	_fps_slider.max_value = GameSettings.FPS_CAP_MAX + 1
+	_fps_slider.step = 1.0
+	_fps_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_fps_slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_fps_slider.value_changed.connect(_on_fps_slider_changed)
+	row.add_child(_fps_slider)
+	_fps_field = LineEdit.new()
+	_fps_field.custom_minimum_size = Vector2(FPS_FIELD_WIDTH, 0.0) * _scale
+	_fps_field.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_fps_field.add_theme_font_size_override("font_size", _font(16))
+	_fps_field.text_submitted.connect(_on_fps_field_submitted)
+	_fps_field.focus_exited.connect(func() -> void: _on_fps_field_submitted(_fps_field.text))
+	row.add_child(_fps_field)
+	return row
 
 
 func _slider() -> HSlider:
@@ -278,6 +310,7 @@ func _sync() -> void:
 	_mode_button.disabled = embedded
 	_resolution_button.disabled = embedded or not Settings.resolution_is_relevant()
 	_vsync_button.button_pressed = Settings.vsync_enabled
+	_sync_fps()
 	_master_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.master_volume_db))
 	_sfx_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.sfx_volume_db))
 	_update_volume_labels()
@@ -286,6 +319,44 @@ func _sync() -> void:
 func _update_volume_labels() -> void:
 	_master_label.text = "Master volume   %d%%" % int(round(_master_slider.value))
 	_sfx_label.text = "Sound effects   %d%%" % int(round(_sfx_slider.value))
+
+
+## The cap only applies with vsync off, so the row goes inert while vsync is on, and its label says why.
+func _sync_fps() -> void:
+	var cap: int = Settings.fps_cap
+	var unlimited: bool = cap == GameSettings.FPS_UNLIMITED
+	_fps_slider.set_value_no_signal(GameSettings.FPS_CAP_MAX + 1 if unlimited else cap)
+	if not _fps_field.has_focus():
+		_fps_field.text = "Unlimited" if unlimited else str(cap)
+	var active: bool = not Settings.vsync_enabled
+	_fps_slider.editable = active
+	_fps_field.editable = active
+	# Greyed rather than explained in the label, which has no room for it; the tooltip says why.
+	_fps_label.modulate = Color(0.72, 0.8, 0.9) if active else Color(0.5, 0.55, 0.62)
+	var why: String = "" if active else "
+Only applies while vertical sync is off."
+	_fps_slider.tooltip_text = "Frames per second the game is held to.%s" % why
+	_fps_field.tooltip_text = "Frames per second (%d to %d), or 0 / \"unlimited\" for no cap.%s" % [
+		GameSettings.FPS_CAP_MIN, GameSettings.FPS_CAP_MAX, why]
+
+
+func _on_fps_slider_changed(value: float) -> void:
+	var cap: int = int(value)
+	Settings.set_fps_cap(GameSettings.FPS_UNLIMITED if cap > GameSettings.FPS_CAP_MAX else cap)
+	_sync_fps()
+
+
+## A typed cap: a number (clamped to the range), or 0, "unlimited" or nothing for no cap. Anything else
+## is ignored and the field goes back to the current value.
+func _on_fps_field_submitted(text: String) -> void:
+	var typed: String = text.strip_edges().to_lower()
+	if typed.is_empty() or typed.begins_with("unl") or typed == "0" or typed == "∞":
+		Settings.set_fps_cap(GameSettings.FPS_UNLIMITED)
+	elif typed.is_valid_int() or typed.is_valid_float():
+		Settings.set_fps_cap(int(round(typed.to_float())))
+	_fps_field.release_focus()
+	_fps_field.text = ""
+	_sync_fps()
 
 
 func _on_mode_selected(index: int) -> void:
@@ -322,7 +393,7 @@ func _on_reset_pressed() -> void:
 #region controls
 
 ## Swaps the settings rows for the rebinding list. A second panel rather than a tab strip: the settings
-## rows are a fixed five and the controls list is long enough to scroll, so they want different layouts.
+## rows are a fixed six and the controls list is long enough to scroll, so they want different layouts.
 func _open_controls() -> void:
 	if _controls_panel != null:
 		return

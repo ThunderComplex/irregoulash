@@ -1,6 +1,6 @@
 class_name GameSettings
 extends Node
-## Player-facing settings: window mode, resolution, vsync and the two volume buses.
+## Player-facing settings: window mode, resolution, vsync, the frame rate cap and the two volume buses.
 ##
 ## Persisted to `user://settings.cfg` and applied the moment they change, so there is no
 ## Apply button to forget. Autoloads run before the first scene, so the saved window
@@ -16,6 +16,11 @@ extends Node
 signal changed()
 
 const PATH: String = "user://settings.cfg"
+## Range of the frame rate cap. 0 means no cap.
+const FPS_CAP_MIN: int = 30
+const FPS_CAP_MAX: int = 500
+const FPS_UNLIMITED: int = 0
+const DEFAULT_FPS_CAP: int = 60
 
 enum WindowMode {
 	## A normal resizable window at `resolution`.
@@ -48,6 +53,9 @@ const COMMON_SIZES: Array[Vector2i] = [
 var window_mode: WindowMode = WindowMode.WINDOWED
 var resolution: Vector2i = Vector2i(1280, 720)
 var vsync_enabled: bool = true
+## Frames per second the game is held to while vsync is off; `FPS_UNLIMITED` for no cap. With vsync on
+## the display already paces the game, so the cap is not applied (see `_apply_frame_cap`).
+var fps_cap: int = DEFAULT_FPS_CAP
 var master_volume_db: float = 0.0
 var sfx_volume_db: float = -6.0
 
@@ -72,6 +80,7 @@ func _ready() -> void:
 
 func apply() -> void:
 	_apply_window()
+	_apply_frame_cap()
 	_apply_audio()
 	changed.emit()
 
@@ -98,6 +107,11 @@ func _apply_window() -> void:
 			_center_window()
 	var mode: int = DisplayServer.VSYNC_ENABLED if vsync_enabled else DisplayServer.VSYNC_DISABLED
 	DisplayServer.window_set_vsync_mode(mode)
+
+
+## Holds the frame rate to the cap -- only while vsync is off, which is when nothing else limits it.
+func _apply_frame_cap() -> void:
+	Engine.max_fps = 0 if vsync_enabled else fps_cap
 
 
 ## Puts the window in the middle of the desktop, and shrinks it if the requested size does
@@ -153,6 +167,17 @@ func set_vsync(enabled: bool) -> void:
 	save_settings()
 
 
+## `cap` in frames per second, clamped to `FPS_CAP_MIN`..`FPS_CAP_MAX`; `FPS_UNLIMITED` (0) for none.
+func set_fps_cap(cap: int) -> void:
+	var clamped: int = FPS_UNLIMITED if cap <= FPS_UNLIMITED else clampi(cap, FPS_CAP_MIN, FPS_CAP_MAX)
+	if fps_cap == clamped:
+		return
+	fps_cap = clamped
+	_apply_frame_cap()
+	changed.emit()
+	save_settings()
+
+
 func set_master_volume_db(db: float) -> void:
 	if is_equal_approx(master_volume_db, db):
 		return
@@ -175,6 +200,7 @@ func reset_defaults() -> void:
 	window_mode = WindowMode.WINDOWED
 	resolution = Vector2i(1280, 720)
 	vsync_enabled = true
+	fps_cap = DEFAULT_FPS_CAP
 	master_volume_db = 0.0
 	sfx_volume_db = -6.0
 	apply()
@@ -204,6 +230,7 @@ func save_settings() -> void:
 	config.set_value("display", "window_mode", int(window_mode))
 	config.set_value("display", "resolution", resolution)
 	config.set_value("display", "vsync", vsync_enabled)
+	config.set_value("display", "fps_cap", fps_cap)
 	config.set_value("audio", "master_db", master_volume_db)
 	config.set_value("audio", "sfx_db", sfx_volume_db)
 	var error: Error = config.save(PATH)
@@ -221,6 +248,8 @@ func load_settings() -> void:
 		WindowMode.WINDOWED, WindowMode.EXCLUSIVE) as WindowMode
 	resolution = config.get_value("display", "resolution", resolution)
 	vsync_enabled = bool(config.get_value("display", "vsync", vsync_enabled))
+	var cap: int = int(config.get_value("display", "fps_cap", fps_cap))
+	fps_cap = FPS_UNLIMITED if cap <= FPS_UNLIMITED else clampi(cap, FPS_CAP_MIN, FPS_CAP_MAX)
 	master_volume_db = float(config.get_value("audio", "master_db", master_volume_db))
 	sfx_volume_db = float(config.get_value("audio", "sfx_db", sfx_volume_db))
 
