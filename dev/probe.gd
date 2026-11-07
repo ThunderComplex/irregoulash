@@ -1302,6 +1302,33 @@ const SCENARIOS: Dictionary = {
 			"shot": "door_textures_03_opened",
 		},
 	],
+	## Aiming: with the pointer exactly on a scout (the smallest enemy), how far the shot's path passes
+	## from its centre -- the old way (along the aim, from the muzzle in the right hand) and the new
+	## (from the muzzle to the aim point) -- where the aim line's crosshair lands, and whether shots
+	## actually hit. Run against `dev/surface_lab.tscn`.
+	"aim_line": [
+		{
+			"god": true,
+			"reveal": true,
+			"zoom": 2.0,
+			"spawn_archetypes": {"scout": Vector2(260.0, 0.0)},
+			"wait": 0.1,
+		},
+		{
+			"freeze_probe_enemies": true,
+			"aim_at_probe_enemy": true,
+			"wait": 0.3,
+			"aim_report": true,
+			"shot": "aim_line_01_on_target",
+		},
+		{
+			"aim_at_probe_enemy": true,
+			"fire_for": 1.2,
+			"wait": 0.4,
+			"track_enemies": true,
+			"gib_report": true,
+		},
+	],
 	## Every pickup kind's art in a row, away from the player so none is picked up. Run against
 	## `dev/surface_lab.tscn`.
 	"pickup_sprites": [
@@ -4209,6 +4236,19 @@ func _run(scenario: String) -> void:
 				var doomed := enemy_node as Enemy
 				if doomed != null and String(doomed.name).begins_with("Probe_"):
 					doomed.take_hit(9999.0, null, doomed.global_position, step["kill_probe_enemies"], 0.0)
+		if step.has("freeze_probe_enemies"):
+			# Holds them still, so aiming at one is a fixed target.
+			for enemy_node: Node in get_tree().get_nodes_in_group("enemy"):
+				if String(enemy_node.name).begins_with("Probe_"):
+					enemy_node.set_physics_process(false)
+		if step.has("aim_at_probe_enemy"):
+			# Aims exactly at a probe enemy, as if the cursor were on it.
+			for enemy_node: Node in get_tree().get_nodes_in_group("enemy"):
+				if String(enemy_node.name).begins_with("Probe_"):
+					var aiming: Player = GameDirector.valid_player()
+					if aiming != null:
+						aiming.debug_aim_point = (enemy_node as Node2D).global_position
+					break
 		if step.has("clear_gibs"):
 			for node: Node in _all_nodes(GameDirector.spawn_parent()):
 				if node is Gib:
@@ -4345,6 +4385,25 @@ func _run(scenario: String) -> void:
 		if step.has("death_report"):
 			print("[probe]   game over shown %d time(s); player alive=%s" % [_game_overs,
 				GameDirector.valid_player() != null and not GameDirector.valid_player().is_dead()])
+		if step.has("aim_report"):
+			var aimer: Player = GameDirector.valid_player()
+			var mark: Node2D = null
+			for enemy_node: Node in get_tree().get_nodes_in_group("enemy"):
+				if String(enemy_node.name).begins_with("Probe_"):
+					mark = enemy_node
+			if aimer != null and mark != null:
+				var muzzle: Vector2 = aimer.muzzle_position()
+				var centre: Vector2 = mark.global_position
+				var miss := func(direction: Vector2) -> float:
+					return absf((centre - muzzle).cross(direction.normalized()))
+				print("[probe]   aim point %s, target %s" % [aimer.aim_point().round(), centre.round()])
+				print("[probe]   shot passes the target's centre at: old (along the aim) %.1f px, new (to the aim point) %.1f px; target radius %.0f" % [
+					miss.call(aimer.aim_direction), miss.call(aimer.shot_direction()), (mark as Enemy).archetype.radius])
+				var line := aimer.get_node_or_null(^"AimLine") as AimLine
+				if line != null:
+					print("[probe]   aim line: visible=%s crosshair=%s at %s (%.1f px from the target's centre)" % [
+						line.visible, line.get("_hit"), (line.get("_to") as Vector2).round(),
+						(line.get("_to") as Vector2).distance_to(centre)])
 		if step.has("float_report"):
 			# The floating lines currently on screen, newest last.
 			var lines: Array[String] = []

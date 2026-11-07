@@ -1,6 +1,7 @@
 class_name GameSettings
 extends Node
-## Player-facing settings: window mode, resolution, vsync, the frame rate cap and the two volume buses.
+## Player-facing settings: window mode, resolution, vsync, the frame rate cap, the two volume buses and
+## the aim line.
 ##
 ## Persisted to `user://settings.cfg` and applied the moment they change, so there is no
 ## Apply button to forget. Autoloads run before the first scene, so the saved window
@@ -57,6 +58,8 @@ var vsync_enabled: bool = true
 ## the display already paces the game, so the cap is not applied (see `_apply_frame_cap`).
 var fps_cap: int = DEFAULT_FPS_CAP
 var master_volume_db: float = 0.0
+## The line along the next shot's path, with a crosshair where it would hit (see `AimLine`).
+var aim_line_enabled: bool = true
 var sfx_volume_db: float = -6.0
 
 ## True once there is a saved file, i.e. once the player has expressed a preference. Until
@@ -178,6 +181,14 @@ func set_fps_cap(cap: int) -> void:
 	save_settings()
 
 
+func set_aim_line(enabled: bool) -> void:
+	if aim_line_enabled == enabled:
+		return
+	aim_line_enabled = enabled
+	changed.emit()
+	save_settings()
+
+
 func set_master_volume_db(db: float) -> void:
 	if is_equal_approx(master_volume_db, db):
 		return
@@ -201,6 +212,7 @@ func reset_defaults() -> void:
 	resolution = Vector2i(1280, 720)
 	vsync_enabled = true
 	fps_cap = DEFAULT_FPS_CAP
+	aim_line_enabled = true
 	master_volume_db = 0.0
 	sfx_volume_db = -6.0
 	apply()
@@ -232,6 +244,7 @@ func save_settings() -> void:
 	config.set_value("display", "vsync", vsync_enabled)
 	config.set_value("display", "fps_cap", fps_cap)
 	config.set_value("audio", "master_db", master_volume_db)
+	config.set_value("gameplay", "aim_line", aim_line_enabled)
 	config.set_value("audio", "sfx_db", sfx_volume_db)
 	var error: Error = config.save(PATH)
 	if error != OK:
@@ -251,6 +264,7 @@ func load_settings() -> void:
 	var cap: int = int(config.get_value("display", "fps_cap", fps_cap))
 	fps_cap = FPS_UNLIMITED if cap <= FPS_UNLIMITED else clampi(cap, FPS_CAP_MIN, FPS_CAP_MAX)
 	master_volume_db = float(config.get_value("audio", "master_db", master_volume_db))
+	aim_line_enabled = bool(config.get_value("gameplay", "aim_line", aim_line_enabled))
 	sfx_volume_db = float(config.get_value("audio", "sfx_db", sfx_volume_db))
 
 

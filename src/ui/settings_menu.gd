@@ -16,7 +16,7 @@ extends Control
 signal settings_closed();
 
 const REFERENCE: Vector2 = Vector2(1280.0, 720.0)
-const PANEL_SIZE: Vector2 = Vector2(620.0, 594.0)
+const PANEL_SIZE: Vector2 = Vector2(620.0, 648.0)
 ## Width of the number field beside the frame rate slider.
 const FPS_FIELD_WIDTH: float = 96.0
 const ROW_LEFT: float = 44.0
@@ -35,6 +35,7 @@ var _panel: Control = null
 var _mode_button: OptionButton = null
 var _resolution_button: OptionButton = null
 var _vsync_button: CheckButton = null
+var _aim_line_button: CheckButton = null
 ## The frame rate cap: a slider whose last notch past `FPS_CAP_MAX` means "unlimited", and a field to
 ## type an exact number into.
 var _fps_slider: HSlider = null
@@ -190,8 +191,13 @@ func _build() -> void:
 	_sfx_label = _add_row("Sound effects", _sfx_slider, 5)
 	_sfx_slider.value_changed.connect(_on_sfx_changed)
 
+	_aim_line_button = CheckButton.new()
+	_aim_line_button.tooltip_text = "A line along your next shot, with a crosshair where it would hit."
+	_aim_line_button.toggled.connect(func(pressed: bool) -> void: Settings.set_aim_line(pressed))
+	_add_row("Aim line", _aim_line_button, 6)
+
 	# --- buttons. `y` is kept unscaled because every use below multiplies by `_scale`.
-	var y: float = ROW_TOP + 6.0 * ROW_HEIGHT + 22.0
+	var y: float = ROW_TOP + 7.0 * ROW_HEIGHT + 22.0
 	var controls := Button.new()
 	controls.text = "Controls"
 	controls.position = Vector2(ROW_LEFT, y) * _scale
@@ -317,6 +323,8 @@ func _sync() -> void:
 	_vsync_button.button_pressed = Settings.vsync_enabled
 	# The switch's own text says which way it is; it used to read "on" whichever way it was set.
 	_vsync_button.text = "on" if Settings.vsync_enabled else "off"
+	_aim_line_button.set_pressed_no_signal(Settings.aim_line_enabled)
+	_aim_line_button.text = "on" if Settings.aim_line_enabled else "off"
 	_sync_fps()
 	_master_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.master_volume_db))
 	_sfx_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.sfx_volume_db))
@@ -400,7 +408,7 @@ func _on_reset_pressed() -> void:
 #region controls
 
 ## Swaps the settings rows for the rebinding list. A second panel rather than a tab strip: the settings
-## rows are a fixed six and the controls list is long enough to scroll, so they want different layouts.
+## rows are a fixed seven and the controls list is long enough to scroll, so they want different layouts.
 func _open_controls() -> void:
 	if _controls_panel != null:
 		return

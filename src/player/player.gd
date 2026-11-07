@@ -22,6 +22,9 @@ var abilities: Node = null
 ## When non-zero the mouse is ignored and this direction is used instead. Only
 ## used by the automated dev probe so scripted tests are deterministic.
 var debug_aim: Vector2 = Vector2.ZERO
+## When finite, a world point the player aims at as if the cursor were on it. Only the dev probe sets
+## it, so a scripted shot at a target is exact (moving the real pointer drags the camera along).
+var debug_aim_point: Vector2 = Vector2.INF
 
 ## Any key opens any locked door. Carried between levels and saved with the checkpoint, because
 ## losing keys at a level boundary would be a nasty surprise.
@@ -75,7 +78,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _dead:
 		return
-	if debug_aim != Vector2.ZERO:
+	if debug_aim_point.is_finite() and debug_aim_point.distance_squared_to(global_position) > 1.0:
+		aim_direction = (debug_aim_point - global_position).normalized()
+	elif debug_aim != Vector2.ZERO:
 		aim_direction = debug_aim.normalized()
 	else:
 		var stick: Vector2 = GameInput.aim_vector()
@@ -262,6 +267,35 @@ func _update_noclip() -> void:
 		collision_layer = wanted
 
 
+## How far ahead the aim point sits when there is no cursor to put it under (a gamepad, a scripted aim).
+const AIM_POINT_DISTANCE: float = 600.0
+
+
+## The point being aimed at: under the mouse cursor, or a fixed distance along the aim with a gamepad.
+func aim_point() -> Vector2:
+	if debug_aim_point.is_finite():
+		return debug_aim_point
+	if debug_aim == Vector2.ZERO and not GameInput.using_gamepad():
+		return get_global_mouse_position()
+	return global_position + aim_direction * AIM_POINT_DISTANCE
+
+
+## The direction a shot travels: from the muzzle to the aim point.
+##
+## Not simply `aim_direction`. The gun is held in the right hand, beside the body's centre line, so a
+## shot fired along `aim_direction` from the muzzle ran parallel to the line to the cursor and passed
+## about 12 px to its side -- more than a scout's whole radius. Converging on the aim point puts shots
+## where the cursor is. With the cursor on top of the player there is no sensible point to converge on,
+## so the plain aim direction is used.
+func shot_direction() -> Vector2:
+	var target: Vector2 = aim_point()
+	var muzzle: Vector2 = muzzle_position()
+	if global_position.distance_to(target) <= global_position.distance_to(muzzle) + 12.0:
+		return aim_direction
+	var direction: Vector2 = (target - muzzle).normalized()
+	return direction if direction.dot(aim_direction) > 0.2 else aim_direction
+
+
 ## Where shots leave the gun: the tip of the held weapon's art when there is some, else a little ahead of
 ## the player.
 func muzzle_position() -> Vector2:
@@ -351,6 +385,9 @@ func _build_art() -> void:
 	_rig.name = "Rig"
 	visual.add_child(_rig)
 	_rig.setup(CharacterRig.find_look(["player"]), Tuning.player_radius, Color(0.80, 0.87, 1.0))
+	var aim_line := AimLine.new()
+	aim_line.name = "AimLine"
+	add_child(aim_line)
 
 
 func _on_weapon_changed(slot: WeaponSlot, _index: int) -> void:
