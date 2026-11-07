@@ -2425,14 +2425,22 @@ func _report_surfaces() -> void:
 			# The mask is only useful if it is the picture of the lighting the level actually has. A lamp
 			# that is on in the world but dark in the mask means the mask viewport is not rendering it --
 			# wrong alignment, culling or size.
+			# A lamp's light is not a node (it lives on the rendering server, see `Lamp`), so lamps are
+			# counted by the lamp itself.
 			var lamps_on: int = 0
 			var lamps_reflected: int = 0
 			for node: Node in _all_nodes(level):
-				var light := node as PointLight2D
-				if light == null or light.energy <= 0.01:
+				var lamp := node as Lamp
+				if lamp == null or not lamp.is_visible_in_tree():
+					continue
+				# Lamps used to carry a `Light` node; read that on a lamp from before the change.
+				var old_light := lamp.get_node_or_null(^"Light") as PointLight2D
+				var shining: float = lamp.call(&"light_energy") if lamp.has_method(&"light_energy") \
+					else (old_light.energy if old_light != null else 0.0)
+				if shining <= 0.01:
 					continue
 				lamps_on += 1
-				if _mask_at(mask, mask_image, light.global_position) > 0.01:
+				if _mask_at(mask, mask_image, lamp.global_position) > 0.01:
 					lamps_reflected += 1
 			print("[probe]   lamps: %d on, %d of them present in the mask" % [
 				lamps_on, lamps_reflected])

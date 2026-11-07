@@ -8,6 +8,11 @@ extends Node2D
 ##
 ## The fixture itself is drawn unshaded by default, so distant lamps read as
 ## faint beacons in the dark and help you navigate without revealing the layout.
+##
+## The light is not a node: it is made directly on the `RenderingServer`. A `PointLight2D` child
+## counts, in the 2D editor, as clickable across its whole texture -- the entire light radius -- so a
+## lamp swallowed every click on anything near it, and was picked up whenever something in its pool
+## was dragged. A server light has nothing to click, so only the fixture selects and drags the lamp.
 
 @export var color: Color = Color(1.0, 0.85, 0.58):
 	set(value):
@@ -51,13 +56,82 @@ extends Node2D
 ## How often, in seconds, the line-of-sight test is repeated.
 const LOS_INTERVAL: float = 0.12
 
-var _light: PointLight2D = null
+## The light, on the rendering server (see the class description).
+var _light: RID = RID()
+## The brightness the light was last given: `energy`, times flicker, times the line-of-sight fade.
+var _current_energy: float = 0.0
 var _fixture: Polygon2D = null
 var _phase: float = 0.0
 ## 0..1 multiplier for visibility, faded so lamps never pop on or off.
 var _lit: float = 1.0
 var _visible: bool = true
 var _los_timer: float = 0.0
+
+
+func _init() -> void:
+	set_notify_transform(true)
+
+
+func _notification(what: int) -> void:
+	match what:
+		NOTIFICATION_ENTER_CANVAS:
+			_ensure_light()
+			RenderingServer.canvas_light_attach_to_canvas(_light, get_canvas())
+			_sync_light_transform()
+			_sync_light_enabled()
+		NOTIFICATION_EXIT_CANVAS:
+			if _light.is_valid():
+				RenderingServer.canvas_light_attach_to_canvas(_light, RID())
+		NOTIFICATION_TRANSFORM_CHANGED:
+			_sync_light_transform()
+		NOTIFICATION_VISIBILITY_CHANGED:
+			_sync_light_enabled()
+		NOTIFICATION_PREDELETE:
+			if _light.is_valid():
+				RenderingServer.free_rid(_light)
+				_light = RID()
+
+
+func _ensure_light() -> void:
+	if _light.is_valid():
+		return
+	_light = RenderingServer.canvas_light_create()
+	_apply_light()
+
+
+func _sync_light_transform() -> void:
+	if _light.is_valid() and is_inside_tree():
+		RenderingServer.canvas_light_set_transform(_light, global_transform)
+
+
+## The light follows the lamp's own visibility, so hiding a lamp hides its light, as a child light did.
+func _sync_light_enabled() -> void:
+	if _light.is_valid():
+		RenderingServer.canvas_light_set_enabled(_light, is_visible_in_tree())
+
+
+func _set_light_energy(value: float) -> void:
+	_current_energy = value
+	if _light.is_valid():
+		RenderingServer.canvas_light_set_energy(_light, value)
+
+
+## How bright the light is right now: 0 while the lamp is out of the player's sight.
+func light_energy() -> float:
+	return _current_energy
+
+
+## Everything about the light except its brightness, which `_process` drives.
+func _apply_light() -> void:
+	if not _light.is_valid():
+		return
+	var falloff: Texture2D = VisionTextures.radial()
+	RenderingServer.canvas_light_set_texture(_light, falloff.get_rid())
+	RenderingServer.canvas_light_set_texture_scale(_light, radius * 2.0 / float(VisionTextures.SIZE))
+	RenderingServer.canvas_light_set_color(_light, color)
+	_set_light_energy(energy)
+	RenderingServer.canvas_light_set_shadow_enabled(_light, shadows)
+	RenderingServer.canvas_light_set_blend_mode(_light, RenderingServer.CANVAS_LIGHT_BLEND_MODE_ADD)
 
 
 func _ready() -> void:
@@ -71,7 +145,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if Engine.is_editor_hint() or _light == null:
+	if Engine.is_editor_hint() or not _light.is_valid():
 		return
 
 	if require_line_of_sight:
@@ -85,7 +159,7 @@ func _process(delta: float) -> void:
 
 	if _lit <= 0.0:
 		# Fully out of sight: no light, and no flicker maths to do.
-		_light.energy = 0.0
+		_set_light_energy(0.0)
 		return
 
 	var brightness: float = 1.0
@@ -93,7 +167,7 @@ func _process(delta: float) -> void:
 		_phase += delta * 5.0
 		var n: float = sin(_phase) * 0.5 + sin(_phase * 2.31 + 1.7) * 0.5
 		brightness = 1.0 + n * flicker_amount
-	_light.energy = maxf(0.0, energy * brightness * _lit)
+	_set_light_energy(maxf(0.0, energy * brightness * _lit))
 
 
 ## True when the player is standing inside this lamp's pool, or has a clear line of
@@ -124,23 +198,11 @@ func _is_visible_to_player() -> bool:
 
 
 func _rebuild() -> void:
-	_light = get_node_or_null("Light") as PointLight2D
 	_fixture = get_node_or_null("Fixture") as Polygon2D
-
-	if _light != null:
-		# The editor renders the GradientTexture2D baked into lamp.tscn, so lights
-		# and their shadows are visible while authoring (turn on the level's
-		# `editor_lighting_preview` to see them properly). At runtime that texture is
-		# replaced by the generated radial falloff. A generated texture must NEVER be
-		# assigned in the editor: it would be serialised into the scene on save.
-		if not Engine.is_editor_hint():
-			_light.texture = VisionTextures.radial()
-		_light.energy = energy
-		_light.texture_scale = radius * 2.0 / float(VisionTextures.SIZE)
-		_light.color = color
-		_light.shadow_enabled = shadows
-		_light.blend_mode = Light2D.BLEND_MODE_ADD
-		_light.z_index = Layers.Z_ACTOR
+	# The same light in the editor and in the game -- turn on the level's `editor_lighting_preview` to
+	# see it properly while authoring. A server light is never saved into the scene, so the generated
+	# falloff texture is safe to use in the editor too.
+	_apply_light()
 
 	if _fixture != null:
 		_fixture.polygon = Shapes.circle(7.0, 12)
@@ -162,11 +224,10 @@ func _rebuild() -> void:
 
 func _ensure_children() -> void:
 	if Engine.is_editor_hint():
-		for entry: Array in [["Light", "PointLight2D"], ["Fixture", "Polygon2D"]]:
-			if get_node_or_null(NodePath(entry[0])) == null:
-				push_warning("Lamp '%s' is missing its '%s' child." % [name, entry[0]])
+		if get_node_or_null(^"Fixture") == null:
+			push_warning("Lamp '%s' is missing its 'Fixture' child." % name)
 		return
-	for entry: Array in [["Light", "PointLight2D"], ["Fixture", "Polygon2D"]]:
+	for entry: Array in [["Fixture", "Polygon2D"]]:
 		var child_name: String = entry[0]
 		if get_node_or_null(NodePath(child_name)) != null:
 			continue
