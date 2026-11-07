@@ -140,8 +140,7 @@ func try_fire() -> void:
 	ammo_changed.emit()
 
 	var origin: Vector2 = _player.muzzle_position()
-	# Towards the aim point rather than along the aim, so the shot lands under the cursor (see
-	# `Player.shot_direction`).
+	# Straight out of the barrel (see `Player.shot_direction`).
 	var aim: Vector2 = _player.shot_direction()
 	var spread: float = s.spread_deg() + _recoil
 	var parent: Node = GameDirector.spawn_parent()

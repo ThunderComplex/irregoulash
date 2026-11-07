@@ -1350,6 +1350,20 @@ const SCENARIOS: Dictionary = {
 			"track_enemies": true,
 			"gib_report": true,
 		},
+		{
+			# Close in, where the body has to turn most to line the barrel up.
+			"aim_near_player": Vector2(20.0, 45.0),
+			"zoom": 3.0,
+			"wait": 0.6,
+			"aim_report_near": true,
+			"shot": "aim_line_02_close",
+		},
+		{
+			"aim_near_player": Vector2(8.0, 20.0),
+			"wait": 0.3,
+			"aim_report_near": true,
+			"shot": "aim_line_03_very_close",
+		},
 	],
 	## Every pickup kind's art in a row, away from the player so none is picked up. Run against
 	## `dev/surface_lab.tscn`.
@@ -4231,6 +4245,10 @@ func _run(scenario: String) -> void:
 					spawned.name = "Probe_" + key.replace("/", "_")
 					GameDirector.spawn_parent().add_child(spawned)
 					spawned.global_position = near.global_position + step["spawn_archetypes"][key]
+		if step.has("aim_near_player"):
+			var near_aimer: Player = GameDirector.valid_player()
+			if near_aimer != null:
+				near_aimer.debug_aim_point = near_aimer.global_position + step["aim_near_player"]
 		if step.has("spawn_hints"):
 			var at: Player = GameDirector.valid_player()
 			if at != null:
@@ -4446,6 +4464,16 @@ Stay out of their sight."
 		if step.has("death_report"):
 			print("[probe]   game over shown %d time(s); player alive=%s" % [_game_overs,
 				GameDirector.valid_player() != null and not GameDirector.valid_player().is_dead()])
+		if step.has("aim_report_near"):
+			var close_aimer: Player = GameDirector.valid_player()
+			if close_aimer != null:
+				var point: Vector2 = close_aimer.debug_aim_point
+				var from: Vector2 = close_aimer.muzzle_position()
+				var dir: Vector2 = close_aimer.shot_direction()
+				print("[probe]   cursor %.0f px from the player: body turned %.1f deg, shot passes %.1f px from the cursor%s" % [
+					close_aimer.global_position.distance_to(point),
+					rad_to_deg(absf(angle_difference((point - close_aimer.global_position).angle(), dir.angle()))),
+					absf((point - from).cross(dir)), "" if (point - from).dot(dir) > 0.0 else " (behind the muzzle)"])
 		if step.has("aim_report"):
 			var aimer: Player = GameDirector.valid_player()
 			var mark: Node2D = null
@@ -4458,7 +4486,7 @@ Stay out of their sight."
 				var miss := func(direction: Vector2) -> float:
 					return absf((centre - muzzle).cross(direction.normalized()))
 				print("[probe]   aim point %s, target %s" % [aimer.aim_point().round(), centre.round()])
-				print("[probe]   shot passes the target's centre at: old (along the aim) %.1f px, new (to the aim point) %.1f px; target radius %.0f" % [
+				print("[probe]   shot passes the target's centre at: %.1f px (aim line) / %.1f px (shot); target radius %.0f" % [
 					miss.call(aimer.aim_direction), miss.call(aimer.shot_direction()), (mark as Enemy).archetype.radius])
 				var line := aimer.get_node_or_null(^"AimLine") as AimLine
 				if line != null:

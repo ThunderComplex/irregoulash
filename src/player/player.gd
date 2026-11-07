@@ -79,7 +79,7 @@ func _process(delta: float) -> void:
 	if _dead:
 		return
 	if debug_aim_point.is_finite() and debug_aim_point.distance_squared_to(global_position) > 1.0:
-		aim_direction = (debug_aim_point - global_position).normalized()
+		aim_direction = _barrel_aim(debug_aim_point)
 	elif debug_aim != Vector2.ZERO:
 		aim_direction = debug_aim.normalized()
 	else:
@@ -89,9 +89,9 @@ func _process(delta: float) -> void:
 			# snap back to the middle of the screen the moment the player lets go.
 			aim_direction = stick.normalized()
 		elif not GameInput.using_gamepad():
-			var to_mouse: Vector2 = get_global_mouse_position() - global_position
-			if to_mouse.length_squared() > 1.0:
-				aim_direction = to_mouse.normalized()
+			var mouse: Vector2 = get_global_mouse_position()
+			if mouse.distance_squared_to(global_position) > 1.0:
+				aim_direction = _barrel_aim(mouse)
 	vision.aim_at(aim_direction)
 	if _rig != null:
 		_rig.update(delta, velocity, aim_direction.angle())
@@ -280,20 +280,38 @@ func aim_point() -> Vector2:
 	return global_position + aim_direction * AIM_POINT_DISTANCE
 
 
-## The direction a shot travels: from the muzzle to the aim point.
+## Extra room past the barrel's reach before the body turns all the way to line the barrel up; see
+## `_barrel_aim`.
+const BARREL_AIM_MARGIN: float = 12.0
+
+
+## The facing that puts the barrel's line through `target`, rather than the body's centre line.
 ##
-## Not simply `aim_direction`. The gun is held in the right hand, beside the body's centre line, so a
-## shot fired along `aim_direction` from the muzzle ran parallel to the line to the cursor and passed
-## about 12 px to its side -- more than a scout's whole radius. Converging on the aim point puts shots
-## where the cursor is. With the cursor on top of the player there is no sensible point to converge on,
-## so the plain aim direction is used.
+## The gun is held in the right hand, beside the centre line, so facing the cursor squarely sends a
+## straight shot past it, about 12 px to the side. Turning the body by asin(offset / distance) lines the
+## barrel up instead: a fraction of a degree across the room, more only close in. Near the player the
+## exact angle grows towards 90 degrees (and inside the barrel's own reach it has no answer), so the
+## distance used is held at the barrel's reach plus a margin: in there the body turns by that much and no
+## more, smoothly, and the shot passes a little beside the cursor rather than the body snapping round.
+func _barrel_aim(target: Vector2) -> Vector2:
+	var to_target: Vector2 = target - global_position
+	var base: float = to_target.angle()
+	if _rig == null:
+		return to_target.normalized()
+	var tip: Variant = _rig.muzzle_position(0.0)
+	if tip == null:
+		return to_target.normalized()
+	# The muzzle in the body's own frame: x ahead, y to the side.
+	var local: Vector2 = (tip as Vector2) - global_position
+	var reach: float = maxf(local.x, absf(local.y)) + BARREL_AIM_MARGIN
+	var distance: float = maxf(to_target.length(), reach)
+	return Vector2.from_angle(base - asin(clampf(local.y / distance, -1.0, 1.0)))
+
+
+## The direction a shot travels: straight out of the gun, which points along `aim_direction`. The body
+## turns so that line goes through the cursor (see `_barrel_aim`), so the shot does not have to bend.
 func shot_direction() -> Vector2:
-	var target: Vector2 = aim_point()
-	var muzzle: Vector2 = muzzle_position()
-	if global_position.distance_to(target) <= global_position.distance_to(muzzle) + 12.0:
-		return aim_direction
-	var direction: Vector2 = (target - muzzle).normalized()
-	return direction if direction.dot(aim_direction) > 0.2 else aim_direction
+	return aim_direction
 
 
 ## Where shots leave the gun: the tip of the held weapon's art when there is some, else a little ahead of
