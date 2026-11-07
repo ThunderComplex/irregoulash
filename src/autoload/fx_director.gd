@@ -210,6 +210,36 @@ func flash_light(position: Vector2, color: Color, energy: float, radius: float,
 	})
 
 
+## A short line of text that rises from `position` and fades: what a pickup just gave you, said where
+## it happened instead of in the message feed. Readable in the dark, and over walls.
+func float_text(position: Vector2, text: String, color: Color) -> void:
+	var parent: Node2D = _container()
+	if parent == null:
+		return
+	# A Node2D holding the label, because the effect loop moves and fades Node2Ds.
+	var holder := Node2D.new()
+	holder.z_as_relative = false
+	holder.z_index = Z_FX + 6
+	parent.add_child(holder)
+	holder.global_position = position
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.size = Vector2(240.0, 24.0)
+	label.position = Vector2(-120.0, -12.0)
+	label.add_theme_font_size_override("font_size", 15)
+	label.add_theme_constant_override("outline_size", 5)
+	label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+	label.add_theme_color_override("font_color", color)
+	label.material = unshaded_material()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(label)
+	_effects.append({
+		"node": holder, "vel": Vector2(0.0, -34.0), "life": 1.1, "max_life": 1.1,
+		"drag": 0.97, "mode": "float", "from_energy": 1.0, "from_alpha": 1.0,
+	})
+
+
 ## Pulsing marker ring, used to draw the eye to pickups and exits.
 func pulse_ring(parent: Node2D, color: Color, radius: float) -> Node2D:
 	var ring := Polygon2D.new()
@@ -336,6 +366,9 @@ func _update_effects(delta: float) -> void:
 			"shrink":
 				node.modulate.a = t
 				node.scale = Vector2.ONE * lerpf(0.35, 1.0, t)
+			"float":
+				# Fully readable for most of its life, then gone quickly.
+				node.modulate.a = clampf(t * 2.5, 0.0, 1.0)
 			_:
 				node.modulate.a = t
 

@@ -165,6 +165,8 @@ func _process(delta: float) -> void:
 		_update_swap_offer(standing)
 	elif kind == "ability_upgrade":
 		_update_upgrade_prompt(standing)
+	elif kind == "upgrade":
+		_update_weapon_upgrade_prompt(standing)
 	if standing != null:
 		_try_collect(standing)
 
@@ -219,13 +221,13 @@ func _try_collect(player: Player) -> void:
 			if holder == null:
 				return
 			if not holder.upgrade_current():
-				var held: WeaponSlot = holder.slot()
-				GameDirector.announce_message("%s: MAXED" % (
-					held.data.display_name.to_upper() if held != null else "WEAPON"),
-					_pickup_color())
+				# Not consumed: nothing in hand, or it is at the cap. The prompt over the pickup says which
+				# (`_update_weapon_upgrade_prompt`).
 				return
 			AudioDirector.play_at(&"upgrade", global_position, -3.0)
-			GameDirector.announce_message("WEAPON UPGRADED", _pickup_color())
+			var raised: WeaponSlot = holder.slot()
+			FxDirector.float_text(global_position + Vector2(0.0, -26.0),
+				"%s +%d" % [raised.data.display_name.to_upper(), raised.level], _pickup_color())
 		"ability_upgrade":
 			if ability_holder == null:
 				return
@@ -234,18 +236,16 @@ func _try_collect(player: Player) -> void:
 				# prompt over the pickup says which (`_update_upgrade_prompt`).
 				return
 			AudioDirector.play_at(&"upgrade", global_position, -3.0)
-			GameDirector.announce_message("ABILITIES UPGRADED", _pickup_color())
+			FxDirector.float_text(global_position + Vector2(0.0, -26.0), "ABILITIES UPGRADED", _pickup_color())
 		"weapon":
 			if holder == null:
 				return
 			var is_new: bool = holder.add_weapon(weapon_id, weapon_ammo, true)
 			AudioDirector.play_at(&"pickup_weapon", global_position, -3.0)
 			if is_new:
-				GameDirector.announce_message(
-					"PICKED UP %s" % WeaponLibrary.by_id(weapon_id).display_name, _pickup_color())
+				FxDirector.float_text(global_position + Vector2(0.0, -26.0), "PICKED UP %s" % WeaponLibrary.by_id(weapon_id).display_name, _pickup_color())
 			else:
-				GameDirector.announce_message("+AMMO for %s" % WeaponLibrary.by_id(weapon_id).display_name,
-					_pickup_color())
+				FxDirector.float_text(global_position + Vector2(0.0, -26.0), "+AMMO for %s" % WeaponLibrary.by_id(weapon_id).display_name, _pickup_color())
 		"key":
 			# Always exactly one key. Deliberately not `amount`: an ammo pickup's default of 24
 			# would silently hand out 24 keys the moment someone switched the kind.
@@ -264,7 +264,7 @@ func _try_collect(player: Player) -> void:
 				# the slot to give up while standing here. The prompt over the pickup says so.
 				return
 			ability_holder.replace_slot(ability_holder.slots.size(), _make_slot())
-			GameDirector.announce_message("GAINED ABILITY %s" % ability.display_name, _pickup_color())
+			FxDirector.float_text(global_position + Vector2(0.0, -26.0), "GAINED ABILITY %s" % ability.display_name, _pickup_color())
 			AudioDirector.play_at(&"pickup_ability", global_position, -3.0)
 	_collect()
 
@@ -327,6 +327,21 @@ func _update_swap_offer(standing: Player) -> void:
 	_withdraw_offer()
 	if holder != null and holder.has_ability(ability_id):
 		_show_prompt("%s\nalready carried" % _ability_title())
+
+
+## A weapon upgrade that would do nothing explains why while the player stands on it. It upgrades the
+## weapon in hand, so switching to another one is the way to use it.
+func _update_weapon_upgrade_prompt(standing: Player) -> void:
+	var holder: WeaponHolder = standing.weapons as WeaponHolder if standing != null else null
+	var held: WeaponSlot = holder.slot() if holder != null else null
+	if holder == null or _collected:
+		_hide_prompt()
+	elif held == null or held.data == null:
+		_show_prompt("No weapon to upgrade")
+	elif held.level >= WeaponSlot.MAX_LEVEL:
+		_show_prompt("%s at max level" % held.data.display_name)
+	else:
+		_hide_prompt()
 
 
 ## An ability upgrade that would do nothing explains why while the player stands on it.

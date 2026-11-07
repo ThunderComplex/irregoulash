@@ -1309,6 +1309,30 @@ const SCENARIOS: Dictionary = {
 			"announce_report": true,
 		},
 	],
+	## A weapon upgrade says what it did with a short floating line over the pickup ("PISTOL +1") instead
+	## of the message feed, and one that would do nothing explains why over itself and stays on the
+	## ground. Run against `dev/surface_lab.tscn`.
+	"weapon_upgrade": [
+		{
+			"god": true,
+			"clear_announce": true,
+			"spawn_pickup": {"kind": "upgrade"},
+			"wait": 0.3,
+			"weapon_report": true,
+			"announce_report": true,
+			"shot": "weapon_upgrade_01_float",
+		},
+		{
+			"weapon_level": 3,
+			"clear_announce": true,
+			"spawn_pickup": {"kind": "upgrade"},
+			"wait": 0.4,
+			"weapon_report": true,
+			"pickup_report": true,
+			"announce_report": true,
+			"shot": "weapon_upgrade_02_maxed",
+		},
+	],
 	## The legs' heading and reach while backing away from the aim, sampled over a stride.
 	"rig_backpedal": [
 		{"god": true, "aim": Vector2(1.0, 0.0), "keys_press": ["move_left"], "wait": 0.3, "rig_report": true},
@@ -3964,6 +3988,11 @@ func _run(scenario: String) -> void:
 		if step.has("retry_level"):
 			print("[probe] retry level")
 			GameDirector.retry_level()
+		if step.has("weapon_level"):
+			var armed: Player = GameDirector.valid_player()
+			var held: WeaponSlot = (armed.weapons as WeaponHolder).slot() if armed != null else null
+			if held != null:
+				held.level = int(step["weapon_level"])
 		if step.has("ability_levels"):
 			var leveller: Player = GameDirector.valid_player()
 			if leveller != null:
@@ -4066,13 +4095,19 @@ func _run(scenario: String) -> void:
 		if step.has("death_report"):
 			print("[probe]   game over shown %d time(s); player alive=%s" % [_game_overs,
 				GameDirector.valid_player() != null and not GameDirector.valid_player().is_dead()])
+		if step.has("weapon_report"):
+			var wielder: Player = GameDirector.valid_player()
+			var in_hand: WeaponSlot = (wielder.weapons as WeaponHolder).slot() if wielder != null else null
+			if in_hand != null:
+				print("[probe]   weapon in hand: %s level %d" % [in_hand.data.id, in_hand.level])
 		if step.has("pickup_report"):
 			var looker: Player = GameDirector.valid_player()
 			var offer: Pickup = (looker.abilities as AbilityHolder).swap_offer if looker != null else null
 			print("[probe]   swap offer: %s" % ("none" if offer == null else offer.ability_id))
 			for node: Node in _all_nodes(GameDirector.spawn_parent()):
 				var lying := node as Pickup
-				if lying == null or not lying.kind.begins_with("ability") or looker == null:
+				if lying == null or not (lying.kind.begins_with("ability") or lying.kind == "upgrade") \
+						or looker == null:
 					continue
 				if lying.global_position.distance_to(looker.global_position) > 300.0:
 					continue
