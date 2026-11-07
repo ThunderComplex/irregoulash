@@ -444,6 +444,13 @@ one-field edit in the editor afterwards.
 | `patrol_dwell` | seconds spent standing at each waypoint |
 | `returns_to_post` | false for a guard that should hold a position |
 | `rotation` | its starting facing — rotate it in the editor to choose which way it watches |
+| `automatic_color` | on by default: a small colour variation worked out from the level and the enemy's name, the same every run. Turn it off to set the colour yourself |
+| `hue_shift`, `saturation`, `brightness` | the colour by hand, when `automatic_color` is off |
+
+Only the enemy's **body** is recoloured — never its legs or its weapon, which stay recognisable. The
+automatic variation is deliberately small: the enemy types sit close together on the colour wheel
+(guard and heavy at about 20°, scout at about 40°), and it never lets a guard drift into a scout. The
+editor gizmo is drawn in the colour the enemy will have, level shift included.
 
 ### `Pickup` — `src/items/pickup.tscn`
 | Property | Meaning |
@@ -478,6 +485,7 @@ own safe.
 | `auto_bounds`, `bounds_rect`, `bounds_margin`, `min_bound_size` | camera limits |
 | `fog_color`, `reveal_color` | the runtime fog, and its `F4` debug reveal |
 | `editor_lighting_preview`, `editor_preview_ambient` | the editor-only darkness preview |
+| `enemy_hue_shift`, `enemy_saturation`, `enemy_brightness` | recolour every enemy body in the level, for a level with its own look. Every type turns by the same amount, so they stay as far apart as they were drawn. Big changes are fine here |
 
 ---
 

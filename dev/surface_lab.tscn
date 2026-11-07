@@ -95,11 +95,8 @@ visible = false
 navigation_polygon = SubResource("NavigationPolygon_6qfs5")
 metadata/navmesh_hash = 840419160
 
-[node name="Guard1" type="CharacterBody2D" parent="." unique_id=732746745 instance=ExtResource("4_qakir")]
+[node name="Guard1" parent="." unique_id=732746745 instance=ExtResource("4_qakir")]
 position = Vector2(896, 480)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("5_tgwhc")
 patrol_route = NodePath("../Guard1Route")
 
 [node name="Guard1Route" type="Node2D" parent="." unique_id=1941829595]
@@ -108,11 +105,8 @@ script = ExtResource("6_ogm42")
 [node name="P0" type="Marker2D" parent="Guard1Route" unique_id=1011868313]
 position = Vector2(960, 480)
 
-[node name="Scout1" type="CharacterBody2D" parent="." unique_id=276813591 instance=ExtResource("4_qakir")]
+[node name="Scout1" parent="." unique_id=276813591 instance=ExtResource("4_qakir")]
 position = Vector2(896, 544)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("5_tgwhc")
 archetype_id = "scout"
 patrol_route = NodePath("../Scout1Route")
 
@@ -122,11 +116,8 @@ script = ExtResource("6_ogm42")
 [node name="P0" type="Marker2D" parent="Scout1Route" unique_id=1875897863]
 position = Vector2(960, 544)
 
-[node name="Heavy1" type="CharacterBody2D" parent="." unique_id=1607381512 instance=ExtResource("4_qakir")]
+[node name="Heavy1" parent="." unique_id=1607381512 instance=ExtResource("4_qakir")]
 position = Vector2(896, 608)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("5_tgwhc")
 archetype_id = "heavy"
 patrol_route = NodePath("../Heavy1Route")
 
@@ -135,3 +126,35 @@ script = ExtResource("6_ogm42")
 
 [node name="P0" type="Marker2D" parent="Heavy1Route" unique_id=1618559154]
 position = Vector2(960, 608)
+
+[node name="Guard2" type="CharacterBody2D" parent="." unique_id=1971958903 instance=ExtResource("4_qakir")]
+position = Vector2(896, 416)
+collision_layer = 4
+motion_mode = 1
+script = ExtResource("5_tgwhc")
+patrol_route = NodePath("../Guard2Route")
+
+[node name="Guard2Route" type="Node2D" parent="." unique_id=459214715]
+script = ExtResource("6_ogm42")
+
+[node name="P0" type="Marker2D" parent="Guard2Route" unique_id=1480218619]
+position = Vector2(960, 416)
+
+[node name="Guard3" type="CharacterBody2D" parent="." unique_id=561105898 instance=ExtResource("4_qakir")]
+position = Vector2(960, 448)
+collision_layer = 4
+motion_mode = 1
+script = ExtResource("5_tgwhc")
+patrol_route = NodePath("../Guard3Route")
+
+[node name="Guard3Route" type="Node2D" parent="." unique_id=2104922682]
+script = ExtResource("6_ogm42")
+
+[node name="P0" type="Marker2D" parent="Guard3Route" unique_id=1600301970]
+position = Vector2(1024, 448)
+
+[node name="Guard4" type="CharacterBody2D" parent="." unique_id=1321310121 instance=ExtResource("4_qakir")]
+position = Vector2(960, 512)
+collision_layer = 4
+motion_mode = 1
+script = ExtResource("5_tgwhc")

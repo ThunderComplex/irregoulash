@@ -71,6 +71,15 @@ const EDITOR_PREVIEW_NODE: StringName = &"EditorLightingPreview"
 		floor_surface_id = value
 		_refresh_surfaces()
 
+@export_group("Enemies")
+## Turns the body colour of every enemy in this level round the colour wheel, in degrees, so a level can
+## have its own look without new art. Every enemy type turns by the same amount, so they stay as far apart
+## in colour as they were drawn and can still be told apart. Each enemy adds its own small variation on
+## top (see `Enemy.automatic_color`).
+@export_range(-180.0, 180.0, 1.0) var enemy_hue_shift: float = 0.0
+@export_range(0.0, 2.0, 0.01) var enemy_saturation: float = 1.0
+@export_range(0.0, 2.0, 0.01) var enemy_brightness: float = 1.0
+
 @export_group("Fog")
 @export var fog_color: Color = Color(0.0, 0.0, 0.0, 1.0)
 ## Ambient used by the F4 debug reveal.
@@ -179,6 +188,11 @@ func _collect_walls() -> void:
 
 ## What every wall in this level looks like. `Wall` asks for this while it builds itself, so one
 ## dropdown styles the whole level and no wall has to be selected.
+## The colour change every enemy in this level starts from, as a `ColorShift`.
+func enemy_color_shift() -> Vector3:
+	return Vector3(enemy_hue_shift, enemy_saturation, enemy_brightness)
+
+
 func wall_surface() -> SurfaceStyle:
 	return SurfaceLibrary.by_id(wall_surface_id)
 

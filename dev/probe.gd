@@ -1184,6 +1184,38 @@ const SCENARIOS: Dictionary = {
 			"shot": "enemy_looks_02_moving",
 		},
 	],
+	## Colour variation: three guards that should differ only slightly, a scout and a heavy that should
+	## still read as themselves; then the same again after a level-wide hue shift. Enemies are spawned
+	## behind a "Probe_" name so each gets a stable automatic colour. Run against `dev/surface_lab.tscn`.
+	"enemy_colors": [
+		{
+			"god": true,
+			"reveal": true,
+			"zoom": 2.0,
+			"aim": Vector2(0.3, 1.0),
+			"spawn_archetypes": {
+				"guard/a": Vector2(-30.0, 80.0),
+				"guard/b": Vector2(20.0, 120.0),
+				"guard/c": Vector2(70.0, 80.0),
+				"scout": Vector2(120.0, 120.0),
+				"heavy": Vector2(170.0, 80.0),
+			},
+			"wait": 0.15,
+			"shot": "enemy_colors_01_default",
+		},
+		{
+			"level_enemy_color": {"enemy_hue_shift": 120.0},
+			"spawn_archetypes": {
+				"guard/a": Vector2(-30.0, 180.0),
+				"guard/b": Vector2(20.0, 220.0),
+				"guard/c": Vector2(70.0, 180.0),
+				"scout": Vector2(120.0, 220.0),
+				"heavy": Vector2(170.0, 180.0),
+			},
+			"wait": 0.15,
+			"shot": "enemy_colors_02_level_shift",
+		},
+	],
 	## The legs' heading and reach while backing away from the aim, sampled over a stride.
 	"rig_backpedal": [
 		{"god": true, "aim": Vector2(1.0, 0.0), "keys_press": ["move_left"], "wait": 0.3, "rig_report": true},
@@ -3800,15 +3832,24 @@ func _run(scenario: String) -> void:
 			GameDirector.start_run()
 		if step.has("god"):
 			GameDirector.god_mode = bool(step["god"])
+		if step.has("level_enemy_color"):
+			# Sets the level's enemy colour settings; enemies spawned afterwards pick them up.
+			var colored: Node = GameDirector.current_level
+			for setting: String in (step["level_enemy_color"] as Dictionary):
+				colored.set(setting, step["level_enemy_color"][setting])
+			print("[probe] level enemy colour: %s" % str(step["level_enemy_color"]))
 		if step.has("spawn_archetypes"):
 			# One enemy of each named archetype, at an offset from the player.
 			var near: Player = GameDirector.valid_player()
 			if near != null:
-				for archetype_name: String in (step["spawn_archetypes"] as Dictionary):
+				# Keys are "<archetype>" or "<archetype>/<anything>", so one step can place several of a
+				# kind. Each gets a fixed name, because its automatic colour is keyed on its name.
+				for key: String in (step["spawn_archetypes"] as Dictionary):
 					var spawned := (load("res://src/enemies/enemy.tscn") as PackedScene).instantiate() as Enemy
-					spawned.archetype_id = archetype_name
+					spawned.archetype_id = key.get_slice("/", 0)
+					spawned.name = "Probe_" + key.replace("/", "_")
 					GameDirector.spawn_parent().add_child(spawned)
-					spawned.global_position = near.global_position + step["spawn_archetypes"][archetype_name]
+					spawned.global_position = near.global_position + step["spawn_archetypes"][key]
 		if step.has("spawn_enemies"):
 			var level: Node = GameDirector.current_level
 			if level != null and level.has_method("debug_spawn_enemy"):

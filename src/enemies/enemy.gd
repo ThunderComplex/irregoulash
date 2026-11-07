@@ -63,6 +63,36 @@ const MESH_TOLERANCE: float = 4.0
 ## If false, the enemy stands its ground instead of returning to its post.
 @export var returns_to_post: bool = true
 
+@export_group("Colour")
+## A small change to this enemy's body colour, worked out from its level and its name, so a room of
+## guards is not a row of identical copies. It is the same every time the level is played. Kept small,
+## so a guard always still reads as a guard; the level's own enemy colour settings make bigger changes.
+## Turn it off to set the colour by hand with the values below.
+@export var automatic_color: bool = true:
+	set(value):
+		automatic_color = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+## Used when `automatic_color` is off: degrees round the colour wheel.
+@export_range(-180.0, 180.0, 1.0) var hue_shift: float = 0.0:
+	set(value):
+		hue_shift = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+## Used when `automatic_color` is off.
+@export_range(0.0, 2.0, 0.01) var saturation: float = 1.0:
+	set(value):
+		saturation = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+## Used when `automatic_color` is off.
+@export_range(0.0, 2.0, 0.01) var brightness: float = 1.0:
+	set(value):
+		brightness = value
+		if Engine.is_editor_hint():
+			queue_redraw()
+@export_group("")
+
 var archetype: EnemyArchetype
 var health: Health
 var visual: Node2D
@@ -948,7 +978,7 @@ func _spawn_corpse() -> void:
 
 	var body := Polygon2D.new()
 	body.polygon = Shapes.circle(archetype.radius, 12)
-	body.color = archetype.body_color.darkened(0.55)
+	body.color = ColorShift.apply(archetype.body_color, color_shift()).darkened(0.55)
 	body.position = Vector2(6.0, 4.0)
 	body.z_index = Layers.Z_PICKUP - 1
 	corpse.add_child(body)
@@ -1009,6 +1039,31 @@ func _build_art() -> void:
 		archetype.body_color)
 	# The gun it carries is the one it drops.
 	_rig.set_weapon(archetype.drop_weapon)
+	_rig.set_body_shift(color_shift())
+
+
+## This enemy's body colour change: the level's shift for all its enemies, then this enemy's own.
+func color_shift() -> Vector3:
+	var level: Node = _level_node()
+	var own: Vector3 = Vector3(hue_shift, saturation, brightness)
+	if automatic_color:
+		# Keyed on the level and the name, both stable across runs and neither stored anywhere.
+		var where: String = level.scene_file_path if level != null else ""
+		own = ColorShift.variation("%s:%s" % [where, name])
+	var level_shift: Vector3 = ColorShift.NONE
+	if level != null and level.has_method("enemy_color_shift"):
+		level_shift = level.call("enemy_color_shift")
+	return ColorShift.combine(level_shift, own)
+
+
+## The level this enemy is in, found by walking up: the same in the editor and at runtime.
+func _level_node() -> Node:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("enemy_color_shift"):
+			return node
+		node = node.get_parent()
+	return null
 
 
 ## Used by the debug overlay.
@@ -1046,13 +1101,15 @@ func _draw() -> void:
 	draw_line(Vector2.ZERO, Vector2.from_angle(-half_fov) * a.sight_range, cone_tint, 1.0)
 	draw_line(Vector2.ZERO, Vector2.from_angle(half_fov) * a.sight_range, cone_tint, 1.0)
 
-	draw_circle(Vector2.ZERO, radius, Color(a.body_color, 0.9))
-	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 24, a.body_color.darkened(0.55), 1.5)
+	# The body in the colour it will have in game, so colour variation can be judged while placing.
+	var body_color: Color = ColorShift.apply(a.body_color, color_shift())
+	draw_circle(Vector2.ZERO, radius, Color(body_color, 0.9))
+	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 24, body_color.darkened(0.55), 1.5)
 
 	var wedge: PackedVector2Array = Shapes.triangle(radius * 1.35, radius * 0.75)
 	for i: int in wedge.size():
 		wedge[i] += Vector2(radius * 0.35, 0.0)
-	draw_colored_polygon(wedge, Color(a.body_color.lightened(0.45), 0.95))
+	draw_colored_polygon(wedge, Color(body_color.lightened(0.45), 0.95))
 
 	_draw_upright_text(font, Vector2(-radius, -radius - 22.0), a.id, Color(0.92, 0.96, 1.0, 0.9))
 
@@ -1081,8 +1138,10 @@ func _process(_delta: float) -> void:
 	# Editor only (see _ready): redraw when something the gizmo depends on moves.
 	if not Engine.is_editor_hint():
 		return
+	# The colour too: it changes with the level's enemy colour settings and with a rename, neither of
+	# which touches this node's own properties.
 	var current: int = hash([global_position, rotation, archetype_id, patrol_route,
-		patrol_route == NodePath() or get_node_or_null(patrol_route) == null])
+		patrol_route == NodePath() or get_node_or_null(patrol_route) == null, color_shift()])
 	if current != _gizmo_hash:
 		_gizmo_hash = current
 		queue_redraw()

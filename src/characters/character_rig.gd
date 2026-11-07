@@ -110,6 +110,12 @@ func setup(chosen: CharacterLook, radius: float, tint: Color) -> void:
 	_apply_weapon()
 
 
+## Recolours the body (see `ColorShift`). Legs and weapon keep their own colours.
+func set_body_shift(shift: Vector3) -> void:
+	if _body != null:
+		_body.material = ColorShift.material(shift)
+
+
 ## Shows `weapon_id`'s art in the hands, or nothing when it has none (or the look has no hands).
 func set_weapon(weapon_id: String) -> void:
 	_weapon_texture = weapon_texture(weapon_id)
