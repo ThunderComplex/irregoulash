@@ -4,15 +4,12 @@
 [ext_resource type="Shader" uid="uid://pygep2sn14nj" path="res://src/levels/surface.gdshader" id="2_d3bcg"]
 [ext_resource type="Texture2D" uid="uid://dou0h35xqtyhd" path="res://assets/textures/floor_1.png" id="3_7e70o"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="4_20rif"]
-[ext_resource type="Script" uid="uid://tdmd7rqbsvoa" path="res://src/levels/patrol_route.gd" id="5_dyf3r"]
 [ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="6_tlo4c"]
-[ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="7_d3bcg"]
-[ext_resource type="Script" uid="uid://c1femwp0kyllt" path="res://src/enemies/enemy.gd" id="8_7e70o"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="9_fl7ju"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="10_0e5da"]
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="11_pu0ch"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_20rif"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_rlj77"]
 shader = ExtResource("2_d3bcg")
 shader_parameter/albedo = ExtResource("3_7e70o")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -47,7 +44,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_20rif")
+material = SubResource("ShaderMaterial_rlj77")
 position = Vector2(32, -128)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-5635.485, -5283.485, 5635.485, -5283.485, 5635.485, 5283.485, -5635.485, 5283.485)
@@ -288,14 +285,8 @@ position = Vector2(-1040, -1232)
 
 [node name="Routes" type="Node2D" parent="." unique_id=1220520183]
 
-[node name="Guard1Route" type="Node2D" parent="Routes" unique_id=84556752]
-script = ExtResource("5_dyf3r")
-
-[node name="P0" type="Marker2D" parent="Routes/Guard1Route" unique_id=949224648]
-position = Vector2(480, -288)
-
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
-position = Vector2(169, -287)
+position = Vector2(50, -287)
 
 [node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
 
@@ -307,46 +298,45 @@ flicker_amount = 0.2
 
 [node name="Enemies" type="Node2D" parent="." unique_id=1203562756]
 
-[node name="Guard1" type="CharacterBody2D" parent="Enemies" unique_id=2025727386 instance=ExtResource("7_d3bcg")]
-position = Vector2(320, -288)
-collision_layer = 4
-motion_mode = 1
-script = ExtResource("8_7e70o")
-patrol_route = NodePath("../../Routes/Guard1Route")
-
 [node name="Pickups" type="Node2D" parent="." unique_id=330227706]
 
 [node name="Pickup0" parent="Pickups" unique_id=134755550 instance=ExtResource("9_fl7ju")]
+texture_filter = 4
 position = Vector2(400, -863)
 kind = "ability"
 weapon_id = "pistol"
 amount = 1
 
 [node name="Pickup2" parent="Pickups" unique_id=1542543762 instance=ExtResource("9_fl7ju")]
+texture_filter = 4
 position = Vector2(155, 282)
 kind = "key"
 weapon_id = "pistol"
 amount = 1
 
 [node name="Pickup3" parent="Pickups" unique_id=177871939 instance=ExtResource("9_fl7ju")]
+texture_filter = 4
 position = Vector2(243, 938)
 kind = "ammo"
 weapon_id = "shotgun"
 amount = 20
 
 [node name="Pickup4" parent="Pickups" unique_id=751922376 instance=ExtResource("9_fl7ju")]
+texture_filter = 4
 position = Vector2(180, 938)
 kind = "ammo"
 weapon_id = "shotgun"
 amount = 20
 
 [node name="Pickup5" parent="Pickups" unique_id=1924219669 instance=ExtResource("9_fl7ju")]
+texture_filter = 4
 position = Vector2(117, 941)
 kind = "ammo"
 weapon_id = "shotgun"
 amount = 20
 
 [node name="Pickup1" parent="Pickups" unique_id=412555963 instance=ExtResource("9_fl7ju")]
+texture_filter = 4
 position = Vector2(1349, -716)
 kind = "key"
 weapon_id = "pistol"

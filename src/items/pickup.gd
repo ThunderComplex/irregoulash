@@ -53,9 +53,21 @@ extends Area2D
 		if Engine.is_editor_hint():
 			queue_redraw()
 
+## Pickup art, by convention: `pickup_<kind>.png`, `pickup_<weapon id>.png` for weapons, and
+## `pickup_upgrade_weapon.png` for a weapon upgrade. A kind with no file is drawn as a plain shape.
+const SPRITE_DIRECTORY: String = "res://assets/pickup/"
+## The size the art is shown at, in world pixels along its longest side, whatever size it was drawn:
+## inside the pickup's ring for most things, a little longer for guns, which are long and thin.
+const SPRITE_SIZE: float = 24.0
+const WEAPON_SPRITE_SIZE: float = 34.0
+
+static var _sprites: Dictionary = {}
+
 var _t: float = 0.0
 var _light: PointLight2D = null
-var _marker: Polygon2D = null
+## The art: the pickup's sprite, or the plain shape drawn for a kind without one.
+var _marker: Node2D = null
+var _marker_scale: float = 1.0
 var _collected: bool = false
 ## Seconds left on a dropped ability's cooldown. It keeps running on the ground, so swapping an ability out
 ## and back in neither costs nor saves a cooldown.
@@ -66,6 +78,9 @@ var _prompt: Label = null
 
 
 func _ready() -> void:
+	# Pickup art is drawn larger than it is shown, so it is drawn through its mipmaps; without them a
+	# shrunk sprite shimmers as it pulses.
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	if Engine.is_editor_hint():
 		# Editor: gizmo only. The art nodes are built at runtime, and generating
 		# them here risks them being written into the level file.
@@ -105,30 +120,19 @@ func _build_art() -> void:
 	_light.z_index = Layers.Z_ACTOR
 	add_child(_light)
 
-	_marker = Polygon2D.new()
-	# Distinct silhouettes, so a pickup reads as what it is at a glance in the dark: a cross for
-	# medkits, a key shape for keys, a dot for everything else.
-	if kind == "health":
-		_marker.polygon = PackedVector2Array([
-			Vector2(-8.0, -3.0), Vector2(-3.0, -3.0), Vector2(-3.0, -8.0), Vector2(3.0, -8.0),
-			Vector2(3.0, -3.0), Vector2(8.0, -3.0), Vector2(8.0, 3.0), Vector2(3.0, 3.0),
-			Vector2(3.0, 8.0), Vector2(-3.0, 8.0), Vector2(-3.0, 3.0), Vector2(-8.0, 3.0),
-		])
-	elif kind == "key":
-		_marker.polygon = PackedVector2Array([
-			Vector2(-8.0, -4.0), Vector2(-8.0, 4.0), Vector2(-2.0, 4.0), Vector2(-2.0, 1.5),
-			Vector2(8.0, 1.5), Vector2(8.0, -1.5), Vector2(-2.0, -1.5), Vector2(-2.0, -4.0),
-		])
-	elif kind == "ability_upgrade":
-		# A diamond: an upgrade to the build rather than to the gun in hand.
-		_marker.polygon = PackedVector2Array([
-			Vector2(0.0, -9.0), Vector2(9.0, 0.0), Vector2(0.0, 9.0), Vector2(-9.0, 0.0),
-		])
+	var texture: Texture2D = sprite_texture()
+	if texture != null:
+		var sprite := Sprite2D.new()
+		sprite.name = "Sprite"
+		sprite.texture = texture
+		_marker_scale = sprite_scale(texture)
+		_marker = sprite
 	else:
-		_marker.polygon = Shapes.circle(9.0, 6)
-	_marker.color = color.lightened(0.2)
+		_marker = _shape_marker(color)
+	# Unshaded: a pickup you cannot see in the dark is a pickup that does not exist.
 	_marker.material = FxDirector.unshaded_material()
 	_marker.z_index = Layers.Z_PICKUP + 1
+	_marker.scale = Vector2.ONE * _marker_scale
 	add_child(_marker)
 
 	var ring := Line2D.new()
@@ -141,6 +145,54 @@ func _build_art() -> void:
 	add_child(ring)
 
 
+## This pickup's art, or null when its kind has none (see `SPRITE_DIRECTORY`).
+func sprite_texture() -> Texture2D:
+	var file: String
+	match kind:
+		"weapon":
+			file = "pickup_%s.png" % weapon_id
+		"upgrade":
+			file = "pickup_upgrade_weapon.png"
+		_:
+			file = "pickup_%s.png" % kind
+	if not _sprites.has(file):
+		var path: String = SPRITE_DIRECTORY.path_join(file)
+		_sprites[file] = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	return _sprites[file]
+
+
+## The scale that shows `texture` at `SPRITE_SIZE` (or `WEAPON_SPRITE_SIZE`) along its longest side.
+func sprite_scale(texture: Texture2D) -> float:
+	var longest: float = maxf(1.0, float(maxi(texture.get_width(), texture.get_height())))
+	return (WEAPON_SPRITE_SIZE if kind == "weapon" else SPRITE_SIZE) / longest
+
+
+## The plain shape a kind without art is drawn as: distinct silhouettes, so a pickup still reads as what
+## it is at a glance in the dark.
+func _shape_marker(color: Color) -> Polygon2D:
+	var shape := Polygon2D.new()
+	if kind == "health":
+		shape.polygon = PackedVector2Array([
+			Vector2(-8.0, -3.0), Vector2(-3.0, -3.0), Vector2(-3.0, -8.0), Vector2(3.0, -8.0),
+			Vector2(3.0, -3.0), Vector2(8.0, -3.0), Vector2(8.0, 3.0), Vector2(3.0, 3.0),
+			Vector2(3.0, 8.0), Vector2(-3.0, 8.0), Vector2(-3.0, 3.0), Vector2(-8.0, 3.0),
+		])
+	elif kind == "key":
+		shape.polygon = PackedVector2Array([
+			Vector2(-8.0, -4.0), Vector2(-8.0, 4.0), Vector2(-2.0, 4.0), Vector2(-2.0, 1.5),
+			Vector2(8.0, 1.5), Vector2(8.0, -1.5), Vector2(-2.0, -1.5), Vector2(-2.0, -4.0),
+		])
+	elif kind == "ability_upgrade":
+		# A diamond: an upgrade to the build rather than to the gun in hand.
+		shape.polygon = PackedVector2Array([
+			Vector2(0.0, -9.0), Vector2(9.0, 0.0), Vector2(0.0, 9.0), Vector2(-9.0, 0.0),
+		])
+	else:
+		shape.polygon = Shapes.circle(9.0, 6)
+	shape.color = color.lightened(0.2)
+	return shape
+
+
 func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
@@ -149,7 +201,8 @@ func _process(delta: float) -> void:
 	if _light != null:
 		_light.energy = 0.35 + pulse * 0.4
 	if _marker != null:
-		_marker.scale = Vector2.ONE * (0.9 + pulse * 0.18)
+		# Gentler than the old shapes' pulse: art that swells too much reads as wobbling.
+		_marker.scale = Vector2.ONE * _marker_scale * (0.95 + pulse * 0.1)
 
 	_ability_cooldown = maxf(0.0, _ability_cooldown - delta)
 
@@ -471,7 +524,12 @@ func _draw() -> void:
 	draw_circle(Vector2.ZERO, 11.0, Color(tint, 0.30))
 	draw_arc(Vector2.ZERO, 15.0, 0.0, TAU, 20, Color(tint, 0.95), 2.0)
 
-	if kind == "health":
+	# The art, when the kind has some, at the size it is shown in game.
+	var texture: Texture2D = sprite_texture()
+	if texture != null:
+		var shown: Vector2 = Vector2(texture.get_size()) * sprite_scale(texture)
+		draw_texture_rect(texture, Rect2(-shown * 0.5, shown), false)
+	elif kind == "health":
 		var arm: float = 7.0
 		var thick: float = 3.0
 		draw_rect(Rect2(-arm, -thick, arm * 2.0, thick * 2.0), Color(tint, 0.9))

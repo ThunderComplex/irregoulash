@@ -462,6 +462,11 @@ editor gizmo is drawn in the colour the enemy will have, level shift included.
 | `weapon_id` | `pistol`, `smg`, `shotgun` (for `kind = weapon`). Picking up a weapon you already carry gives it ammo instead, and leaves the weapon in hand alone; only a weapon picked up for the first time takes the hand |
 | `amount` | ammo rounds, or health restored |
 
+Pickup art lives in `assets/pickup/`: `pickup_<kind>.png` (`pickup_ammo.png`, `pickup_health.png`, …),
+`pickup_<weapon>.png` for a weapon, and `pickup_upgrade_weapon.png` for a weapon upgrade. Each is
+shown at a fixed size along its longest side however large it was drawn (24 world px, 34 for weapons),
+so draw them at any size. A kind with no file falls back to a plain shape. The editor shows the art too.
+
 The player has **two ability slots**, always. An ability pickup found with both full is not refused:
 standing on it shows a prompt, and pressing a slot's key swaps that slot for it. The ability given up
 is left lying where the pickup was, with its upgrades and its cooldown (which keeps running), so a swap

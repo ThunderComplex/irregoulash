@@ -1267,6 +1267,29 @@ const SCENARIOS: Dictionary = {
 			"report": true,
 		},
 	],
+	## Every pickup kind's art in a row, away from the player so none is picked up. Run against
+	## `dev/surface_lab.tscn`.
+	"pickup_sprites": [
+		{
+			"god": true,
+			"reveal": true,
+			"zoom": 3.0,
+			"aim": Vector2(130.0, 1.0),
+			"spawn_pickup": [
+				{"kind": "weapon", "weapon_id": "pistol", "offset": Vector2(30.0, 50.0)},
+				{"kind": "weapon", "weapon_id": "smg", "offset": Vector2(80.0, 50.0)},
+				{"kind": "weapon", "weapon_id": "shotgun", "offset": Vector2(130.0, 50.0)},
+				{"kind": "upgrade", "offset": Vector2(180.0, 50.0)},
+				{"kind": "ammo", "offset": Vector2(230.0, 50.0)},
+				{"kind": "health", "offset": Vector2(55.0, 95.0)},
+				{"kind": "key", "offset": Vector2(105.0, 95.0)},
+				{"kind": "ability", "offset": Vector2(155.0, 95.0)},
+				{"kind": "ability_upgrade", "offset": Vector2(205.0, 95.0)},
+			],
+			"wait": 0.6,
+			"shot": "pickup_sprites",
+		},
+	],
 	## The reload bar follows the mouse pointer, centred just below it, and stays on screen at the edges.
 	## Run against `dev/surface_lab.tscn`.
 	"reload_bar": [
@@ -4182,11 +4205,15 @@ func _run(scenario: String) -> void:
 			# A pickup at the player's feet, configured from the step's dictionary.
 			var finder: Player = GameDirector.valid_player()
 			if finder != null:
-				var dropped := (load("res://src/items/pickup.tscn") as PackedScene).instantiate() as Pickup
-				for setting: String in (step["spawn_pickup"] as Dictionary):
-					dropped.set(setting, step["spawn_pickup"][setting])
-				GameDirector.spawn_parent().add_child(dropped)
-				dropped.global_position = finder.global_position
+				# A single pickup, or a list of them; "offset" places one away from the player's feet.
+				var specs: Array = step["spawn_pickup"] if step["spawn_pickup"] is Array else [step["spawn_pickup"]]
+				for spec: Dictionary in specs:
+					var dropped := (load("res://src/items/pickup.tscn") as PackedScene).instantiate() as Pickup
+					for setting: String in spec:
+						if setting != "offset":
+							dropped.set(setting, spec[setting])
+					GameDirector.spawn_parent().add_child(dropped)
+					dropped.global_position = finder.global_position + spec.get("offset", Vector2.ZERO)
 		if step.has("press_slot"):
 			# What pressing an ability key does: swap when standing on an offer, else cast.
 			var presser: Player = GameDirector.valid_player()
