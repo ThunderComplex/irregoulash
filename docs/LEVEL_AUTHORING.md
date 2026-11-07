@@ -238,6 +238,21 @@ you and you keep your footing; if it comes to rest on top of you, you can walk o
 still blocks like a wall. This matters for enemies too: a guard shoved into a corner by a door it
 opened itself cannot get out of it.
 
+## Floor text and key hints (teaching the player)
+
+Two nodes paint text on the floor. Drag `src/levels/hints/floor_text.tscn` or `key_hint.tscn` from the
+FileSystem dock into the level (or add them with **Add Child Node** by name).
+
+- **`FloorText`**: type the text in the inspector (several lines are fine, each is centred). Rotate and
+  scale it like any node.
+- **`KeyHint`**: a key cap with an optional line of text beside it, e.g. `[F] Open doors`. Pick the
+  `action` from the list. In the editor it shows the default key; in game it shows the player's own
+  binding, and the pad button when they're playing with a controller, so a rebind never makes it wrong.
+
+Both are always visible, lit or not: the fog doesn't hide them, so they can explain a room before the
+player has seen it. They sit on the floor, under pickups, actors and walls. Font size, colour and
+outline are in the inspector.
+
 ## Surfaces: what walls and floors look like
 
 Two dropdowns on the **Level** node, and nothing per wall:

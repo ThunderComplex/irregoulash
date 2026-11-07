@@ -590,6 +590,10 @@ func _build_overlay() -> void:
 		HORIZONTAL_ALIGNMENT_CENTER, Color.WHITE)
 	_overlay_body = _label(_overlay, Control.PRESET_CENTER, -400.0, -80.0, 400.0, 40.0, 20,
 		HORIZONTAL_ALIGNMENT_CENTER, Color(0.85, 0.9, 0.95))
+	# On every overlay (pause, death, victory), so a tester's screenshot says which build it was.
+	var version := _label(_overlay, Control.PRESET_BOTTOM_RIGHT, -280.0, -40.0, -20.0, -14.0, 14,
+		HORIZONTAL_ALIGNMENT_RIGHT, Color(0.55, 0.6, 0.68))
+	version.text = BuildInfo.version_text()
 
 	# Paused menu, centred under the stats line. Horizontally it has to be worked out from the viewport:
 	# the title and the stats are anchored to the centre (so they follow a resize), but a `MenuList` is

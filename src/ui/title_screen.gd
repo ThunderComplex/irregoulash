@@ -172,6 +172,10 @@ func _build() -> void:
 		"in development  --  line of sight is the whole game", 18,
 		Color(0.6, 0.68, 0.8))
 
+	# Testers quote this in feedback; see `BuildInfo`.
+	_label(Vector2(1000.0, 24.0), Vector2(256.0, 24.0), BuildInfo.version_text(), 14,
+		Color(0.45, 0.5, 0.58), HORIZONTAL_ALIGNMENT_RIGHT)
+
 	# Generated from the live input map, so a rebind cannot leave this text lying about what the keys do.
 	_controls_block(Vector2(84.0, 256.0))
 

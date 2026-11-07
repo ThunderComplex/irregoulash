@@ -559,6 +559,10 @@ func _input(event: InputEvent) -> void:
 func _try_bind(event: InputEvent) -> void:
 	var action: String = _capture_action
 	var events: Array[InputEvent] = [event]
+	if GameInput.is_reserved(event):
+		_status("F1-F12 are reserved", Color(0.95, 0.55, 0.45))
+		_finish_capture()
+		return
 	var conflict: String = GameInput.conflict_for(action, events)
 	if not conflict.is_empty():
 		# Refused rather than accepted: two actions on one key is a bug the player cannot see, and the

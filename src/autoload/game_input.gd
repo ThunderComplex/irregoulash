@@ -23,7 +23,8 @@ const BINDINGS_PATH: String = "user://bindings.cfg"
 const BINDINGS_FILE: String = "bindings.cfg"
 
 ## How every action is presented, in display order. `group` is the section heading in the rebinding UI.
-## Debug actions share the same machinery: they are simply their own group, hidden outside debug builds.
+## Debug actions (the cheats) share the same machinery but are their own group: never listed for
+## rebinding, and with no events at all outside a debug build -- see `cheats_enabled`.
 const META: Dictionary = {
 	"move_up": {"label": "Move up", "group": "Movement"},
 	"move_down": {"label": "Move down", "group": "Movement"},
@@ -130,6 +131,12 @@ const DEFAULT_SPECS: Dictionary = {
 	"debug_give": [{"type": "key", "code": KEY_F7}],
 	"debug_slowmo": [{"type": "key", "code": KEY_F9}],
 }
+
+const DEBUG_GROUP: String = "Debug"
+## Function keys belong to the debug keys. No other action may be bound to one, in any build, so a
+## cheat can never share a key with a game action and the defaults never have to move.
+const RESERVED_KEY_FIRST: Key = KEY_F1
+const RESERVED_KEY_LAST: Key = KEY_F12
 
 ## Actions the title screen lists. A subset: the HUD already shows the weapon slots, and the debug keys
 ## only appear in a debug build. Aim is not an action (yet) -- it follows the mouse.
@@ -271,8 +278,11 @@ func specs_for(action: String) -> Array:
 ## Replaces one action's bindings with `events` outright. Used by tools and tests; the menu uses
 ## `rebind()`, which keeps the other device's bindings.
 func set_action_events(action: String, events: Array[InputEvent]) -> void:
-	if not META.has(action):
+	if not META.has(action) or is_debug_action(action):
 		return
+	for event: InputEvent in events:
+		if is_reserved(event):
+			return
 	var specs: Array = _specs_from_events(events)
 	if specs.is_empty():
 		return
@@ -289,7 +299,7 @@ func set_action_events(action: String, events: Array[InputEvent]) -> void:
 ## mouse away from Fire when a pad player moves it to a face button, and take the pad away from a
 ## keyboard player who presses a key. One action, one binding per device, is the rule the menu shows.
 func rebind(action: String, event: InputEvent) -> void:
-	if not META.has(action):
+	if not META.has(action) or is_debug_action(action) or is_reserved(event):
 		return
 	var new_spec: Dictionary = spec_from_event(event)
 	if new_spec.is_empty():
@@ -345,6 +355,10 @@ func _apply(action: String, specs: Array) -> void:
 	if InputMap.has_action(action):
 		InputMap.erase_action(action)
 	InputMap.add_action(action, 0.25)
+	# A release build still has the cheat actions, so code asking about them stays valid, but nothing
+	# can trigger them.
+	if is_debug_action(action) and not cheats_enabled():
+		return
 	for spec: Variant in specs:
 		if not (spec is Dictionary):
 			continue
@@ -370,6 +384,30 @@ func conflict_for(ignore: String, events: Array[InputEvent]) -> String:
 				if events_match(candidate, existing):
 					return other
 	return ""
+
+
+## Cheats only exist in debug builds (the editor, and debug exports). A release export has the actions
+## but no keys on them, and `GameDirector` ignores them too.
+func cheats_enabled() -> bool:
+	return OS.is_debug_build()
+
+
+static func is_debug_action(action: String) -> bool:
+	return String((META.get(action, {}) as Dictionary).get("group", "")) == DEBUG_GROUP
+
+
+## True for a key no game action may use (F1-F12, which belong to the debug keys).
+func is_reserved(event: InputEvent) -> bool:
+	if not (event is InputEventKey):
+		return false
+	var key: InputEventKey = event
+	var code: Key = key.physical_keycode if key.physical_keycode != KEY_NONE else key.keycode
+	return code >= RESERVED_KEY_FIRST and code <= RESERVED_KEY_LAST
+
+
+func _spec_reserved(spec: Dictionary) -> bool:
+	var event: InputEvent = event_from_spec(spec)
+	return event != null and is_reserved(event)
 
 
 ## Whether two events would mean the same press. Compared field by field rather than with `is_match`,
@@ -513,13 +551,13 @@ func action_label(action: String) -> String:
 	return String(meta.get("label", action))
 
 
-## Group headings in display order. Debug is hidden in a release build: those keys exist, but a player
-## has no reason to rebind them and every reason not to be shown them.
+## Group headings in display order, for the rebinding UI. Never the debug group: the cheats keep their
+## fixed F-keys and are not the player's to move.
 func groups() -> Array[String]:
 	var out: Array[String] = []
 	for action: String in META:
 		var group: String = String((META[action] as Dictionary).get("group", ""))
-		if group == "Debug" and not OS.is_debug_build():
+		if group == DEBUG_GROUP:
 			continue
 		if not out.has(group):
 			out.append(group)
@@ -546,7 +584,7 @@ func title_rows() -> Array:
 ## The debug keys on one line, so the title screen can mention them without a nine-row table.
 func debug_short_text() -> String:
 	var parts: Array[String] = []
-	for action: String in actions_in("Debug"):
+	for action: String in actions_in(DEBUG_GROUP):
 		parts.append("%s %s" % [describe_action(action), action_label(action)])
 	return "   ".join(parts)
 
@@ -579,14 +617,15 @@ func load_bindings() -> void:
 	if config.load(BINDINGS_PATH) != OK:
 		return
 	for action: String in META:
-		if not config.has_section_key("bindings", action):
+		if is_debug_action(action) or not config.has_section_key("bindings", action):
 			continue
 		var stored: Variant = config.get_value("bindings", action, [])
 		if not (stored is Array):
 			continue
 		var specs: Array = []
 		for entry: Variant in stored:
-			if entry is Dictionary and event_from_spec(entry) != null:
+			# A function key saved before they were reserved falls back to the default.
+			if entry is Dictionary and event_from_spec(entry) != null and not _spec_reserved(entry):
 				specs.append(entry)
 		if not specs.is_empty():
 			_overrides[action] = specs

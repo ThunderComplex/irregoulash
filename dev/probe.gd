@@ -1306,6 +1306,28 @@ const SCENARIOS: Dictionary = {
 	## from its centre -- the old way (along the aim, from the muzzle in the right hand) and the new
 	## (from the muzzle to the aim point) -- where the aim line's crosshair lands, and whether shots
 	## actually hit. Run against `dev/surface_lab.tscn`.
+	## Floor hints: a FloorText and KeyHints near the player, one far out in the dark, then the same with
+	## Interact rebound to E. Also checks the binding rules: no F-keys for game actions, no cheats in the
+	## Controls list. Run against `dev/surface_lab.tscn`.
+	"floor_hints": [
+		{
+			"god": true,
+			"zoom": 1.5,
+			"spawn_hints": true,
+			"wait": 0.4,
+			"binding_rules_report": true,
+			"shot": "floor_hints_01",
+		},
+		{
+			"rebind_interact_e": true,
+			"wait": 0.2,
+			"shot": "floor_hints_02_rebound",
+		},
+		{
+			"reset_bindings": true,
+			"wait": 0.1,
+		},
+	],
 	"aim_line": [
 		{
 			"god": true,
@@ -4209,6 +4231,45 @@ func _run(scenario: String) -> void:
 					spawned.name = "Probe_" + key.replace("/", "_")
 					GameDirector.spawn_parent().add_child(spawned)
 					spawned.global_position = near.global_position + step["spawn_archetypes"][key]
+		if step.has("spawn_hints"):
+			var at: Player = GameDirector.valid_player()
+			if at != null:
+				var sign_ := (load("res://src/levels/hints/floor_text.tscn") as PackedScene).instantiate() as FloorText
+				sign_.text = "Lights off.
+Stay out of their sight."
+				GameDirector.current_level.add_child(sign_)
+				sign_.global_position = at.global_position + Vector2(0.0, -90.0)
+				var hint := (load("res://src/levels/hints/key_hint.tscn") as PackedScene).instantiate() as KeyHint
+				hint.action = "interact"
+				hint.text = "Open doors"
+				GameDirector.current_level.add_child(hint)
+				hint.global_position = at.global_position + Vector2(0.0, 70.0)
+				var fire_hint := KeyHint.new()
+				fire_hint.action = "fire"
+				fire_hint.text = "Shoot"
+				GameDirector.current_level.add_child(fire_hint)
+				fire_hint.global_position = at.global_position + Vector2(-260.0, 110.0)
+				var dark := FloorText.new()
+				dark.text = "out here in the dark"
+				GameDirector.current_level.add_child(dark)
+				dark.global_position = at.global_position + Vector2(-300.0, -160.0)
+		if step.has("binding_rules_report"):
+			var before: String = GameInput.describe_action("interact")
+			var f5 := InputEventKey.new()
+			f5.physical_keycode = KEY_F5
+			GameInput.rebind("interact", f5)
+			print("[probe]   interact before %s, after trying F5: %s (reserved=%s)" % [before,
+				GameInput.describe_action("interact"), GameInput.is_reserved(f5)])
+			print("[probe]   controls groups: %s; cheats enabled: %s" % [str(GameInput.groups()),
+				GameInput.cheats_enabled()])
+			print("[probe]   version: %s" % BuildInfo.version_text())
+		if step.has("rebind_interact_e"):
+			var e := InputEventKey.new()
+			e.physical_keycode = KEY_E
+			GameInput.rebind("interact", e)
+			print("[probe]   interact now %s" % GameInput.describe_action("interact"))
+		if step.has("reset_bindings"):
+			GameInput.reset_action("interact")
 		if step.has("spawn_enemies"):
 			var level: Node = GameDirector.current_level
 			if level != null and level.has_method("debug_spawn_enemy"):

@@ -9,8 +9,10 @@
 [ext_resource type="Script" uid="uid://tdmd7rqbsvoa" path="res://src/levels/patrol_route.gd" id="5_un6eu"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="6_exit"]
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="7_lxqdr"]
+[ext_resource type="PackedScene" path="res://src/levels/hints/floor_text.tscn" id="10_lxqdr"]
+[ext_resource type="PackedScene" path="res://src/levels/hints/key_hint.tscn" id="11_i28rg"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_un6eu"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_x1511"]
 shader = ExtResource("2_awj53")
 shader_parameter/albedo = ExtResource("3_un6eu")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -35,6 +37,21 @@ source_geometry_mode = 1
 source_geometry_group_name = &"wall"
 agent_radius = 18.0
 
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_m2amb"]
+light_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_b6jfj"]
+light_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_p4poh"]
+light_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_idjos"]
+light_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_fp6ow"]
+light_mode = 1
+
 [node name="LevelCampaign" type="Node2D" unique_id=60981112]
 script = ExtResource("1_level")
 level_title = "Campaign 1"
@@ -45,7 +62,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_un6eu")
+material = SubResource("ShaderMaterial_x1511")
 position = Vector2(1216, 640)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-4060.5955, -3484.5955, 4060.5955, -3484.5955, 4060.5955, 3484.5955, -4060.5955, 3484.5955)
@@ -192,12 +209,14 @@ patrol_route = NodePath("../../Routes/Guard3Route")
 [node name="Pickups" type="Node2D" parent="." unique_id=330227706]
 
 [node name="Pickup0" parent="Pickups" unique_id=134755550 instance=ExtResource("5_pickup")]
+texture_filter = 4
 position = Vector2(1192, 732)
 kind = "health"
 weapon_id = "pistol"
 amount = 50
 
 [node name="Pickup1" parent="Pickups" unique_id=230695746 instance=ExtResource("5_pickup")]
+texture_filter = 4
 position = Vector2(2165, 991)
 kind = "upgrade"
 weapon_id = "pistol"
@@ -210,3 +229,40 @@ position = Vector2(1976, 488)
 visible = false
 navigation_polygon = SubResource("NavigationPolygon_un6eu")
 metadata/navmesh_hash = 921544849
+
+[node name="Hints" type="Node2D" parent="." unique_id=1290317001]
+
+[node name="FloorText" parent="Hints" unique_id=304759490 instance=ExtResource("10_lxqdr")]
+z_index = -4
+z_as_relative = false
+material = SubResource("CanvasItemMaterial_m2amb")
+position = Vector2(206, 173)
+text = "Move with"
+
+[node name="KeyHint" parent="Hints" unique_id=1944429786 instance=ExtResource("11_i28rg")]
+z_index = -4
+z_as_relative = false
+material = SubResource("CanvasItemMaterial_b6jfj")
+position = Vector2(285, 175)
+action = "move_up"
+
+[node name="KeyHint2" parent="Hints" unique_id=1988082060 instance=ExtResource("11_i28rg")]
+z_index = -4
+z_as_relative = false
+material = SubResource("CanvasItemMaterial_p4poh")
+position = Vector2(325, 175)
+action = "move_down"
+
+[node name="KeyHint3" parent="Hints" unique_id=112344670 instance=ExtResource("11_i28rg")]
+z_index = -4
+z_as_relative = false
+material = SubResource("CanvasItemMaterial_idjos")
+position = Vector2(365, 175)
+action = "move_left"
+
+[node name="KeyHint4" parent="Hints" unique_id=485496672 instance=ExtResource("11_i28rg")]
+z_index = -4
+z_as_relative = false
+material = SubResource("CanvasItemMaterial_fp6ow")
+position = Vector2(405, 175)
+action = "move_right"

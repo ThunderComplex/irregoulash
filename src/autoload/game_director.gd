@@ -63,6 +63,9 @@ func _ready() -> void:
 func _maybe_spawn_dev_probe() -> void:
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--probe"):
+			# Release exports leave `dev/` out (see the export filters), so this finds nothing there.
+			if not ResourceLoader.exists("res://dev/probe.gd"):
+				return
 			var script := load("res://dev/probe.gd") as GDScript
 			if script == null:
 				return
@@ -377,6 +380,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if run_active and event.is_action_pressed(&"pause"):
 		toggle_pause()
 		get_viewport().set_input_as_handled()
+	elif not GameInput.cheats_enabled():
+		# Belt and braces: a release build has no keys on the cheats either (see `GameInput._apply`).
+		return
 	elif event.is_action_pressed(&"debug_god"):
 		god_mode = not god_mode
 		announce_message("God mode %s" % ("ON" if god_mode else "off"), Color(1, 0.8, 0.3))

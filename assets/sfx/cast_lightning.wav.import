@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://de6kjekypb1ii"
-path="res://.godot/imported/cast_lioghtning.wav-f126d6c6cb48ad0e925eb1228c9afc76.sample"
+path="res://.godot/imported/cast_lightning.wav-f7c5868fdd6d911bee2bbaad64e60302.sample"
 
 [deps]
 
-source_file="res://assets/sfx/cast_lioghtning.wav"
-dest_files=["res://.godot/imported/cast_lioghtning.wav-f126d6c6cb48ad0e925eb1228c9afc76.sample"]
+source_file="res://assets/sfx/cast_lightning.wav"
+dest_files=["res://.godot/imported/cast_lightning.wav-f7c5868fdd6d911bee2bbaad64e60302.sample"]
 
 [params]
 
