@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CharacterLook" format=3]
+
+[ext_resource type="Script" uid="uid://c2p0mtbmu3oki" path="res://src/characters/character_look.gd" id="1_look"]
+[ext_resource type="Texture2D" uid="uid://b8aoboalohom5" path="res://assets/characters/scout_body.png" id="2_body"]
+[ext_resource type="Texture2D" uid="uid://cuwmu5clg7en7" path="res://assets/characters/enemy_leg.png" id="3_leg"]
+
+[resource]
+script = ExtResource("1_look")
+body = ExtResource("2_body")
+hands = Vector2(218, 190)
+weapon_scale = 0.5
+leg = ExtResource("3_leg")
+stance_width = 9.0

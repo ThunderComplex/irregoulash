@@ -2,8 +2,10 @@
 
 [ext_resource type="Script" uid="uid://cm18cddlcskw1" path="res://src/levels/level.gd" id="1_level"]
 [ext_resource type="PackedScene" path="res://src/levels/wall.tscn" id="2_wall"]
-[ext_resource type="Script" uid="uid://42vdeppvwt1a" path="res://src/levels/wall.gd" id="3_68yxe"]
 [ext_resource type="PackedScene" uid="uid://ua2oydxot8u7" path="res://src/levels/lamp.tscn" id="3_lamp"]
+[ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="4_qakir"]
+[ext_resource type="Script" uid="uid://c1femwp0kyllt" path="res://src/enemies/enemy.gd" id="5_tgwhc"]
+[ext_resource type="Script" uid="uid://tdmd7rqbsvoa" path="res://src/levels/patrol_route.gd" id="6_ogm42"]
 
 [sub_resource type="NavigationPolygon" id="NavigationPolygon_6qfs5"]
 vertices = PackedVector2Array(552, 882, 1582, 942, 48, 942, 108, 882, 1582, 110, 1522, 530, 1522, 430, 1042, 722, 1390, 530, 48, 110, 108, 522, 1098, 270, 1098, 170, 1390, 430, 1042, 494, 878, 450, 878, 350, 302, 270, 522, 350, 302, 170, 192, 522, 942, 722, 578, 714, 870, 714, 552, 798, 942, 494, 870, 646, 646, 486, 522, 450, 646, 646, 578, 486, 192, 798)
@@ -42,22 +44,16 @@ size = Vector2(48, 320)
 position = Vector2(330, 840)
 size = Vector2(408, 48)
 
-[node name="DrawnWall1" type="StaticBody2D" parent="Walls" unique_id=510831701 instance=ExtResource("2_wall")]
+[node name="DrawnWall1" parent="Walls" unique_id=510831701 instance=ExtResource("2_wall")]
 position = Vector2(624, 656)
-collision_mask = 0
-script = ExtResource("3_68yxe")
 size = Vector2(32, 224)
 
-[node name="DrawnWall2" type="StaticBody2D" parent="Walls" unique_id=1164743942 instance=ExtResource("2_wall")]
+[node name="DrawnWall2" parent="Walls" unique_id=1164743942 instance=ExtResource("2_wall")]
 position = Vector2(736, 752)
-collision_mask = 0
-script = ExtResource("3_68yxe")
 size = Vector2(256, 32)
 
-[node name="DrawnWall3" type="StaticBody2D" parent="Walls" unique_id=987586152 instance=ExtResource("2_wall")]
+[node name="DrawnWall3" parent="Walls" unique_id=987586152 instance=ExtResource("2_wall")]
 position = Vector2(880, 784)
-collision_mask = 0
-script = ExtResource("3_68yxe")
 size = Vector2(32, 96)
 
 [node name="Lamps" type="Node2D" parent="." unique_id=515686328]
@@ -73,8 +69,8 @@ energy = 1.1
 [node name="FloorPool" parent="Lamps" unique_id=1253493457 instance=ExtResource("3_lamp")]
 position = Vector2(804, 527)
 color = Color(0.95, 0.9, 0.78, 1)
-radius = 320.0
-energy = 1.0
+radius = 400.0
+energy = 1.5
 
 [node name="FloorPool2" parent="Lamps" unique_id=1901478582 instance=ExtResource("3_lamp")]
 position = Vector2(982, 748)
@@ -98,3 +94,44 @@ energy = 0.8
 visible = false
 navigation_polygon = SubResource("NavigationPolygon_6qfs5")
 metadata/navmesh_hash = 840419160
+
+[node name="Guard1" type="CharacterBody2D" parent="." unique_id=732746745 instance=ExtResource("4_qakir")]
+position = Vector2(896, 480)
+collision_layer = 4
+motion_mode = 1
+script = ExtResource("5_tgwhc")
+patrol_route = NodePath("../Guard1Route")
+
+[node name="Guard1Route" type="Node2D" parent="." unique_id=1941829595]
+script = ExtResource("6_ogm42")
+
+[node name="P0" type="Marker2D" parent="Guard1Route" unique_id=1011868313]
+position = Vector2(960, 480)
+
+[node name="Scout1" type="CharacterBody2D" parent="." unique_id=276813591 instance=ExtResource("4_qakir")]
+position = Vector2(896, 544)
+collision_layer = 4
+motion_mode = 1
+script = ExtResource("5_tgwhc")
+archetype_id = "scout"
+patrol_route = NodePath("../Scout1Route")
+
+[node name="Scout1Route" type="Node2D" parent="." unique_id=2063943829]
+script = ExtResource("6_ogm42")
+
+[node name="P0" type="Marker2D" parent="Scout1Route" unique_id=1875897863]
+position = Vector2(960, 544)
+
+[node name="Heavy1" type="CharacterBody2D" parent="." unique_id=1607381512 instance=ExtResource("4_qakir")]
+position = Vector2(896, 608)
+collision_layer = 4
+motion_mode = 1
+script = ExtResource("5_tgwhc")
+archetype_id = "heavy"
+patrol_route = NodePath("../Heavy1Route")
+
+[node name="Heavy1Route" type="Node2D" parent="." unique_id=1428948343]
+script = ExtResource("6_ogm42")
+
+[node name="P0" type="Marker2D" parent="Heavy1Route" unique_id=1618559154]
+position = Vector2(960, 608)

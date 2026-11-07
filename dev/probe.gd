@@ -1161,6 +1161,29 @@ const SCENARIOS: Dictionary = {
 	## The character rig up close: standing, walking towards the aim, backing away from it (the legs
 	## should turn round and walk backwards), strafing, and an enemy. Run against
 	## `dev/surface_lab.tscn`; zoomed in and revealed so the art itself can be judged.
+	## Every enemy type's look, side by side: one of each spawned next to the player, photographed
+	## standing and then on the move. Run against `dev/surface_lab.tscn`.
+	"enemy_looks": [
+		{
+			"god": true,
+			"reveal": true,
+			"zoom": 2.2,
+			# Aimed at them, so the camera leads towards them; spaced clear of the lab's walls.
+			"aim": Vector2(0.3, 1.0),
+			"spawn_archetypes": {
+				"guard": Vector2(-20.0, 90.0),
+				"scout": Vector2(60.0, 115.0),
+				"heavy": Vector2(140.0, 85.0),
+			},
+			"wait": 0.15,
+			"shot": "enemy_looks_01_standing",
+		},
+		{
+			# They have seen the player by now and close in, which shows the legs walking.
+			"wait": 0.5,
+			"shot": "enemy_looks_02_moving",
+		},
+	],
 	## The legs' heading and reach while backing away from the aim, sampled over a stride.
 	"rig_backpedal": [
 		{"god": true, "aim": Vector2(1.0, 0.0), "keys_press": ["move_left"], "wait": 0.3, "rig_report": true},
@@ -3777,6 +3800,15 @@ func _run(scenario: String) -> void:
 			GameDirector.start_run()
 		if step.has("god"):
 			GameDirector.god_mode = bool(step["god"])
+		if step.has("spawn_archetypes"):
+			# One enemy of each named archetype, at an offset from the player.
+			var near: Player = GameDirector.valid_player()
+			if near != null:
+				for archetype_name: String in (step["spawn_archetypes"] as Dictionary):
+					var spawned := (load("res://src/enemies/enemy.tscn") as PackedScene).instantiate() as Enemy
+					spawned.archetype_id = archetype_name
+					GameDirector.spawn_parent().add_child(spawned)
+					spawned.global_position = near.global_position + step["spawn_archetypes"][archetype_name]
 		if step.has("spawn_enemies"):
 			var level: Node = GameDirector.current_level
 			if level != null and level.has_method("debug_spawn_enemy"):
