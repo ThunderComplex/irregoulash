@@ -1285,6 +1285,50 @@ const SCENARIOS: Dictionary = {
 			"shot": "reload_bar_02_corner",
 		},
 	],
+	## Enemies burst apart on death: their art thrown around as physics pieces that smear blood. First
+	## in the open, struck from the left; then against a wall, blasted into it, where no piece may end up
+	## inside or past the wall. Run against `dev/surface_lab.tscn`.
+	"enemy_gibs": [
+		{
+			"god": true,
+			"reveal": true,
+			"zoom": 2.4,
+			"aim": Vector2(1.0, 0.0),
+			"spawn_archetypes": {"guard/open": Vector2(110.0, 0.0)},
+			"wait": 0.3,
+		},
+		{
+			"kill_probe_enemies": Vector2(1.0, 0.0),
+			"wait": 0.05,
+			"gib_report": true,
+			"shot": "enemy_gibs_01_burst",
+		},
+		{
+			"wait": 0.3,
+			"gib_report": true,
+			"shot": "enemy_gibs_02_flying",
+		},
+		{
+			"wait": 1.6,
+			"gib_report": true,
+			"shot": "enemy_gibs_03_settled",
+		},
+		{
+			# Against the underside of the wall at y 368..432, blasted up into it.
+			"clear_gibs": true,
+			"teleport": Vector2(698.0, 560.0),
+			"aim": Vector2(0.0, -1.0),
+			"spawn_archetypes": {"guard/wall": Vector2(0.0, -105.0)},
+			"wait": 0.3,
+		},
+		{
+			"kill_probe_enemies": Vector2(0.0, -1.0),
+			"wait": 2.0,
+			"gib_report": true,
+			"gib_wall_check": Rect2(540.0, 368.0, 320.0, 64.0),
+			"shot": "enemy_gibs_04_against_wall",
+		},
+	],
 	## Ammo for a weapon whose reserve is full stays on the ground and says why; with room, it is taken.
 	## Run against `dev/surface_lab.tscn`.
 	"ammo_prompt": [
@@ -4093,6 +4137,16 @@ func _run(scenario: String) -> void:
 		if step.has("retry_level"):
 			print("[probe] retry level")
 			GameDirector.retry_level()
+		if step.has("kill_probe_enemies"):
+			# Kills every enemy the probe spawned, with a blow travelling the given way.
+			for enemy_node: Node in get_tree().get_nodes_in_group("enemy"):
+				var doomed := enemy_node as Enemy
+				if doomed != null and String(doomed.name).begins_with("Probe_"):
+					doomed.take_hit(9999.0, null, doomed.global_position, step["kill_probe_enemies"], 0.0)
+		if step.has("clear_gibs"):
+			for node: Node in _all_nodes(GameDirector.spawn_parent()):
+				if node is Gib:
+					node.queue_free()
 		if step.has("mouse_at"):
 			# Puts the pointer at a fraction of the window (0..1 on each axis).
 			var where: Vector2 = step["mouse_at"]
@@ -4229,6 +4283,37 @@ func _run(scenario: String) -> void:
 				if String(effect["mode"]) == "float" and is_instance_valid(node):
 					lines.append("\"%s\"" % (node.get_child(0) as Label).text)
 			print("[probe]   floating: %s" % (", ".join(lines) if not lines.is_empty() else "nothing"))
+		if step.has("gib_report"):
+			var gibs: Array[Gib] = []
+			for node: Node in _all_nodes(GameDirector.spawn_parent()):
+				if node is Gib and not node.is_queued_for_deletion():
+					gibs.append(node)
+			var resting: int = 0
+			var spread: float = 0.0
+			var centre := Vector2.ZERO
+			for gib: Gib in gibs:
+				centre += gib.global_position
+				if gib.freeze:
+					resting += 1
+			if not gibs.is_empty():
+				centre /= float(gibs.size())
+				for gib: Gib in gibs:
+					spread = maxf(spread, gib.global_position.distance_to(centre))
+			var decals: int = 0
+			for node: Node in _all_nodes(GameDirector.spawn_parent()):
+				if node.has_meta("decal"):
+					decals += 1
+			print("[probe]   gibs: %d (%d at rest), spread %.0f px around %s, blood decals %d" % [
+				gibs.size(), resting, spread, centre.round(), decals])
+		if step.has("gib_wall_check"):
+			var wall: Rect2 = step["gib_wall_check"]
+			var through: Array[String] = []
+			for node: Node in _all_nodes(GameDirector.spawn_parent()):
+				var piece := node as Gib
+				if piece != null and not piece.is_queued_for_deletion() and piece.global_position.y < wall.end.y \
+						and piece.global_position.x > wall.position.x and piece.global_position.x < wall.end.x:
+					through.append(str(piece.global_position.round()))
+			print("[probe]   gibs inside or past the wall: %s" % ("none" if through.is_empty() else ", ".join(through)))
 		if step.has("hud_reload_report"):
 			var hud: Node = GameDirector.current_level.get_node_or_null("HUD") if GameDirector.current_level else null
 			var bar_bg := hud.get("_reload_bg") as ColorRect if hud != null else null

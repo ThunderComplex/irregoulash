@@ -98,6 +98,8 @@ var health: Health
 var visual: Node2D
 ## Legs and torso, from the archetype's look file (or the shared `enemy.tres`) when there is one.
 var _rig: CharacterRig = null
+## The direction of the last hit taken, so a death can throw the pieces the way the killing blow went.
+var _last_hit_direction: Vector2 = Vector2.ZERO
 
 var state: int = State.PATROL
 var awareness: float = 0.0
@@ -938,8 +940,11 @@ func _update_footsteps(delta: float) -> void:
 
 #region damage / death
 
-func _on_damaged(_amount: float, _source: Node, _hit_position: Vector2, _direction: Vector2) -> void:
+func _on_damaged(_amount: float, _source: Node, _hit_position: Vector2, direction: Vector2) -> void:
 	FxDirector.shake(0.12)
+	# Remembered for the death that may follow: the pieces fly the way the killing blow was going.
+	# `damaged` is emitted before `died`, so this is always the blow that killed.
+	_last_hit_direction = direction
 
 
 func _on_died(_source: Node) -> void:
@@ -952,36 +957,28 @@ func _on_died(_source: Node) -> void:
 	velocity = Vector2.ZERO
 
 	AudioDirector.play_at(&"enemy_die", global_position, -5.0)
-	FxDirector.blood(global_position, Vector2.from_angle(_facing))
 	FxDirector.shake(0.18)
-	_spawn_corpse()
+	_explode()
 	_drop_loot()
 	GameDirector.notify_kill()
 	died.emit(self)
 	queue_free()
 
 
-func _spawn_corpse() -> void:
+## Bursts apart: a splash of blood where it stood, a spray of droplets mostly the way the killing blow
+## was going, and its body art and legs thrown around as physics pieces that smear blood as they slide
+## (see `Gib`). The pieces stay where they land, the way a corpse used to.
+func _explode() -> void:
 	var parent: Node = GameDirector.spawn_parent()
 	if parent == null:
 		return
-	var corpse := Node2D.new()
-	parent.add_child(corpse)
-	corpse.global_position = global_position
-	corpse.z_index = Layers.Z_PICKUP - 1
-
-	var pool := Polygon2D.new()
-	pool.polygon = Shapes.circle(archetype.radius * 1.9, 12)
-	pool.color = Color(0.30, 0.04, 0.06, 0.75)
-	pool.z_index = Layers.Z_DECAL
-	corpse.add_child(pool)
-
-	var body := Polygon2D.new()
-	body.polygon = Shapes.circle(archetype.radius, 12)
-	body.color = ColorShift.apply(archetype.body_color, color_shift()).darkened(0.55)
-	body.position = Vector2(6.0, 4.0)
-	body.z_index = Layers.Z_PICKUP - 1
-	corpse.add_child(body)
+	var push: Vector2 = _last_hit_direction if _last_hit_direction.length_squared() > 0.0001 		else Vector2.from_angle(_facing + PI)
+	FxDirector.blood_decal(global_position, archetype.radius * 1.3, true)
+	FxDirector.blood(global_position, push)
+	for i: int in 2:
+		FxDirector.blood(global_position, Vector2.from_angle(randf() * TAU))
+	if _rig != null:
+		_rig.break_apart(push, parent)
 
 
 func _drop_loot() -> void:

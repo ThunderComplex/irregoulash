@@ -175,6 +175,126 @@ func update(delta: float, velocity: Vector2, aim_angle: float) -> void:
 		_weapon_sprite.global_position = origin + _hands_local().rotated(aim_angle)
 
 
+#region gibs
+
+## How many chunks the body is cut into when it explodes.
+const BODY_CHUNKS: int = 5
+
+
+## Blows the character apart: the body art cut into chunks, and both legs, each thrown outwards (and
+## along `push`, the direction the killing blow travelled) as a `Gib` under `parent`. The rig hides
+## itself; the weapon is not thrown, because the gameplay drops it as loot.
+func break_apart(push: Vector2, parent: Node) -> Array[Gib]:
+	var gibs: Array[Gib] = []
+	if look == null or parent == null:
+		return gibs
+	var pieces: Array[Dictionary] = []
+	if _body != null and _body.texture != null:
+		pieces.append_array(_body_chunks())
+	for sprite: Sprite2D in _leg_sprites:
+		if sprite.texture == null:
+			continue
+		# A leg mid-stride can be drawn foreshortened to nothing; thrown, it is a whole leg.
+		var gib := Gib.from_sprite(sprite, look.stance_width * 0.6)
+		(gib.get_child(0) as Sprite2D).scale = Vector2(look.art_scale, sprite.scale.y)
+		pieces.append({"gib": gib, "at": sprite.global_position, "rotation": sprite.global_rotation})
+	var centre: Vector2 = global_position
+	var heading: Vector2 = push.normalized() if push.length_squared() > 0.0001 else Vector2.ZERO
+	for piece: Dictionary in pieces:
+		var gib: Gib = piece["gib"]
+		parent.add_child(gib)
+		gib.global_position = piece["at"]
+		gib.global_rotation = piece["rotation"]
+		var outward: Vector2 = (gib.global_position - centre)
+		outward = outward.normalized() if outward.length_squared() > 0.01 \
+			else Vector2.from_angle(randf() * TAU)
+		var direction: Vector2 = (outward + heading * 0.9 + Vector2.from_angle(randf() * TAU) * 0.35) \
+			.normalized()
+		gib.launch(direction * randf_range(150.0, 360.0), randf_range(-14.0, 14.0))
+		gibs.append(gib)
+	visible = false
+	return gibs
+
+
+## The body art cut into `BODY_CHUNKS` jagged wedges around the hips, each a `Gib` placed exactly where
+## that part of the body was drawn, colour shift and all.
+func _body_chunks() -> Array[Dictionary]:
+	var texture: Texture2D = _body.texture
+	var texture_size := Vector2(texture.get_size())
+	var used := Rect2(CharacterLook._used_rect(texture))
+	var centre: Vector2 = look.body_pivot_point()
+	if not used.has_point(centre):
+		centre = used.get_center()
+
+	# The cuts: spokes from the hips to the edge of the drawing, kinked part way along so the chunks look
+	# torn rather than sliced. Neighbouring chunks share a spoke, so they fit back together exactly.
+	var spokes: Array[Dictionary] = []
+	var start: float = randf() * TAU
+	for i: int in BODY_CHUNKS:
+		var angle: float = start + TAU * (float(i) + randf_range(-0.3, 0.3)) / float(BODY_CHUNKS)
+		var edge: Vector2 = _ray_to_rect_edge(centre, Vector2.from_angle(angle), used)
+		var kink: Vector2 = centre.lerp(edge, randf_range(0.35, 0.65)) \
+			+ Vector2.from_angle(angle + PI * 0.5) * randf_range(-8.0, 8.0)
+		spokes.append({"angle": angle, "kink": kink, "edge": edge})
+	var corners: Array[Vector2] = [used.position, Vector2(used.end.x, used.position.y), used.end,
+		Vector2(used.position.x, used.end.y)]
+
+	var chunks: Array[Dictionary] = []
+	for i: int in BODY_CHUNKS:
+		var from: Dictionary = spokes[i]
+		var to: Dictionary = spokes[(i + 1) % BODY_CHUNKS]
+		var span: float = fposmod(float(to["angle"]) - float(from["angle"]), TAU)
+		var outline := PackedVector2Array([centre, from["kink"], from["edge"]])
+		# The drawing's corners that fall inside this wedge, in order round it.
+		var inside: Array[Vector2] = []
+		for corner: Vector2 in corners:
+			if fposmod((corner - centre).angle() - float(from["angle"]), TAU) < span:
+				inside.append(corner)
+		inside.sort_custom(func(a: Vector2, b: Vector2) -> bool:
+			return fposmod((a - centre).angle() - float(from["angle"]), TAU) \
+				< fposmod((b - centre).angle() - float(from["angle"]), TAU))
+		outline.append_array(PackedVector2Array(inside))
+		outline.append(to["edge"])
+		outline.append(to["kink"])
+
+		var middle := Vector2.ZERO
+		for point: Vector2 in outline:
+			middle += point
+		middle /= float(outline.size())
+		var local := PackedVector2Array()
+		for point: Vector2 in outline:
+			local.append(point - middle)
+		var area: float = absf(_polygon_area(outline))
+		var radius: float = sqrt(area / PI) * look.art_scale * 0.55
+		var gib := Gib.from_polygon(texture, local, outline, look.art_scale, _body.material, radius)
+		var at: Vector2 = _body.global_transform * (middle - texture_size * 0.5 + _body.offset)
+		chunks.append({"gib": gib, "at": at, "rotation": _body.global_rotation})
+	return chunks
+
+
+## Where a ray from `origin` (inside `rect`) along `direction` leaves `rect`.
+static func _ray_to_rect_edge(origin: Vector2, direction: Vector2, rect: Rect2) -> Vector2:
+	var t: float = INF
+	if direction.x > 0.0001:
+		t = minf(t, (rect.end.x - origin.x) / direction.x)
+	elif direction.x < -0.0001:
+		t = minf(t, (rect.position.x - origin.x) / direction.x)
+	if direction.y > 0.0001:
+		t = minf(t, (rect.end.y - origin.y) / direction.y)
+	elif direction.y < -0.0001:
+		t = minf(t, (rect.position.y - origin.y) / direction.y)
+	return origin + direction * (t if is_finite(t) else 0.0)
+
+
+static func _polygon_area(points: PackedVector2Array) -> float:
+	var total: float = 0.0
+	for i: int in points.size():
+		total += points[i].cross(points[(i + 1) % points.size()])
+	return total * 0.5
+
+#endregion
+
+
 func _apply_weapon() -> void:
 	if _weapon_sprite == null or look == null:
 		return

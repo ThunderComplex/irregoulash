@@ -210,6 +210,44 @@ func flash_light(position: Vector2, color: Color, energy: float, radius: float,
 	})
 
 
+## A patch of blood on the floor, `radius` world pixels across-ish: an irregular blob, and with `splat` a
+## few droplets thrown around it too. With `along`, the blob is drawn out that way into a smear, which is
+## what something sliding through blood leaves. Fades away with the other decals (see `_decay_decal`).
+func blood_decal(position: Vector2, radius: float, splat: bool = false,
+		along: Vector2 = Vector2.ZERO) -> void:
+	var parent: Node2D = _container()
+	if parent == null or radius < 0.5:
+		return
+	var blob: Polygon2D = _stain_blob(parent, position, radius)
+	if along.length_squared() > 0.0001:
+		blob.rotation = along.angle()
+		blob.scale = Vector2(2.2, 0.8)
+	if not splat:
+		return
+	for i: int in _rng.randi_range(3, 6):
+		var away: Vector2 = Vector2.from_angle(_rng.randf() * TAU) * radius * _rng.randf_range(1.0, 1.9)
+		_stain_blob(parent, position + away, radius * _rng.randf_range(0.15, 0.35))
+
+
+func _stain_blob(parent: Node2D, position: Vector2, radius: float) -> Polygon2D:
+	var points := PackedVector2Array()
+	var corners: int = 9
+	var turn: float = _rng.randf() * TAU
+	for i: int in corners:
+		var wobble: float = _rng.randf_range(0.7, 1.15)
+		points.append(Vector2.from_angle(turn + TAU * float(i) / float(corners)) * radius * wobble)
+	var stain := Polygon2D.new()
+	stain.polygon = points
+	stain.color = Color(0.34, 0.03, 0.05, _rng.randf_range(0.6, 0.8))
+	stain.z_as_relative = false
+	stain.z_index = Layers.Z_DECAL
+	parent.add_child(stain)
+	stain.global_position = position
+	stain.set_meta("decal", true)
+	_decay_decal(stain)
+	return stain
+
+
 ## A short line of text that rises from `position` and fades: what a pickup just gave you, said where
 ## it happened instead of in the message feed. Readable in the dark, and over walls.
 func float_text(position: Vector2, text: String, color: Color) -> void:
