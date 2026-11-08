@@ -1,6 +1,6 @@
 class_name GameSettings
 extends Node
-## Player-facing settings: window mode, resolution, vsync, the frame rate cap, the two volume buses and
+## Player-facing settings: window mode, resolution, vsync, the frame rate cap, the three volume buses and
 ## the aim line.
 ##
 ## Persisted to `user://settings.cfg` and applied the moment they change, so there is no
@@ -11,12 +11,13 @@ extends Node
 ## zooms and the HUD scales themselves, so every size offered here works, including the
 ## unusual aspect ratios. Nothing in the game assumes 1280x720 any more.
 ##
-## Load order matters only in that AudioDirector must have created the SFX bus before the
-## saved SFX volume is applied; this autoload is listed after it in project.godot.
+## Load order matters only in that AudioDirector and MusicDirector must have created the SFX and Music
+## buses before the saved volumes are applied; this autoload is listed after them in project.godot.
 
 signal changed()
 
 const PATH: String = "user://settings.cfg"
+const DEFAULT_MUSIC_DB: float = -12.0
 ## Range of the frame rate cap. 0 means no cap.
 const FPS_CAP_MIN: int = 30
 const FPS_CAP_MAX: int = 500
@@ -61,6 +62,8 @@ var master_volume_db: float = 0.0
 ## The line along the next shot's path, with a crosshair where it would hit (see `AimLine`).
 var aim_line_enabled: bool = true
 var sfx_volume_db: float = -6.0
+## Lower than the effects by default, so music sits behind the gameplay sounds.
+var music_volume_db: float = DEFAULT_MUSIC_DB
 
 ## True once there is a saved file, i.e. once the player has expressed a preference. Until
 ## then the window is left exactly as the project (or the command line) set it up, rather
@@ -140,6 +143,9 @@ func _apply_audio() -> void:
 	var sfx: int = AudioServer.get_bus_index("SFX")
 	if sfx >= 0:
 		AudioServer.set_bus_volume_db(sfx, sfx_volume_db)
+	var music: int = AudioServer.get_bus_index(MusicDirector.BUS)
+	if music >= 0:
+		AudioServer.set_bus_volume_db(music, music_volume_db)
 
 #endregion
 
@@ -207,6 +213,15 @@ func set_sfx_volume_db(db: float) -> void:
 	save_settings()
 
 
+func set_music_volume_db(db: float) -> void:
+	if is_equal_approx(music_volume_db, db):
+		return
+	music_volume_db = db
+	_apply_audio()
+	changed.emit()
+	save_settings()
+
+
 func reset_defaults() -> void:
 	window_mode = WindowMode.WINDOWED
 	resolution = Vector2i(1280, 720)
@@ -215,6 +230,7 @@ func reset_defaults() -> void:
 	aim_line_enabled = true
 	master_volume_db = 0.0
 	sfx_volume_db = -6.0
+	music_volume_db = DEFAULT_MUSIC_DB
 	apply()
 	save_settings()
 
@@ -246,6 +262,7 @@ func save_settings() -> void:
 	config.set_value("audio", "master_db", master_volume_db)
 	config.set_value("gameplay", "aim_line", aim_line_enabled)
 	config.set_value("audio", "sfx_db", sfx_volume_db)
+	config.set_value("audio", "music_db", music_volume_db)
 	var error: Error = config.save(PATH)
 	if error != OK:
 		# Not fatal: the game runs fine with unpersisted settings.
@@ -266,6 +283,7 @@ func load_settings() -> void:
 	master_volume_db = float(config.get_value("audio", "master_db", master_volume_db))
 	aim_line_enabled = bool(config.get_value("gameplay", "aim_line", aim_line_enabled))
 	sfx_volume_db = float(config.get_value("audio", "sfx_db", sfx_volume_db))
+	music_volume_db = float(config.get_value("audio", "music_db", music_volume_db))
 
 
 ## Every resolution the menu offers: the desktop's own first, then the common list, all

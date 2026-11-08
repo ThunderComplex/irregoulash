@@ -1328,6 +1328,28 @@ const SCENARIOS: Dictionary = {
 			"wait": 0.1,
 		},
 	],
+	## Music: playing on its own bus, a volume change that leaves the effects alone, the next song after
+	## one ends, and the shuffle (with made-up songs). Run against `title_screen.tscn`.
+	"music": [
+		{
+			"wait": 1.0,
+			"music_report": true,
+		},
+		{
+			"music_seek_end": true,
+			"wait": 4.0,
+			"music_report": true,
+		},
+		{
+			"open_settings": true,
+			"wait": 0.5,
+			"shot": "music_settings",
+		},
+		{
+			"close_menus": true,
+			"wait": 0.2,
+		},
+	],
 	"aim_line": [
 		{
 			"god": true,
@@ -4249,6 +4271,9 @@ func _run(scenario: String) -> void:
 			var near_aimer: Player = GameDirector.valid_player()
 			if near_aimer != null:
 				near_aimer.debug_aim_point = near_aimer.global_position + step["aim_near_player"]
+		if step.has("music_seek_end"):
+			var ending := MusicDirector.get_node("Player") as AudioStreamPlayer
+			ending.seek(maxf(0.0, ending.stream.get_length() - 0.3))
 		if step.has("spawn_hints"):
 			var at: Player = GameDirector.valid_player()
 			if at != null:
@@ -4481,6 +4506,47 @@ Stay out of their sight."
 					close_aimer.global_position.distance_to(point),
 					rad_to_deg(absf(angle_difference((point - close_aimer.global_position).angle(), dir.angle()))),
 					absf((point - from).cross(dir)), "" if (point - from).dot(dir) > 0.0 else " (behind the muzzle)"])
+		if step.has("music_report"):
+			var music_player := MusicDirector.get_node("Player") as AudioStreamPlayer
+			print("[probe]   music: %s playing=%s at %.2fs of %.2fs on bus %s, paused-safe=%s" % [
+				MusicDirector.current_song(), music_player.playing, music_player.get_playback_position(),
+				music_player.stream.get_length(), music_player.bus,
+				MusicDirector.process_mode == Node.PROCESS_MODE_ALWAYS])
+			var music_bus: int = AudioServer.get_bus_index(&"Music")
+			var sfx_bus: int = AudioServer.get_bus_index(&"SFX")
+			var music_was: float = Settings.music_volume_db
+			var sfx_before: float = AudioServer.get_bus_volume_db(sfx_bus)
+			Settings.set_music_volume_db(-30.0)
+			print("[probe]   music bus -> %.1f dB (setting %.1f), sfx bus %.1f -> %.1f dB" % [
+				AudioServer.get_bus_volume_db(music_bus), Settings.music_volume_db, sfx_before,
+				AudioServer.get_bus_volume_db(sfx_bus)])
+			Settings.set_music_volume_db(music_was)
+			var real_songs: Array[String] = MusicDirector._songs
+			var real_deck: Array[String] = MusicDirector._deck
+			var real_current: String = MusicDirector._current
+			MusicDirector._songs = ["a", "b", "c", "d"] as Array[String]
+			MusicDirector._deck = [] as Array[String]
+			var repeats: int = 0
+			var uneven: int = 0
+			var order: Array[String] = []
+			for round_index: int in 50:
+				var seen: Array[String] = []
+				for song_index: int in 4:
+					var drawn: String = MusicDirector._next_song()
+					if drawn == MusicDirector._current:
+						repeats += 1
+					MusicDirector._current = drawn
+					seen.append(drawn)
+					if round_index == 0:
+						order.append(drawn)
+				seen.sort()
+				if seen != ["a", "b", "c", "d"]:
+					uneven += 1
+			print("[probe]   shuffle: first round %s; back-to-back repeats %d, rounds missing a song %d" % [
+				str(order), repeats, uneven])
+			MusicDirector._songs = real_songs
+			MusicDirector._deck = real_deck
+			MusicDirector._current = real_current
 		if step.has("aim_report"):
 			var aimer: Player = GameDirector.valid_player()
 			var mark: Node2D = null

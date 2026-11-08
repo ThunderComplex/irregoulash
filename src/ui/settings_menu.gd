@@ -16,7 +16,7 @@ extends Control
 signal settings_closed();
 
 const REFERENCE: Vector2 = Vector2(1280.0, 720.0)
-const PANEL_SIZE: Vector2 = Vector2(620.0, 648.0)
+const PANEL_SIZE: Vector2 = Vector2(620.0, 702.0)
 ## Width of the number field beside the frame rate slider.
 const FPS_FIELD_WIDTH: float = 96.0
 const ROW_LEFT: float = 44.0
@@ -42,8 +42,10 @@ var _fps_slider: HSlider = null
 var _fps_field: LineEdit = null
 var _fps_label: Label = null
 var _master_slider: HSlider = null
+var _music_slider: HSlider = null
 var _sfx_slider: HSlider = null
 var _master_label: Label = null
+var _music_label: Label = null
 var _sfx_label: Label = null
 var _footer: Label = null
 ## Parallel to the resolution OptionButton's items.
@@ -187,17 +189,21 @@ func _build() -> void:
 	_master_label = _add_row("Master volume", _master_slider, 4)
 	_master_slider.value_changed.connect(_on_master_changed)
 
+	_music_slider = _slider()
+	_music_label = _add_row("Music", _music_slider, 5)
+	_music_slider.value_changed.connect(_on_music_changed)
+
 	_sfx_slider = _slider()
-	_sfx_label = _add_row("Sound effects", _sfx_slider, 5)
+	_sfx_label = _add_row("Sound effects", _sfx_slider, 6)
 	_sfx_slider.value_changed.connect(_on_sfx_changed)
 
 	_aim_line_button = CheckButton.new()
 	_aim_line_button.tooltip_text = "A line along your next shot, with a crosshair where it would hit."
 	_aim_line_button.toggled.connect(func(pressed: bool) -> void: Settings.set_aim_line(pressed))
-	_add_row("Aim line", _aim_line_button, 6)
+	_add_row("Aim line", _aim_line_button, 7)
 
 	# --- buttons. `y` is kept unscaled because every use below multiplies by `_scale`.
-	var y: float = ROW_TOP + 7.0 * ROW_HEIGHT + 22.0
+	var y: float = ROW_TOP + 8.0 * ROW_HEIGHT + 22.0
 	var controls := Button.new()
 	controls.text = "Controls"
 	controls.position = Vector2(ROW_LEFT, y) * _scale
@@ -327,12 +333,14 @@ func _sync() -> void:
 	_aim_line_button.text = "on" if Settings.aim_line_enabled else "off"
 	_sync_fps()
 	_master_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.master_volume_db))
+	_music_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.music_volume_db))
 	_sfx_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.sfx_volume_db))
 	_update_volume_labels()
 
 
 func _update_volume_labels() -> void:
 	_master_label.text = "Master volume   %d%%" % int(round(_master_slider.value))
+	_music_label.text = "Music   %d%%" % int(round(_music_slider.value))
 	_sfx_label.text = "Sound effects   %d%%" % int(round(_sfx_slider.value))
 
 
@@ -393,6 +401,11 @@ func _on_master_changed(value: float) -> void:
 	Settings.set_master_volume_db(GameSettings.slider_to_db(value))
 
 
+func _on_music_changed(value: float) -> void:
+	_update_volume_labels()
+	Settings.set_music_volume_db(GameSettings.slider_to_db(value))
+
+
 func _on_sfx_changed(value: float) -> void:
 	_update_volume_labels()
 	Settings.set_sfx_volume_db(GameSettings.slider_to_db(value))
@@ -408,7 +421,7 @@ func _on_reset_pressed() -> void:
 #region controls
 
 ## Swaps the settings rows for the rebinding list. A second panel rather than a tab strip: the settings
-## rows are a fixed seven and the controls list is long enough to scroll, so they want different layouts.
+## rows are a fixed eight and the controls list is long enough to scroll, so they want different layouts.
 func _open_controls() -> void:
 	if _controls_panel != null:
 		return
