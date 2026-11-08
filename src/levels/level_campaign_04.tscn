@@ -9,9 +9,11 @@
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="8_d6vt1"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="9_hdi75"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="10_met3y"]
+[ext_resource type="PackedScene" path="res://src/levels/hints/floor_text.tscn" id="11_chwto"]
+[ext_resource type="PackedScene" path="res://src/levels/hints/key_hint.tscn" id="12_kduoq"]
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="12_mtdhp"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_31s8l"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_d6vt1"]
 shader = ExtResource("2_chwto")
 shader_parameter/albedo = ExtResource("3_kduoq")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -36,6 +38,15 @@ source_geometry_mode = 1
 source_geometry_group_name = &"wall"
 agent_radius = 18.0
 
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_d3owa"]
+light_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_mtdhp"]
+light_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_u1e3s"]
+light_mode = 1
+
 [node name="LevelCampaign" type="Node2D" unique_id=60981112]
 script = ExtResource("1_kpsgy")
 level_title = "Campaign 4"
@@ -46,7 +57,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_31s8l")
+material = SubResource("ShaderMaterial_d6vt1")
 position = Vector2(-432, 768)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-6570.0576, -6234.0576, 6570.0576, -6234.0576, 6570.0576, 6234.0576, -6570.0576, 6234.0576)
@@ -298,3 +309,33 @@ metadata/navmesh_hash = 2605821336
 
 [node name="Door1" parent="Doors" unique_id=1854819751 instance=ExtResource("12_mtdhp")]
 position = Vector2(-815, 1232)
+
+[node name="Hints" type="Node2D" parent="." unique_id=414245990]
+
+[node name="FloorText" parent="Hints" unique_id=1814939362 instance=ExtResource("11_chwto")]
+z_index = -4
+z_as_relative = false
+material = SubResource("CanvasItemMaterial_d3owa")
+position = Vector2(-1686, -515)
+text = "Use abilities with"
+color = Color(0.82, 0.86, 0.92, 1)
+fade_out_distance = 100.0
+invisible_distance = 200.0
+
+[node name="KeyHint" parent="Hints" unique_id=1835394999 instance=ExtResource("12_kduoq")]
+z_index = -4
+z_as_relative = false
+material = SubResource("CanvasItemMaterial_mtdhp")
+position = Vector2(-1711, -479)
+action = "ability_1"
+fade_out_distance = 100.0
+invisible_distance = 200.0
+
+[node name="KeyHint2" parent="Hints" unique_id=1473668192 instance=ExtResource("12_kduoq")]
+z_index = -4
+z_as_relative = false
+material = SubResource("CanvasItemMaterial_u1e3s")
+position = Vector2(-1655, -479)
+action = "ability_2"
+fade_out_distance = 100.0
+invisible_distance = 200.0
