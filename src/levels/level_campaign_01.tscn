@@ -12,7 +12,7 @@
 [ext_resource type="PackedScene" path="res://src/levels/hints/floor_text.tscn" id="10_lxqdr"]
 [ext_resource type="PackedScene" path="res://src/levels/hints/key_hint.tscn" id="11_i28rg"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_x1511"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lxqdr"]
 shader = ExtResource("2_awj53")
 shader_parameter/albedo = ExtResource("3_un6eu")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -37,6 +37,12 @@ source_geometry_mode = 1
 source_geometry_group_name = &"wall"
 agent_radius = 18.0
 
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_i28rg"]
+light_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_x1511"]
+light_mode = 1
+
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_m2amb"]
 light_mode = 1
 
@@ -44,12 +50,6 @@ light_mode = 1
 light_mode = 1
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_p4poh"]
-light_mode = 1
-
-[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_idjos"]
-light_mode = 1
-
-[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_fp6ow"]
 light_mode = 1
 
 [node name="LevelCampaign" type="Node2D" unique_id=60981112]
@@ -62,7 +62,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_x1511")
+material = SubResource("ShaderMaterial_lxqdr")
 position = Vector2(1216, 640)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-4060.5955, -3484.5955, 4060.5955, -3484.5955, 4060.5955, 3484.5955, -4060.5955, 3484.5955)
@@ -235,34 +235,35 @@ metadata/navmesh_hash = 921544849
 [node name="FloorText" parent="Hints" unique_id=304759490 instance=ExtResource("10_lxqdr")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_m2amb")
+material = SubResource("CanvasItemMaterial_i28rg")
 position = Vector2(206, 173)
 text = "Move with"
+color = Color(0.82, 0.86, 0.92, 1)
 
 [node name="KeyHint" parent="Hints" unique_id=1944429786 instance=ExtResource("11_i28rg")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_b6jfj")
+material = SubResource("CanvasItemMaterial_x1511")
 position = Vector2(285, 175)
 action = "move_up"
 
 [node name="KeyHint2" parent="Hints" unique_id=1988082060 instance=ExtResource("11_i28rg")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_p4poh")
+material = SubResource("CanvasItemMaterial_m2amb")
 position = Vector2(325, 175)
 action = "move_down"
 
 [node name="KeyHint3" parent="Hints" unique_id=112344670 instance=ExtResource("11_i28rg")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_idjos")
+material = SubResource("CanvasItemMaterial_b6jfj")
 position = Vector2(365, 175)
 action = "move_left"
 
 [node name="KeyHint4" parent="Hints" unique_id=485496672 instance=ExtResource("11_i28rg")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_fp6ow")
+material = SubResource("CanvasItemMaterial_p4poh")
 position = Vector2(405, 175)
 action = "move_right"

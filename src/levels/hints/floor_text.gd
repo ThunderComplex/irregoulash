@@ -4,9 +4,10 @@ extends Node2D
 ## Text painted on the floor: a sign, a tutorial line, a joke. Place it anywhere in a level (Add Child
 ## Node > FloorText), type the text in the inspector, rotate and scale it like any node.
 ##
-## It is always visible, lit or not: the level's black fog does not hide it, so it can teach the player
-## something before they have seen the room. It sits on the floor -- under pickups, actors and walls --
-## so anything standing on it covers it, the way real floor paint would.
+## Fog does not hide it, lit or not, so it can teach the player something before they have seen the room;
+## it is distance from the player that fades it (`fade_out_distance`, `invisible_distance`). It sits on
+## the floor -- under pickups, actors and walls -- so anything standing on it covers it, the way real
+## floor paint would.
 ##
 ## See `KeyHint` for a line that shows the key bound to an action.
 
@@ -33,10 +34,20 @@ extends Node2D
 	set(value):
 		outline_color = value
 		queue_redraw()
+## Fully visible while the player is within this distance. The fade only happens in game.
+@export_range(0.0, 2000.0, 1.0, "or_greater", "suffix:px") var fade_out_distance: float = 200.0
+## Fully gone once the player is this far away.
+@export_range(0.0, 2000.0, 1.0, "or_greater", "suffix:px") var invisible_distance: float = 400.0
 
 
 func _ready() -> void:
 	setup_floor_canvas(self)
+	# The fade follows the player, so it has to be redrawn as they move. Nothing moves in the editor.
+	set_process(not Engine.is_editor_hint())
+
+
+func _process(_delta: float) -> void:
+	queue_redraw()
 
 
 ## The draw settings both floor hints share: on the floor's depth, and unaffected by the fog.
@@ -51,7 +62,28 @@ static func setup_floor_canvas(item: CanvasItem) -> void:
 
 
 func _draw() -> void:
-	draw_centered_lines(self, text, font_size, color, outline_size, outline_color, Vector2.ZERO)
+	var fade: float = distance_fade(self, fade_out_distance, invisible_distance)
+	draw_centered_lines(self, text, font_size, faded(color, fade), outline_size, faded(outline_color, fade),
+		Vector2.ZERO)
+
+
+## How visible a floor hint is, from 1 near the player to 0 far away. Always 1 with no living player to
+## measure from, which includes the editor.
+static func distance_fade(item: Node2D, fade_out: float, invisible: float) -> float:
+	if Engine.is_editor_hint():
+		return 1.0
+	var player: Player = GameDirector.valid_player()
+	if player == null or player.is_dead():
+		return 1.0
+	var distance: float = item.global_position.distance_to(player.global_position)
+	# No fade band to divide by: a hard cut at the distance.
+	if invisible <= fade_out:
+		return 1.0 if distance <= fade_out else 0.0
+	return 1.0 - clampf((distance - fade_out) / (invisible - fade_out), 0.0, 1.0)
+
+
+static func faded(base: Color, fade: float) -> Color:
+	return Color(base, base.a * fade)
 
 
 ## Draws `text` line by line, each line centred horizontally on `center.x`, the whole block centred

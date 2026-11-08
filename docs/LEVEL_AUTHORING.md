@@ -249,9 +249,10 @@ FileSystem dock into the level (or add them with **Add Child Node** by name).
   `action` from the list. In the editor it shows the default key; in game it shows the player's own
   binding, and the pad button when they're playing with a controller, so a rebind never makes it wrong.
 
-Both are always visible, lit or not: the fog doesn't hide them, so they can explain a room before the
-player has seen it. They sit on the floor, under pickups, actors and walls. Font size, colour and
-outline are in the inspector.
+The fog doesn't hide them, so they can explain a room before the player has seen it. Distance from the
+player does: each is fully visible within `fade_out_distance` (200 px by default) and gone at
+`invisible_distance` (400 px). The fade only happens in game. They sit on the floor, under pickups,
+actors and walls. Font size, colour and outline are in the inspector too.
 
 ## Surfaces: what walls and floors look like
 

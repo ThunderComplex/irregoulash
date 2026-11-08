@@ -6,8 +6,8 @@ extends Node2D
 ## player's own binding, and the pad button once they pick up a controller, so a rebind can never leave
 ## a hint lying about the keys.
 ##
-## In the editor it shows the default keyboard binding. Always visible and drawn on the floor, like
-## `FloorText`.
+## In the editor it shows the default keyboard binding. Drawn on the floor, unhidden by fog and faded by
+## distance from the player, like `FloorText`.
 
 const GameInputScript: GDScript = preload("res://src/autoload/game_input.gd")
 ## Actions not offered in the inspector besides the cheats: the right stick's four directions (aim is
@@ -49,6 +49,10 @@ const GAP: float = 0.55
 	set(value):
 		outline_color = value
 		queue_redraw()
+## Fully visible while the player is within this distance. The fade only happens in game.
+@export_range(0.0, 2000.0, 1.0, "or_greater", "suffix:px") var fade_out_distance: float = 200.0
+## Fully gone once the player is this far away.
+@export_range(0.0, 2000.0, 1.0, "or_greater", "suffix:px") var invisible_distance: float = 400.0
 
 
 func _validate_property(property: Dictionary) -> void:
@@ -67,10 +71,12 @@ static func hint_action(name_: String) -> bool:
 
 func _ready() -> void:
 	FloorText.setup_floor_canvas(self)
-	if Engine.is_editor_hint():
-		return
-	GameInput.bindings_changed.connect(queue_redraw)
-	GameInput.device_changed.connect(func(_gamepad: bool) -> void: queue_redraw())
+	# Redrawing every frame for the fade also picks up a rebind or a switch to the gamepad.
+	set_process(not Engine.is_editor_hint())
+
+
+func _process(_delta: float) -> void:
+	queue_redraw()
 
 
 ## What the cap says right now: the live binding in game, the default keyboard binding in the editor.
@@ -87,6 +93,9 @@ func key_text() -> String:
 
 
 func _draw() -> void:
+	var fade: float = FloorText.distance_fade(self, fade_out_distance, invisible_distance)
+	var ink: Color = FloorText.faded(color, fade)
+	var edge: Color = FloorText.faded(outline_color, fade)
 	var font: Font = ThemeDB.fallback_font
 	var key: String = key_text()
 	var key_width: float = font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
@@ -101,13 +110,13 @@ func _draw() -> void:
 	var cap := Rect2(-(cap_width + text_width) * 0.5, -cap_height * 0.5, cap_width, cap_height)
 
 	var box := StyleBoxFlat.new()
-	box.bg_color = cap_color
-	box.border_color = color
+	box.bg_color = FloorText.faded(cap_color, fade)
+	box.border_color = ink
 	box.set_border_width_all(maxi(1, int(round(float(font_size) / 10.0))))
 	box.set_corner_radius_all(int(round(cap_height * 0.2)))
 	box.anti_aliasing = true
 	draw_style_box(box, cap)
-	FloorText.draw_centered_lines(self, key, font_size, color, 0, outline_color, cap.get_center())
+	FloorText.draw_centered_lines(self, key, font_size, ink, 0, edge, cap.get_center())
 	if not text.is_empty():
-		FloorText.draw_centered_lines(self, text, font_size, color, outline_size, outline_color,
+		FloorText.draw_centered_lines(self, text, font_size, ink, outline_size, edge,
 			Vector2(cap.end.x + gap + (text_width - gap) * 0.5, 0.0))
