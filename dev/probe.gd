@@ -4280,6 +4280,13 @@ Stay out of their sight."
 				GameInput.describe_action("interact"), GameInput.is_reserved(f5)])
 			print("[probe]   controls groups: %s; cheats enabled: %s" % [str(GameInput.groups()),
 				GameInput.cheats_enabled()])
+			var aim_before: String = GameInput.describe_action("aim_left")
+			var pad_a := InputEventJoypadButton.new()
+			pad_a.button_index = JOY_BUTTON_A
+			pad_a.pressed = true
+			GameInput.rebind("aim_left", pad_a)
+			print("[probe]   aim_left before %s, after trying to rebind: %s (rebindable=%s)" % [aim_before,
+				GameInput.describe_action("aim_left"), GameInput.is_rebindable("aim_left")])
 			print("[probe]   version: %s" % BuildInfo.version_text())
 		if step.has("rebind_interact_e"):
 			var e := InputEventKey.new()

@@ -133,6 +133,9 @@ const DEFAULT_SPECS: Dictionary = {
 }
 
 const DEBUG_GROUP: String = "Debug"
+## Groups the player cannot rebind or see in the Controls list: the cheats, and aiming, which is the mouse
+## or the right stick and nothing else.
+const FIXED_GROUPS: Array[String] = [DEBUG_GROUP, "Aiming"]
 ## Function keys belong to the debug keys. No other action may be bound to one, in any build, so a
 ## cheat can never share a key with a game action and the defaults never have to move.
 const RESERVED_KEY_FIRST: Key = KEY_F1
@@ -181,9 +184,8 @@ func _ready() -> void:
 
 ## The right stick, deadzoned. Zero when there is no pad or the stick is at rest.
 ##
-## Four actions rather than a raw axis read, so the stick is part of the same rebindable map as
-## everything else -- a player who wants to swap sticks, or aim with a second stick on a pad that has
-## one, gets it from the Controls panel.
+## Four actions rather than a raw axis read, so the stick goes through the same input map and deadzone
+## handling as everything else. They are fixed to the right stick: see `FIXED_GROUPS`.
 func aim_vector() -> Vector2:
 	return Input.get_vector(&"aim_left", &"aim_right", &"aim_up", &"aim_down",
 		Tuning.gamepad_aim_deadzone)
@@ -278,7 +280,7 @@ func specs_for(action: String) -> Array:
 ## Replaces one action's bindings with `events` outright. Used by tools and tests; the menu uses
 ## `rebind()`, which keeps the other device's bindings.
 func set_action_events(action: String, events: Array[InputEvent]) -> void:
-	if not META.has(action) or is_debug_action(action):
+	if not is_rebindable(action):
 		return
 	for event: InputEvent in events:
 		if is_reserved(event):
@@ -299,7 +301,7 @@ func set_action_events(action: String, events: Array[InputEvent]) -> void:
 ## mouse away from Fire when a pad player moves it to a face button, and take the pad away from a
 ## keyboard player who presses a key. One action, one binding per device, is the rule the menu shows.
 func rebind(action: String, event: InputEvent) -> void:
-	if not META.has(action) or is_debug_action(action) or is_reserved(event):
+	if not is_rebindable(action) or is_reserved(event):
 		return
 	var new_spec: Dictionary = spec_from_event(event)
 	if new_spec.is_empty():
@@ -394,6 +396,10 @@ func cheats_enabled() -> bool:
 
 static func is_debug_action(action: String) -> bool:
 	return String((META.get(action, {}) as Dictionary).get("group", "")) == DEBUG_GROUP
+
+
+func is_rebindable(action: String) -> bool:
+	return META.has(action) and not FIXED_GROUPS.has(String((META[action] as Dictionary).get("group", "")))
 
 
 ## True for a key no game action may use (F1-F12, which belong to the debug keys).
@@ -551,13 +557,13 @@ func action_label(action: String) -> String:
 	return String(meta.get("label", action))
 
 
-## Group headings in display order, for the rebinding UI. Never the debug group: the cheats keep their
-## fixed F-keys and are not the player's to move.
+## Group headings in display order, for the rebinding UI. Never a fixed group: those bindings are not
+## the player's to move.
 func groups() -> Array[String]:
 	var out: Array[String] = []
 	for action: String in META:
 		var group: String = String((META[action] as Dictionary).get("group", ""))
-		if group == DEBUG_GROUP:
+		if FIXED_GROUPS.has(group):
 			continue
 		if not out.has(group):
 			out.append(group)
@@ -617,7 +623,8 @@ func load_bindings() -> void:
 	if config.load(BINDINGS_PATH) != OK:
 		return
 	for action: String in META:
-		if is_debug_action(action) or not config.has_section_key("bindings", action):
+		# A fixed action rebound by an older version goes back to its default.
+		if not is_rebindable(action) or not config.has_section_key("bindings", action):
 			continue
 		var stored: Variant = config.get_value("bindings", action, [])
 		if not (stored is Array):

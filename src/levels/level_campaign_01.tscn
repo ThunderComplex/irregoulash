@@ -52,6 +52,9 @@ light_mode = 1
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_p4poh"]
 light_mode = 1
 
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_idjos"]
+light_mode = 1
+
 [node name="LevelCampaign" type="Node2D" unique_id=60981112]
 script = ExtResource("1_level")
 level_title = "Campaign 1"
@@ -240,30 +243,38 @@ position = Vector2(206, 173)
 text = "Move with"
 color = Color(0.82, 0.86, 0.92, 1)
 
-[node name="KeyHint" parent="Hints" unique_id=1944429786 instance=ExtResource("11_i28rg")]
+[node name="FloorText2" parent="Hints" unique_id=1631819170 instance=ExtResource("10_lxqdr")]
 z_index = -4
 z_as_relative = false
 material = SubResource("CanvasItemMaterial_x1511")
+position = Vector2(321, 214)
+text = "Aim with the mouse or the right stick"
+color = Color(0.82, 0.86, 0.92, 1)
+
+[node name="KeyHint" parent="Hints" unique_id=1944429786 instance=ExtResource("11_i28rg")]
+z_index = -4
+z_as_relative = false
+material = SubResource("CanvasItemMaterial_m2amb")
 position = Vector2(285, 175)
 action = "move_up"
 
 [node name="KeyHint2" parent="Hints" unique_id=1988082060 instance=ExtResource("11_i28rg")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_m2amb")
+material = SubResource("CanvasItemMaterial_b6jfj")
 position = Vector2(325, 175)
 action = "move_down"
 
 [node name="KeyHint3" parent="Hints" unique_id=112344670 instance=ExtResource("11_i28rg")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_b6jfj")
+material = SubResource("CanvasItemMaterial_p4poh")
 position = Vector2(365, 175)
 action = "move_left"
 
 [node name="KeyHint4" parent="Hints" unique_id=485496672 instance=ExtResource("11_i28rg")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_p4poh")
+material = SubResource("CanvasItemMaterial_idjos")
 position = Vector2(405, 175)
 action = "move_right"
