@@ -151,7 +151,7 @@ func _start_dash(input: Vector2) -> void:
 	_dash_direction = input.normalized()
 	_dashed_doors.clear()
 	velocity = _dash_direction * Tuning.player_dash_speed
-	AudioDirector.play(&"dash", -3.0)
+	AudioDirector.play(&"dash", -12.0)
 	GameDirector.make_noise(global_position, Tuning.noise_dash, NoiseKind.Type.FOOTSTEP, self)
 	FxDirector.spark_burst(global_position - _dash_direction * 10.0, -_dash_direction, 6,
 		Color(0.72, 0.82, 1.0), 130.0, 0.22)
