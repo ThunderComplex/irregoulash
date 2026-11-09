@@ -153,10 +153,11 @@ func _build() -> void:
 
 	var bg := TextureRect.new()
 	bg.texture = _bg_image
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	bg.position = Vector2.ZERO
 	bg.size = viewport
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bg.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 	add_child(bg)
 
 	# Testers quote this in feedback; see `BuildInfo`.

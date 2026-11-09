@@ -17,7 +17,7 @@ extends Node
 signal changed()
 
 const PATH: String = "user://settings.cfg"
-const DEFAULT_MUSIC_DB: float = -12.0
+const DEFAULT_MUSIC_DB: float = -24.0
 ## Aim assist strength, 0..1. The default is the tuning in `Tuning`; see `AimAssist`.
 const DEFAULT_AIM_ASSIST_STRENGTH: float = 0.5
 const AIM_ASSIST_STRENGTH_MIN: float = 0.1
