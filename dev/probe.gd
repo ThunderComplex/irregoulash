@@ -14,6 +14,7 @@ const SHOT_DIR: String = "res://dev/shots"
 
 ## The player's own checkpoint, saved before a test that clears or writes it, and put back
 ## afterwards. A dev tool must never eat a save.
+var _probe_stick_degrees: float = 0.0
 var _progress_existed: bool = false
 var _progress_backup: PackedByteArray = PackedByteArray()
 var _bindings_existed: bool = false
@@ -1348,6 +1349,58 @@ const SCENARIOS: Dictionary = {
 		{
 			"close_menus": true,
 			"wait": 0.2,
+		},
+	],
+	## Aim assist. An enemy too far away, then one behind a wall: neither should pull. Then a visible
+	## scout: pulled from a few degrees off, not from far off, and shots should kill it. Run against
+	## `dev/surface_lab.tscn`.
+	"aim_assist": [
+		{
+			"god": true,
+			"zoom": 1.5,
+			"spawn_archetypes": {"scout/far": Vector2(800.0, 0.0), "scout/behind_wall": Vector2(-260.0, 0.0)},
+			"wait": 0.1,
+		},
+		{
+			"freeze_probe_enemies": true,
+			"stick_degrees": 2.0,
+			"wait": 0.5,
+			"assist_report": "Probe_scout_far",
+		},
+		{
+			"stick_degrees": 178.0,
+			"wait": 0.5,
+			"assist_report": "Probe_scout_behind_wall",
+		},
+		{
+			"spawn_archetypes": {"scout": Vector2(260.0, 0.0)},
+			"wait": 0.1,
+		},
+		{
+			"freeze_probe_enemies": true,
+			"stick_degrees": -7.0,
+			"wait": 0.6,
+			"assist_report": "Probe_scout",
+			"shot": "aim_assist_01_pulled",
+		},
+		{
+			"stick_degrees": 35.0,
+			"wait": 0.6,
+			"assist_report": "Probe_scout",
+		},
+		{
+			"stick_degrees": -7.0,
+			"wait": 0.6,
+		},
+		{
+			"fire_for": 1.2,
+			"wait": 0.4,
+			"track_enemies": true,
+			"gib_report": true,
+		},
+		{
+			"stick_release": true,
+			"wait": 0.1,
 		},
 	],
 	"aim_line": [
@@ -4274,6 +4327,17 @@ func _run(scenario: String) -> void:
 		if step.has("music_seek_end"):
 			var ending := MusicDirector.get_node("Player") as AudioStreamPlayer
 			ending.seek(maxf(0.0, ending.stream.get_length() - 0.3))
+		if step.has("stick_degrees"):
+			var stick: Vector2 = Vector2.from_angle(deg_to_rad(float(step["stick_degrees"])))
+			_probe_stick_degrees = float(step["stick_degrees"])
+			for pair: Array in [["aim_right", stick.x], ["aim_left", -stick.x], ["aim_down", stick.y], ["aim_up", -stick.y]]:
+				if float(pair[1]) > 0.0:
+					Input.action_press(pair[0], float(pair[1]))
+				else:
+					Input.action_release(pair[0])
+		if step.has("stick_release"):
+			for action: String in ["aim_right", "aim_left", "aim_down", "aim_up"]:
+				Input.action_release(action)
 		if step.has("spawn_hints"):
 			var at: Player = GameDirector.valid_player()
 			if at != null:
@@ -4547,6 +4611,20 @@ Stay out of their sight."
 			MusicDirector._songs = real_songs
 			MusicDirector._deck = real_deck
 			MusicDirector._current = real_current
+		if step.has("assist_report"):
+			var assisted: Player = GameDirector.valid_player()
+			var assist_target := get_tree().current_scene.find_child(String(step["assist_report"]), true, false) as Node2D
+			if assisted != null and assist_target != null:
+				var shot_from: Vector2 = assisted.muzzle_position()
+				var shot_dir: Vector2 = assisted.shot_direction()
+				print("[probe]   stick %.1f deg, aim %.1f deg (pulled %.1f); %s at %.0f px: seen=%s, shot passes %.1f px from its centre" % [
+					_probe_stick_degrees, rad_to_deg(shot_dir.angle()),
+					rad_to_deg(angle_difference(deg_to_rad(_probe_stick_degrees), shot_dir.angle())),
+					assist_target.name, assisted.global_position.distance_to(assist_target.global_position),
+					GameDirector.player_sees(assist_target.global_position),
+					absf((assist_target.global_position - shot_from).cross(shot_dir))])
+			else:
+				print("[probe]   assist target %s not found" % str(step["assist_report"]))
 		if step.has("aim_report"):
 			var aimer: Player = GameDirector.valid_player()
 			var mark: Node2D = null

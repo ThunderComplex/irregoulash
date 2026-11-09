@@ -120,6 +120,11 @@ extends Node
 ## How far the right stick must be pushed before it aims. A resting stick drifts, and a stick that
 ## overrides the mouse at rest would make the cone twitch while the player is using the mouse.
 @export var gamepad_aim_deadzone: float = 0.28
+## How far beside an enemy (beyond its own width) the right stick can point and still be pulled onto it.
+## See `AimAssist`.
+@export var gamepad_assist_cone_degrees: float = 12.0
+## How quickly the aim glides onto a target. Higher follows moving enemies more closely.
+@export var gamepad_assist_rate: float = 20.0
 ## Camera look-ahead on a pad. The mouse version scales with cursor distance; a stick has none, so this
 ## is a fixed nudge in the aim direction -- the aim persists when the stick is released, so it does not
 ## snap back to centre.

@@ -15,6 +15,7 @@ signal died
 @onready var camera: Camera2D = $Camera
 
 var aim_direction: Vector2 = Vector2.RIGHT
+var _aim_assist := AimAssist.new()
 ## Legs and torso, drawn from `assets/characters/player.tres` when it exists.
 var _rig: CharacterRig = null
 var weapons: Node = null
@@ -79,19 +80,21 @@ func _process(delta: float) -> void:
 	if _dead:
 		return
 	if debug_aim_point.is_finite() and debug_aim_point.distance_squared_to(global_position) > 1.0:
-		aim_direction = _barrel_aim(debug_aim_point)
+		aim_direction = barrel_aim(debug_aim_point)
 	elif debug_aim != Vector2.ZERO:
 		aim_direction = debug_aim.normalized()
 	else:
 		var stick: Vector2 = GameInput.aim_vector()
+		if stick == Vector2.ZERO:
+			_aim_assist.reset()
 		if stick != Vector2.ZERO:
 			# Pad aim. The last direction is kept when the stick returns to centre, so the cone does not
 			# snap back to the middle of the screen the moment the player lets go.
-			aim_direction = stick.normalized()
+			aim_direction = _aim_assist.aim(self, stick.normalized(), delta)
 		elif not GameInput.using_gamepad():
 			var mouse: Vector2 = get_global_mouse_position()
 			if mouse.distance_squared_to(global_position) > 1.0:
-				aim_direction = _barrel_aim(mouse)
+				aim_direction = barrel_aim(mouse)
 	vision.aim_at(aim_direction)
 	if _rig != null:
 		_rig.update(delta, velocity, aim_direction.angle())
@@ -281,7 +284,7 @@ func aim_point() -> Vector2:
 
 
 ## Extra room past the barrel's reach before the body turns all the way to line the barrel up; see
-## `_barrel_aim`.
+## `barrel_aim`.
 const BARREL_AIM_MARGIN: float = 12.0
 
 
@@ -293,7 +296,7 @@ const BARREL_AIM_MARGIN: float = 12.0
 ## exact angle grows towards 90 degrees (and inside the barrel's own reach it has no answer), so the
 ## distance used is held at the barrel's reach plus a margin: in there the body turns by that much and no
 ## more, smoothly, and the shot passes a little beside the cursor rather than the body snapping round.
-func _barrel_aim(target: Vector2) -> Vector2:
+func barrel_aim(target: Vector2) -> Vector2:
 	var to_target: Vector2 = target - global_position
 	var base: float = to_target.angle()
 	if _rig == null:
@@ -309,7 +312,7 @@ func _barrel_aim(target: Vector2) -> Vector2:
 
 
 ## The direction a shot travels: straight out of the gun, which points along `aim_direction`. The body
-## turns so that line goes through the cursor (see `_barrel_aim`), so the shot does not have to bend.
+## turns so that line goes through the cursor (see `barrel_aim`), so the shot does not have to bend.
 func shot_direction() -> Vector2:
 	return aim_direction
 
@@ -317,11 +320,16 @@ func shot_direction() -> Vector2:
 ## Where shots leave the gun: the tip of the held weapon's art when there is some, else a little ahead of
 ## the player.
 func muzzle_position() -> Vector2:
+	return muzzle_position_at(aim_direction.angle())
+
+
+## Where the muzzle would be with the body facing `angle`.
+func muzzle_position_at(angle: float) -> Vector2:
 	if _rig != null:
-		var tip: Variant = _rig.muzzle_position(aim_direction.angle())
+		var tip: Variant = _rig.muzzle_position(angle)
 		if tip != null:
 			return tip
-	return global_position + aim_direction * 20.0
+	return global_position + Vector2.from_angle(angle) * 20.0
 
 
 ## Knockback from firing; the gun pushes you around a little.
