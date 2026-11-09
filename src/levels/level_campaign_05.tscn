@@ -9,9 +9,10 @@
 [ext_resource type="PackedScene" path="res://src/enemies/enemy.tscn" id="7_d3bcg"]
 [ext_resource type="PackedScene" path="res://src/items/pickup.tscn" id="9_fl7ju"]
 [ext_resource type="PackedScene" path="res://src/levels/exit_zone.tscn" id="10_0e5da"]
+[ext_resource type="PackedScene" path="res://src/levels/hints/floor_text.tscn" id="11_dyf3r"]
 [ext_resource type="PackedScene" path="res://src/levels/door.tscn" id="11_pu0ch"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_n854u"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dyf3r"]
 shader = ExtResource("2_d3bcg")
 shader_parameter/albedo = ExtResource("3_7e70o")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -36,6 +37,9 @@ source_geometry_mode = 1
 source_geometry_group_name = &"wall"
 agent_radius = 18.0
 
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_d3bcg"]
+light_mode = 1
+
 [node name="LevelCampaign" type="Node2D" unique_id=60981112]
 script = ExtResource("1_dyf3r")
 level_title = "Campaign 5"
@@ -46,7 +50,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_n854u")
+material = SubResource("ShaderMaterial_dyf3r")
 position = Vector2(32, -128)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-5635.485, -5283.485, 5635.485, -5283.485, 5635.485, 5283.485, -5635.485, 5283.485)
@@ -368,14 +372,8 @@ position = Vector2(416, -1088)
 [node name="P7" type="Marker2D" parent="Routes/Scout2Route" unique_id=1611149964]
 position = Vector2(192, -1184)
 
-[node name="Guard4Route" type="Node2D" parent="Routes" unique_id=117777826]
-script = ExtResource("5_dyf3r")
-
-[node name="P0" type="Marker2D" parent="Routes/Guard4Route" unique_id=291778913]
-position = Vector2(416, -288)
-
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
-position = Vector2(223, -284)
+position = Vector2(267, -287)
 
 [node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
 
@@ -450,10 +448,6 @@ position = Vector2(384, -1184)
 archetype_id = "scout"
 patrol_route = NodePath("../../Routes/Scout2Route")
 
-[node name="Guard4" parent="Enemies" unique_id=2101392177 instance=ExtResource("7_d3bcg")]
-position = Vector2(320, -288)
-patrol_route = NodePath("../../Routes/Guard4Route")
-
 [node name="Pickups" type="Node2D" parent="." unique_id=330227706]
 
 [node name="Pickup0" parent="Pickups" unique_id=134755550 instance=ExtResource("9_fl7ju")]
@@ -461,6 +455,7 @@ texture_filter = 4
 position = Vector2(400, -863)
 kind = "ability"
 weapon_id = "pistol"
+ability_id = "lightning_bolt"
 amount = 1
 
 [node name="Pickup2" parent="Pickups" unique_id=1542543762 instance=ExtResource("9_fl7ju")]
@@ -477,13 +472,6 @@ kind = "health"
 weapon_id = "pistol"
 amount = 1
 
-[node name="Pickup8" parent="Pickups" unique_id=1826238717 instance=ExtResource("9_fl7ju")]
-texture_filter = 4
-position = Vector2(318, -287)
-kind = "ability"
-weapon_id = "pistol"
-amount = 1
-
 [node name="Pickup7" parent="Pickups" unique_id=508473632 instance=ExtResource("9_fl7ju")]
 texture_filter = 4
 position = Vector2(-1037, -1139)
@@ -494,7 +482,7 @@ amount = 1
 [node name="Pickup3" parent="Pickups" unique_id=177871939 instance=ExtResource("9_fl7ju")]
 texture_filter = 4
 position = Vector2(243, 938)
-kind = "ammo"
+kind = "ability_upgrade"
 weapon_id = "shotgun"
 amount = 20
 
@@ -507,7 +495,14 @@ amount = 20
 
 [node name="Pickup5" parent="Pickups" unique_id=1924219669 instance=ExtResource("9_fl7ju")]
 texture_filter = 4
-position = Vector2(117, 941)
+position = Vector2(118, 939)
+kind = "ammo"
+weapon_id = "shotgun"
+amount = 20
+
+[node name="Pickup8" parent="Pickups" unique_id=441345836 instance=ExtResource("9_fl7ju")]
+texture_filter = 4
+position = Vector2(57, 942)
 kind = "ammo"
 weapon_id = "shotgun"
 amount = 20
@@ -561,3 +556,17 @@ size = Vector2(96, 16)
 position = Vector2(-1264, -336)
 rotation = -1.5707964
 starts_locked = true
+
+[node name="Hints" type="Node2D" parent="." unique_id=586203423]
+
+[node name="FloorText" parent="Hints" unique_id=1931437237 instance=ExtResource("11_dyf3r")]
+z_index = -4
+z_as_relative = false
+material = SubResource("CanvasItemMaterial_d3bcg")
+position = Vector2(226, 842)
+text = "The ability upgrade pickup
+upgrades all abilities"
+font_size = 14
+color = Color(0.82, 0.86, 0.92, 1)
+fade_out_distance = 100.0
+invisible_distance = 200.0
