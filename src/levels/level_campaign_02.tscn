@@ -13,7 +13,7 @@
 [ext_resource type="PackedScene" path="res://src/levels/hints/floor_text.tscn" id="11_bbfix"]
 [ext_resource type="PackedScene" path="res://src/levels/hints/key_hint.tscn" id="12_jbi8j"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_32ptk"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bbfix"]
 shader = ExtResource("2_bvryq")
 shader_parameter/albedo = ExtResource("3_bnbio")
 shader_parameter/tile_world = Vector2(96, 96)
@@ -38,13 +38,13 @@ source_geometry_mode = 1
 source_geometry_group_name = &"wall"
 agent_radius = 18.0
 
-[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_kka4f"]
-light_mode = 1
-
-[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_bbfix"]
-light_mode = 1
-
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_jbi8j"]
+light_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_32ptk"]
+light_mode = 1
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_kka4f"]
 light_mode = 1
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_cr2ci"]
@@ -60,7 +60,7 @@ floor_surface_id = "stone_tile_floor"
 
 [node name="Floor" type="Polygon2D" parent="." unique_id=630261222]
 z_index = -20
-material = SubResource("ShaderMaterial_32ptk")
+material = SubResource("ShaderMaterial_bbfix")
 position = Vector2(232.5, 832)
 color = Color(0.5, 0.5, 0.5, 1)
 polygon = PackedVector2Array(-3335.8892, -3167.3892, 3335.8892, -3167.3892, 3335.8892, 3167.3892, -3335.8892, 3167.3892)
@@ -191,7 +191,7 @@ script = ExtResource("6_bbfix")
 position = Vector2(64, 352)
 
 [node name="PlayerSpawn" type="Marker2D" parent="." unique_id=261603681]
-position = Vector2(-172, 486)
+position = Vector2(440, 489)
 
 [node name="Lamps" type="Node2D" parent="." unique_id=1810258779]
 metadata/_edit_lock_ = true
@@ -309,8 +309,8 @@ size = Vector2(96, 16)
 [node name="FloorText" parent="Hints" unique_id=1563468650 instance=ExtResource("11_bbfix")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_kka4f")
-position = Vector2(533, 711)
+material = SubResource("CanvasItemMaterial_jbi8j")
+position = Vector2(554, 762)
 text = "Open doors with"
 color = Color(0.82, 0.86, 0.92, 1)
 fade_out_distance = 100.0
@@ -319,7 +319,7 @@ invisible_distance = 200.0
 [node name="FloorText3" parent="Hints" unique_id=2024830797 instance=ExtResource("11_bbfix")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_bbfix")
+material = SubResource("CanvasItemMaterial_32ptk")
 position = Vector2(-159, 274)
 text = "Enemies drop ammo
 for specific weapons
@@ -327,7 +327,7 @@ for specific weapons
 Pickups give ammo
 for the selected weapon
 "
-font_size = 16
+font_size = 15
 color = Color(0.82, 0.86, 0.92, 1)
 fade_out_distance = 100.0
 invisible_distance = 200.0
@@ -335,7 +335,7 @@ invisible_distance = 200.0
 [node name="FloorText2" parent="Hints" unique_id=1717526320 instance=ExtResource("11_bbfix")]
 z_index = -4
 z_as_relative = false
-material = SubResource("CanvasItemMaterial_jbi8j")
+material = SubResource("CanvasItemMaterial_kka4f")
 position = Vector2(936, 700)
 text = "Switch to the weapon
 you want to upgrade first"
@@ -348,6 +348,6 @@ invisible_distance = 200.0
 z_index = -4
 z_as_relative = false
 material = SubResource("CanvasItemMaterial_cr2ci")
-position = Vector2(527, 752)
+position = Vector2(548, 803)
 fade_out_distance = 100.0
 invisible_distance = 200.0
