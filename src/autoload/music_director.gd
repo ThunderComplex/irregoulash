@@ -69,7 +69,9 @@ func current_song() -> String:
 func _ensure_bus() -> void:
 	if AudioServer.get_bus_index(BUS) != -1:
 		return
-	AudioServer.add_bus()
+	# `set_bus_count`, not `add_bus`: on the web export `add_bus` files the new bus in front of Master in
+	# the browser's mixer, so the buses end up feeding each other and nothing reaches the speakers.
+	AudioServer.set_bus_count(AudioServer.bus_count + 1)
 	var index: int = AudioServer.bus_count - 1
 	AudioServer.set_bus_name(index, BUS)
 	AudioServer.set_bus_send(index, &"Master")

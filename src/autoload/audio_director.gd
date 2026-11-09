@@ -78,7 +78,9 @@ func _exit_tree() -> void:
 ## fight the menu for control of the slider.
 func _ensure_bus() -> void:
 	if AudioServer.get_bus_index("SFX") == -1:
-		AudioServer.add_bus()
+		# `set_bus_count`, not `add_bus`: on the web export `add_bus` files the new bus in front of Master in
+		# the browser's mixer, so the buses end up feeding each other and nothing reaches the speakers.
+		AudioServer.set_bus_count(AudioServer.bus_count + 1)
 		_sfx_bus = &"SFX"
 		AudioServer.set_bus_name(AudioServer.bus_count - 1, _sfx_bus)
 		AudioServer.set_bus_send(AudioServer.get_bus_index(_sfx_bus), &"Master")

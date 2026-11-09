@@ -1333,7 +1333,7 @@ const SCENARIOS: Dictionary = {
 	## one ends, and the shuffle (with made-up songs). Run against `title_screen.tscn`.
 	"music": [
 		{
-			"wait": 1.0,
+			"wait": 3.0,
 			"music_report": true,
 		},
 		{
