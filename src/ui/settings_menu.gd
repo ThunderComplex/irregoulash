@@ -346,7 +346,8 @@ func _link_tab(index: int, first_row: Control) -> void:
 
 ## With a pad there is no pointer, so something has to hold focus before anything can be pressed.
 func _focus_tab_for_pad() -> void:
-	if not GameInput.using_gamepad() or _controls_panel != null or _tabs.is_empty():
+	# Closing hands focus back to the menu underneath; this one lives until the end of the frame.
+	if is_queued_for_deletion() or not GameInput.using_gamepad() or _controls_panel != null or _tabs.is_empty():
 		return
 	# The menu behind this one holds focus when it opens, so "somebody has focus" is not enough.
 	var owner_: Control = get_viewport().gui_get_focus_owner()

@@ -32,6 +32,20 @@ var _steal_2d: int = 0
 var _rng := RandomNumberGenerator.new()
 var _sfx_bus: StringName = &"Master"
 
+func reinitialize():
+	JavaScriptBridge.eval("""
+		if (typeof window.audioContextStarted === 'undefined') {
+			window.audioContextStarted = true;
+			window.AudioContext = window.AudioContext || window.webkitAudioContext;
+			const audioContext = new AudioContext();
+			audioContext.resume();
+			console.log('Audio context initialized');
+		}
+	""")
+	_ensure_bus()
+	_build_bank()
+	_load_files()
+	_build_pools()
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS

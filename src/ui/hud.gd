@@ -410,7 +410,14 @@ func open_settings_menu() -> void:
 	if _settings_menu != null and is_instance_valid(_settings_menu):
 		return
 	_settings_menu = SettingsMenu.new()
+	_settings_menu.settings_closed.connect(_on_settings_closed)
 	add_child(_settings_menu)
+
+
+## Back on the entry that opened it. Without this nothing has focus, and a pad cannot press anything.
+func _on_settings_closed() -> void:
+	if _overlay_kind == "paused":
+		_pause_menu.focus_item(&"settings")
 
 
 func _update_overlay() -> void:

@@ -19,7 +19,7 @@ const WIDTH: float = 1.5
 ## so it guides the eye without drawing a bright stripe across the screen.
 const NEAR_ALPHA: float = 0.55
 const FAR_ALPHA: float = 0.08
-const CROSSHAIR_RADIUS: float = 5.0
+const CROSSHAIR_RADIUS: float = 3.5
 
 var _player: Player = null
 var _from: Vector2 = Vector2.ZERO
@@ -87,6 +87,6 @@ func _draw() -> void:
 	# A small ring with four ticks: precise, and readable without hiding what it sits on.
 	var mark := Color(COLOR, 0.9)
 	draw_arc(_to, CROSSHAIR_RADIUS, 0.0, TAU, 16, mark, WIDTH, true)
-	for side: Vector2 in [Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT, Vector2.UP]:
-		draw_line(_to + side * (CROSSHAIR_RADIUS + 1.5), _to + side * (CROSSHAIR_RADIUS + 4.5), mark, WIDTH,
-			true)
+	# for side: Vector2 in [Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT, Vector2.UP]:
+	# 	draw_line(_to + side * (CROSSHAIR_RADIUS + 1.5), _to + side * (CROSSHAIR_RADIUS + 4.5), mark, WIDTH,
+	# 		true)

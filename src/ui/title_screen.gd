@@ -22,6 +22,8 @@ var _main_menu: MenuList = null
 var _settings_menu: Control = null
 var _level_select: Control = null
 
+var _bg_image = preload("res://art/cover.png")
+
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -81,6 +83,8 @@ func _on_menu_item(id: StringName) -> void:
 			open_settings()
 		&"quit":
 			get_tree().quit()
+		&"start_audio":
+			AudioDirector.reinitialize()
 
 
 ## Opens the level picker. Public so the dev probe can open it, and so the title can reopen it when a
@@ -149,57 +153,28 @@ func _build() -> void:
 	# what put the settings panel half off-screen once already.
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
 
-	var bg := ColorRect.new()
-	bg.color = Color(0.035, 0.04, 0.055, 1.0)
+	var bg := TextureRect.new()
+	bg.texture = _bg_image
 	bg.position = Vector2.ZERO
 	bg.size = viewport
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
 	add_child(bg)
-
-	# A dim cone of light, echoing the thing the game is actually about.
-	var beam := Polygon2D.new()
-	beam.polygon = PackedVector2Array([
-		_to_screen(Vector2(40.0, 700.0)),
-		_to_screen(Vector2(1420.0, 60.0)),
-		_to_screen(Vector2(1420.0, 700.0)),
-	])
-	beam.color = Color(0.16, 0.18, 0.24, 1.0)
-	add_child(beam)
-
-	_label(Vector2(80.0, 90.0), Vector2(1100.0, 80.0), "TOP DOWN SHOOTER", 52,
-		Color(0.93, 0.96, 1.0))
-	_label(Vector2(84.0, 176.0), Vector2(1100.0, 40.0),
-		"in development  --  line of sight is the whole game", 18,
-		Color(0.6, 0.68, 0.8))
 
 	# Testers quote this in feedback; see `BuildInfo`.
 	_label(Vector2(1000.0, 24.0), Vector2(256.0, 24.0), BuildInfo.version_text(), 14,
 		Color(0.45, 0.5, 0.58), HORIZONTAL_ALIGNMENT_RIGHT)
 
 	# Generated from the live input map, so a rebind cannot leave this text lying about what the keys do.
-	_controls_block(Vector2(84.0, 256.0))
-
-	_label(Vector2(640.0, 256.0), Vector2(600.0, 300.0),
-		"""What to try
-
-- Walk into a dark room and notice how
-  the walls you have seen stay faintly
-  lit, so you can still find your way.
-- Sneak up on a guard. Awareness is a
-  meter, not a switch: it fills faster the
-  closer you are, and much faster when
-  you shine your own light on them.
-- Fire a shot and listen: noise pulls
-  guards towards you.
-- Get out of the light and break line of
-  sight, and they will search for you.
-- Clear the yard, find the exit, escape.""", 16, Color(0.62, 0.72, 0.84))
+	_controls_block(Vector2(84.0, 196.0))
 
 	# --- main menu: a grid of buttons across the bottom, which is the only free space on this screen;
 	# the control list and the "what to try" text both run down to just above it. Three columns rather
 	# than two because the level select adds a fifth entry after the campaign is finished.
 	_main_menu = MenuList.new()
 	_main_menu.configure(Rect2(400.0, 620.0, 840.0, 2.0 * MenuList.ROW_HEIGHT), _scale, 3, _origin)
+	if OS.get_name() == "Web":
+		_main_menu.add_item(&"start_audio", "Start audio")
 	_main_menu.add_item(&"new_game", "NEW GAME")
 	_main_menu.add_item(&"continue", Progress.continue_label(), Progress.has_progress())
 	_main_menu.add_item(&"level_select", "LEVEL SELECT", Progress.finished)
@@ -237,8 +212,8 @@ func _controls_block(position_: Vector2) -> void:
 	grid.add_theme_constant_override("v_separation", maxi(1, int(round(1.0 * _scale))))
 	box.add_child(grid)
 	for row: Array in GameInput.title_rows():
-		grid.add_child(_block_label(String(row[0]), 17, Color(0.78, 0.84, 0.92)))
-		grid.add_child(_block_label(String(row[1]), 17, Color(0.62, 0.68, 0.78)))
+		grid.add_child(_block_label(String(row[0]), 17, Color(1.0, 1.0, 1.0, 1.0)))
+		grid.add_child(_block_label(String(row[1]), 17, Color(1.0, 1.0, 1.0, 1.0)))
 
 	# The pickup hint used to sit here. The menu now needs the bottom of the frame, and pickups are
 	# explained by walking over one.

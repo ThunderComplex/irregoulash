@@ -263,6 +263,13 @@ kind = "health"
 weapon_id = "pistol"
 amount = 25
 
+[node name="Pickup3" parent="Pickups" unique_id=608134973 instance=ExtResource("8_d6smo")]
+texture_filter = 4
+position = Vector2(217, 190)
+kind = "ammo"
+weapon_id = "pistol"
+amount = 10
+
 [node name="Pickup2" parent="Pickups" unique_id=1806799060 instance=ExtResource("8_d6smo")]
 texture_filter = 4
 position = Vector2(2265, -781)

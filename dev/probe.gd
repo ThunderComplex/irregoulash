@@ -1461,6 +1461,25 @@ const SCENARIOS: Dictionary = {
 		{"open_controls": true, "wait": 0.3, "shot": "settings_tab_controls"},
 		{"close_menus": true, "wait": 0.2},
 	],
+	## A pad in the pause menu: into the settings and back out with B, and focus must land back on the
+	## menu. Run against `dev/surface_lab.tscn`.
+	"pause_settings_focus": [
+		{"pad_device": true, "wait": 0.2},
+		{"pause_game": true, "wait": 0.3, "focus_report": true},
+		{"ui_press": "ui_up", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_accept", "wait": 0.4, "focus_report": true},
+		{"ui_press": "ui_cancel", "wait": 0.4, "focus_report": true, "paused_report": true},
+		{"ui_press": "ui_accept", "wait": 0.4, "focus_report": true},
+		{"ui_press": "ui_cancel", "wait": 0.4, "focus_report": true},
+		{"ui_press": "ui_down", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_accept", "wait": 0.4, "paused_report": true},
+	],
+	## The same from the title screen. Run against `title_screen.tscn`.
+	"title_settings_focus": [
+		{"pad_device": true, "wait": 0.3, "focus_report": true},
+		{"open_settings": true, "wait": 0.4, "focus_report": true},
+		{"ui_press": "ui_cancel", "wait": 0.4, "focus_report": true},
+	],
 	"aim_line": [
 		{
 			"god": true,
@@ -4400,6 +4419,11 @@ func _run(scenario: String) -> void:
 			Settings.set_aim_assist(bool(step["aim_assist_setting"][0]))
 			Settings.set_aim_assist_strength(float(step["aim_assist_setting"][1]))
 			print("[probe]   aim assist: on=%s strength=%.2f" % [Settings.aim_assist_enabled, Settings.aim_assist_strength])
+		if step.has("pause_game"):
+			# Pausing refreshes the checkpoint, unless the run counts as practice. A probe must not move
+			# the real save onto a test scene.
+			GameDirector.selected_level_run = true
+			GameDirector.set_paused(true)
 		if step.has("pad_device"):
 			GameInput.call("_set_device", true)
 		if step.has("ui_press"):
@@ -4695,12 +4719,14 @@ Stay out of their sight."
 					absf((assist_target.global_position - shot_from).cross(shot_dir))])
 			else:
 				print("[probe]   assist target %s not found" % str(step["assist_report"]))
+		if step.has("paused_report"):
+			print("[probe]   paused: %s" % GameDirector.is_paused())
 		if step.has("focus_report"):
 			var owner_: Control = get_viewport().gui_get_focus_owner()
-			var opened: Node = get_tree().current_scene.get("_settings_menu")
-			print("[probe]   focus: %s \"%s\", tab %s" % [owner_.get_class() if owner_ != null else "none",
+			var opened: Variant = get_tree().current_scene.get("_settings_menu")
+			print("[probe]   pad=%s focus: %s \"%s\", tab %s" % [GameInput.using_gamepad(), owner_.get_class() if owner_ != null else "none",
 				owner_.get("text") if owner_ != null and owner_.get("text") != null else "",
-				opened.get("_current_tab") if opened != null else "?"])
+				opened.get("_current_tab") if is_instance_valid(opened) else "?"])
 		if step.has("aim_report"):
 			var aimer: Player = GameDirector.valid_player()
 			var mark: Node2D = null
