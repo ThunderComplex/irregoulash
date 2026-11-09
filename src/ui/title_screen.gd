@@ -83,8 +83,6 @@ func _on_menu_item(id: StringName) -> void:
 			open_settings()
 		&"quit":
 			get_tree().quit()
-		&"start_audio":
-			AudioDirector.reinitialize()
 
 
 ## Opens the level picker. Public so the dev probe can open it, and so the title can reopen it when a
@@ -173,8 +171,6 @@ func _build() -> void:
 	# than two because the level select adds a fifth entry after the campaign is finished.
 	_main_menu = MenuList.new()
 	_main_menu.configure(Rect2(400.0, 620.0, 840.0, 2.0 * MenuList.ROW_HEIGHT), _scale, 3, _origin)
-	if OS.get_name() == "Web":
-		_main_menu.add_item(&"start_audio", "Start audio")
 	_main_menu.add_item(&"new_game", "NEW GAME")
 	_main_menu.add_item(&"continue", Progress.continue_label(), Progress.has_progress())
 	_main_menu.add_item(&"level_select", "LEVEL SELECT", Progress.finished)
