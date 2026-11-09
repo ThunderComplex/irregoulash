@@ -5,6 +5,9 @@ extends Control
 ## Changes apply and persist the moment they are made -- there is no Apply button to forget,
 ## and no way to lose a change by backing out. Escape closes it.
 ##
+## The settings are grouped on tabs (`TAB_NAMES`). Each is a page of rows, and a pad can reach all of it:
+## moving along the tabs switches page, and the first row leads back up to its own tab.
+##
 ## "Controls" swaps the panel for the rebinding list (`GameInput` owns the bindings themselves); Esc
 ## there returns here rather than closing everything.
 ##
@@ -16,14 +19,27 @@ extends Control
 signal settings_closed();
 
 const REFERENCE: Vector2 = Vector2(1280.0, 720.0)
-const PANEL_SIZE: Vector2 = Vector2(620.0, 702.0)
+const PANEL_SIZE: Vector2 = Vector2(620.0, 510.0)
+## The rebinding list is long, and scrolls, so it gets a taller panel of its own.
+const CONTROLS_PANEL_SIZE: Vector2 = Vector2(620.0, 648.0)
 ## Width of the number field beside the frame rate slider.
 const FPS_FIELD_WIDTH: float = 96.0
 const ROW_LEFT: float = 44.0
 const CONTROL_WIDTH: float = 300.0
 const ROW_RIGHT: float = 44.0
-const ROW_TOP: float = 110.0
+const ROW_TOP: float = 150.0
 const ROW_HEIGHT: float = 54.0
+## The most rows any tab has; the buttons sit below that many.
+const MAX_ROWS: int = 4
+const TAB_NAMES: Array[String] = ["Display", "Audio", "Gameplay"]
+const TAB_TOP: float = 84.0
+const TAB_HEIGHT: float = 40.0
+const TAB_GAP: float = 8.0
+const TAB_DISPLAY: int = 0
+const TAB_AUDIO: int = 1
+const TAB_GAMEPLAY: int = 2
+const LABEL_COLOR: Color = Color(0.72, 0.8, 0.9)
+const LABEL_INERT_COLOR: Color = Color(0.5, 0.55, 0.62)
 
 var _scale: float = 1.0
 ## Set when the window changed size. The rebuild happens in `_process`, not in the signal: a resolution
@@ -32,10 +48,19 @@ var _scale: float = 1.0
 ## emitted from it" error.
 var _resize_pending: bool = false
 var _panel: Control = null
+## Which tab is showing. Kept across a rebuild, because changing the resolution rebuilds the menu.
+var _current_tab: int = TAB_DISPLAY
+var _tabs: Array[Button] = []
+## Parallel to `_tabs`: the rows of each.
+var _pages: Array[Control] = []
+var _tab_marker: ColorRect = null
 var _mode_button: OptionButton = null
 var _resolution_button: OptionButton = null
 var _vsync_button: CheckButton = null
 var _aim_line_button: CheckButton = null
+var _aim_assist_button: CheckButton = null
+var _aim_assist_slider: HSlider = null
+var _aim_assist_label: Label = null
 ## The frame rate cap: a slider whose last notch past `FPS_CAP_MAX` means "unlimited", and a field to
 ## type an exact number into.
 var _fps_slider: HSlider = null
@@ -67,6 +92,7 @@ func _ready() -> void:
 	_scale = _compute_scale()
 	_build()
 	_sync()
+	_focus_tab_for_pad()
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	Settings.changed.connect(_sync)
 	GameInput.bindings_changed.connect(_refresh_bindings)
@@ -76,6 +102,8 @@ func _process(_delta: float) -> void:
 	if _resize_pending:
 		_resize_pending = false
 		_rebuild()
+	# Every frame: picking up a pad rebuilds the title screen behind this menu, which takes focus back.
+	_focus_tab_for_pad()
 	if _footer == null:
 		return
 	var settings_size: Vector2i = Vector2i(get_viewport().get_visible_rect().size)
@@ -130,6 +158,7 @@ func _rebuild() -> void:
 	_panel = null
 	_build()
 	_sync()
+	_focus_tab_for_pad()
 
 
 #region building
@@ -158,13 +187,14 @@ func _build() -> void:
 	_rect(_panel, Vector2(-3.0, -3.0), PANEL_SIZE + Vector2(6.0, 6.0), Color(0.16, 0.19, 0.24))
 	_rect(_panel, Vector2.ZERO, PANEL_SIZE, Color(0.055, 0.065, 0.085, 0.98))
 	_label(Vector2(ROW_LEFT, 34.0), "SETTINGS", 30, Color(0.92, 0.96, 1.0))
+	_build_tabs()
 
 	_mode_button = OptionButton.new()
 	_mode_button.add_item("Windowed", GameSettings.WindowMode.WINDOWED)
 	_mode_button.add_item("Fullscreen (borderless)", GameSettings.WindowMode.BORDERLESS)
 	_mode_button.add_item("Fullscreen (exclusive)", GameSettings.WindowMode.EXCLUSIVE)
 	_mode_button.item_selected.connect(_on_mode_selected)
-	_add_row("Window mode", _mode_button, 0)
+	_add_row("Window mode", _mode_button, 0, TAB_DISPLAY)
 
 	_resolution_button = OptionButton.new()
 	_resolution_sizes = Settings.resolution_options()
@@ -176,34 +206,56 @@ func _build() -> void:
 			text += "   (desktop)"
 		_resolution_button.add_item(text, i)
 	_resolution_button.item_selected.connect(_on_resolution_selected)
-	_add_row("Resolution", _resolution_button, 1)
+	_add_row("Resolution", _resolution_button, 1, TAB_DISPLAY)
 
 	_vsync_button = CheckButton.new()
 	_vsync_button.text = "on"
 	_vsync_button.toggled.connect(_on_vsync_toggled)
-	_add_row("Vertical sync", _vsync_button, 2)
+	_add_row("Vertical sync", _vsync_button, 2, TAB_DISPLAY)
 
-	_fps_label = _add_row("Frame rate cap", _build_fps_control(), 3)
+	_fps_label = _add_row("Frame rate cap", _build_fps_control(), 3, TAB_DISPLAY)
 
 	_master_slider = _slider()
-	_master_label = _add_row("Master volume", _master_slider, 4)
+	_master_label = _add_row("Master volume", _master_slider, 0, TAB_AUDIO)
 	_master_slider.value_changed.connect(_on_master_changed)
 
 	_music_slider = _slider()
-	_music_label = _add_row("Music", _music_slider, 5)
+	_music_label = _add_row("Music", _music_slider, 1, TAB_AUDIO)
 	_music_slider.value_changed.connect(_on_music_changed)
 
 	_sfx_slider = _slider()
-	_sfx_label = _add_row("Sound effects", _sfx_slider, 6)
+	_sfx_label = _add_row("Sound effects", _sfx_slider, 2, TAB_AUDIO)
 	_sfx_slider.value_changed.connect(_on_sfx_changed)
 
 	_aim_line_button = CheckButton.new()
 	_aim_line_button.tooltip_text = "A line along your next shot, with a crosshair where it would hit."
 	_aim_line_button.toggled.connect(func(pressed: bool) -> void: Settings.set_aim_line(pressed))
-	_add_row("Aim line", _aim_line_button, 7)
+	_add_row("Aim line", _aim_line_button, 0, TAB_GAMEPLAY)
+
+	_aim_assist_button = CheckButton.new()
+	_aim_assist_button.tooltip_text = "Pulls right-stick aim onto a visible enemy you are already pointing near."
+	_aim_assist_button.toggled.connect(func(pressed: bool) -> void: Settings.set_aim_assist(pressed))
+	_add_row("Gamepad aim assist", _aim_assist_button, 1, TAB_GAMEPLAY)
+
+	_aim_assist_slider = _slider()
+	_aim_assist_slider.min_value = GameSettings.AIM_ASSIST_STRENGTH_MIN * 100.0
+	_aim_assist_slider.step = 5.0
+	_aim_assist_slider.tooltip_text = "How hard aim is pulled, and from how far off the enemy."
+	_aim_assist_label = _add_row("Assist strength", _aim_assist_slider, 2, TAB_GAMEPLAY)
+	_aim_assist_slider.value_changed.connect(_on_aim_assist_strength_changed)
+
+	_link_tab(TAB_DISPLAY, _mode_button)
+	_link_tab(TAB_AUDIO, _master_slider)
+	_link_tab(TAB_GAMEPLAY, _aim_line_button)
+	_seal_fps_row()
+	for tab: Button in _tabs:
+		_seal(tab, [SIDE_TOP])
+	_seal(_tabs[0], [SIDE_LEFT])
+	_seal(_tabs[-1], [SIDE_RIGHT])
+	_select_tab(_current_tab)
 
 	# --- buttons. `y` is kept unscaled because every use below multiplies by `_scale`.
-	var y: float = ROW_TOP + 8.0 * ROW_HEIGHT + 22.0
+	var y: float = ROW_TOP + float(MAX_ROWS) * ROW_HEIGHT + 12.0
 	var controls := Button.new()
 	controls.text = "Controls"
 	controls.position = Vector2(ROW_LEFT, y) * _scale
@@ -227,6 +279,9 @@ func _build() -> void:
 	done.add_theme_font_size_override("font_size", _font(17))
 	done.pressed.connect(close)
 	_panel.add_child(done)
+	_seal(controls, [SIDE_LEFT, SIDE_BOTTOM])
+	_seal(reset, [SIDE_BOTTOM])
+	_seal(done, [SIDE_RIGHT, SIDE_BOTTOM])
 
 	# All the space between the buttons and the panel's bottom edge, with the text sitting at the bottom of
 	# it: one line normally, three when embedded in the editor (the two fixed rows get a line explaining
@@ -239,16 +294,84 @@ func _build() -> void:
 	_footer.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 
 
-## Adds a labelled row and returns its label, so a volume row can update its own text.
-func _add_row(text: String, control: Control, index: int) -> Label:
+## The tab strip, and an empty page for each tab.
+func _build_tabs() -> void:
+	_tabs.clear()
+	_pages.clear()
+	var count: float = float(TAB_NAMES.size())
+	var width: float = (PANEL_SIZE.x - ROW_LEFT - ROW_RIGHT - TAB_GAP * (count - 1.0)) / count
+	for i: int in TAB_NAMES.size():
+		var tab := Button.new()
+		tab.text = TAB_NAMES[i]
+		tab.toggle_mode = true
+		tab.position = Vector2(ROW_LEFT + float(i) * (width + TAB_GAP), TAB_TOP) * _scale
+		tab.size = Vector2(width, TAB_HEIGHT) * _scale
+		tab.add_theme_font_size_override("font_size", _font(18))
+		for state: String in ["font_color", "font_hover_color", "font_focus_color"]:
+			tab.add_theme_color_override(state, Color(0.55, 0.62, 0.72))
+		for state: String in ["font_pressed_color", "font_hover_pressed_color"]:
+			tab.add_theme_color_override(state, Color(0.92, 0.96, 1.0))
+		tab.pressed.connect(_select_tab.bind(i))
+		# Moving along the tabs with a pad switches page, with no extra press.
+		tab.focus_entered.connect(_select_tab.bind(i))
+		_panel.add_child(tab)
+		_tabs.append(tab)
+
+		var page := Control.new()
+		page.name = "Page%s" % TAB_NAMES[i]
+		page.size = _panel.size
+		page.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_panel.add_child(page)
+		_pages.append(page)
+	_tab_marker = _rect(_panel, Vector2.ZERO, Vector2(width, 3.0), Color(0.55, 0.72, 0.95))
+
+
+func _select_tab(index: int) -> void:
+	if index != _current_tab:
+		AudioDirector.play(&"ui_click", -6.0)
+	_current_tab = index
+	for i: int in _tabs.size():
+		_tabs[i].set_pressed_no_signal(i == index)
+		_pages[i].visible = i == index
+	_tab_marker.position = _tabs[index].position + Vector2(0.0, _tabs[index].size.y)
+
+
+## A tab and the first row of its page lead to each other. Left to the engine, up from a row would land
+## on whichever tab was nearest, and switch page.
+func _link_tab(index: int, first_row: Control) -> void:
+	var tab: Button = _tabs[index]
+	tab.focus_neighbor_bottom = tab.get_path_to(first_row)
+	first_row.focus_neighbor_top = first_row.get_path_to(tab)
+
+
+## With a pad there is no pointer, so something has to hold focus before anything can be pressed.
+func _focus_tab_for_pad() -> void:
+	if not GameInput.using_gamepad() or _controls_panel != null or _tabs.is_empty():
+		return
+	# The menu behind this one holds focus when it opens, so "somebody has focus" is not enough.
+	var owner_: Control = get_viewport().gui_get_focus_owner()
+	if owner_ == null or not is_ancestor_of(owner_):
+		_tabs[_current_tab].grab_focus()
+
+
+## Stops focus at `control`'s edge on each of `sides`. The menu that opened this one is still on screen
+## behind it, and left to itself a pad's d-pad would walk out onto its buttons.
+func _seal(control: Control, sides: Array[Side]) -> void:
+	for side: Side in sides:
+		control.set_focus_neighbor(side, control.get_path_to(control))
+
+
+## Adds a labelled row to a tab's page and returns its label, so a volume row can update its own text.
+func _add_row(text: String, control: Control, index: int, tab: int) -> Label:
 	var y: float = ROW_TOP + float(index) * ROW_HEIGHT
-	var label := _label(Vector2(ROW_LEFT, y), text, 18, Color(0.72, 0.8, 0.9))
+	var label := _label(Vector2(ROW_LEFT, y), text, 18, LABEL_COLOR, _pages[tab])
 	label.size = Vector2(PANEL_SIZE.x - ROW_LEFT - CONTROL_WIDTH - ROW_RIGHT, 32.0) * _scale
 	control.position = Vector2(PANEL_SIZE.x - ROW_RIGHT - CONTROL_WIDTH, y) * _scale
 	control.size = Vector2(CONTROL_WIDTH, 34.0) * _scale
 	if control.has_method("add_theme_font_size_override"):
 		control.add_theme_font_size_override("font_size", _font(17))
-	_panel.add_child(control)
+	_pages[tab].add_child(control)
+	_seal(control, [SIDE_LEFT, SIDE_RIGHT])
 	return label
 
 
@@ -273,6 +396,14 @@ func _build_fps_control() -> Control:
 	_fps_field.focus_exited.connect(func() -> void: _on_fps_field_submitted(_fps_field.text))
 	row.add_child(_fps_field)
 	return row
+
+
+## The frame rate row is two controls, so its edges are sealed separately once both are in the tree.
+func _seal_fps_row() -> void:
+	_seal(_fps_slider, [SIDE_LEFT])
+	_fps_slider.focus_neighbor_right = _fps_slider.get_path_to(_fps_field)
+	_fps_field.focus_neighbor_left = _fps_field.get_path_to(_fps_slider)
+	_seal(_fps_field, [SIDE_RIGHT])
 
 
 func _slider() -> HSlider:
@@ -331,6 +462,7 @@ func _sync() -> void:
 	_vsync_button.text = "on" if Settings.vsync_enabled else "off"
 	_aim_line_button.set_pressed_no_signal(Settings.aim_line_enabled)
 	_aim_line_button.text = "on" if Settings.aim_line_enabled else "off"
+	_sync_aim_assist()
 	_sync_fps()
 	_master_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.master_volume_db))
 	_music_slider.set_value_no_signal(GameSettings.db_to_slider(Settings.music_volume_db))
@@ -344,6 +476,20 @@ func _update_volume_labels() -> void:
 	_sfx_label.text = "Sound effects   %d%%" % int(round(_sfx_slider.value))
 
 
+## The strength means nothing with the assist off, so the row goes inert, like the frame rate cap.
+func _sync_aim_assist() -> void:
+	_aim_assist_button.set_pressed_no_signal(Settings.aim_assist_enabled)
+	_aim_assist_button.text = "on" if Settings.aim_assist_enabled else "off"
+	_aim_assist_slider.set_value_no_signal(Settings.aim_assist_strength * 100.0)
+	_aim_assist_slider.editable = Settings.aim_assist_enabled
+	_aim_assist_label.text = "Assist strength   %d%%" % int(round(_aim_assist_slider.value))
+	_aim_assist_label.modulate = LABEL_COLOR if Settings.aim_assist_enabled else LABEL_INERT_COLOR
+
+
+func _on_aim_assist_strength_changed(value: float) -> void:
+	Settings.set_aim_assist_strength(value / 100.0)
+
+
 ## The cap only applies with vsync off, so the row goes inert while vsync is on, and its label says why.
 func _sync_fps() -> void:
 	var cap: int = Settings.fps_cap
@@ -355,7 +501,7 @@ func _sync_fps() -> void:
 	_fps_slider.editable = active
 	_fps_field.editable = active
 	# Greyed rather than explained in the label, which has no room for it; the tooltip says why.
-	_fps_label.modulate = Color(0.72, 0.8, 0.9) if active else Color(0.5, 0.55, 0.62)
+	_fps_label.modulate = LABEL_COLOR if active else LABEL_INERT_COLOR
 	var why: String = "" if active else "
 Only applies while vertical sync is off."
 	_fps_slider.tooltip_text = "Frames per second the game is held to.%s" % why
@@ -420,8 +566,8 @@ func _on_reset_pressed() -> void:
 
 #region controls
 
-## Swaps the settings rows for the rebinding list. A second panel rather than a tab strip: the settings
-## rows are a fixed eight and the controls list is long enough to scroll, so they want different layouts.
+## Swaps the settings for the rebinding list. A second panel rather than another tab: the list is long
+## enough to scroll, so it wants a different layout.
 func _open_controls() -> void:
 	if _controls_panel != null:
 		return
@@ -430,19 +576,19 @@ func _open_controls() -> void:
 
 	_controls_panel = Control.new()
 	_controls_panel.name = "ControlsPanel"
-	_controls_panel.position = _panel.position
-	_controls_panel.size = _panel.size
+	_controls_panel.position = (get_viewport().get_visible_rect().size - CONTROLS_PANEL_SIZE * _scale) * 0.5
+	_controls_panel.size = CONTROLS_PANEL_SIZE * _scale
 	_controls_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_controls_panel)
 
-	_rect(_controls_panel, Vector2(-3.0, -3.0), PANEL_SIZE + Vector2(6.0, 6.0),
+	_rect(_controls_panel, Vector2(-3.0, -3.0), CONTROLS_PANEL_SIZE + Vector2(6.0, 6.0),
 		Color(0.16, 0.19, 0.24))
-	_rect(_controls_panel, Vector2.ZERO, PANEL_SIZE, Color(0.055, 0.065, 0.085, 0.98))
+	_rect(_controls_panel, Vector2.ZERO, CONTROLS_PANEL_SIZE, Color(0.055, 0.065, 0.085, 0.98))
 	_label(Vector2(ROW_LEFT, 34.0), "CONTROLS", 30, Color(0.92, 0.96, 1.0), _controls_panel)
 
 	var scroll := ScrollContainer.new()
 	scroll.position = Vector2(ROW_LEFT, 84.0) * _scale
-	scroll.size = Vector2(PANEL_SIZE.x - ROW_LEFT - ROW_RIGHT, PANEL_SIZE.y - 84.0 - 108.0) * _scale
+	scroll.size = Vector2(CONTROLS_PANEL_SIZE.x - ROW_LEFT - ROW_RIGHT, CONTROLS_PANEL_SIZE.y - 84.0 - 108.0) * _scale
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_controls_panel.add_child(scroll)
 
@@ -460,14 +606,14 @@ func _open_controls() -> void:
 		for action: String in GameInput.actions_in(group):
 			list.add_child(_binding_row(action))
 
-	_controls_status = _label(Vector2(ROW_LEFT, PANEL_SIZE.y - 92.0), "", 15,
+	_controls_status = _label(Vector2(ROW_LEFT, CONTROLS_PANEL_SIZE.y - 92.0), "", 15,
 		Color(0.72, 0.8, 0.9), _controls_panel)
-	_controls_status.size = Vector2(PANEL_SIZE.x - ROW_LEFT - ROW_RIGHT, 24.0) * _scale
+	_controls_status.size = Vector2(CONTROLS_PANEL_SIZE.x - ROW_LEFT - ROW_RIGHT, 24.0) * _scale
 	_controls_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 	var reset_all := Button.new()
 	reset_all.text = "Reset all controls"
-	reset_all.position = Vector2(ROW_LEFT, PANEL_SIZE.y - 56.0) * _scale
+	reset_all.position = Vector2(ROW_LEFT, CONTROLS_PANEL_SIZE.y - 56.0) * _scale
 	reset_all.size = Vector2(210.0, 38.0) * _scale
 	reset_all.add_theme_font_size_override("font_size", _font(17))
 	reset_all.pressed.connect(_on_reset_controls_pressed)
@@ -475,11 +621,23 @@ func _open_controls() -> void:
 
 	var back := Button.new()
 	back.text = "Back"
-	back.position = Vector2(PANEL_SIZE.x - ROW_RIGHT - 150.0, PANEL_SIZE.y - 56.0) * _scale
+	back.position = Vector2(CONTROLS_PANEL_SIZE.x - ROW_RIGHT - 150.0, CONTROLS_PANEL_SIZE.y - 56.0) * _scale
 	back.size = Vector2(150.0, 38.0) * _scale
 	back.add_theme_font_size_override("font_size", _font(17))
 	back.pressed.connect(_close_controls)
 	_controls_panel.add_child(back)
+	_seal(reset_all, [SIDE_LEFT, SIDE_BOTTOM])
+	_seal(back, [SIDE_RIGHT, SIDE_BOTTOM])
+	var first_binding: Button = null
+	for key: Variant in _binding_buttons:
+		var binding: Button = _binding_buttons[key]
+		_seal(binding, [SIDE_LEFT, SIDE_RIGHT])
+		if first_binding == null:
+			first_binding = binding
+	if first_binding != null:
+		_seal(first_binding, [SIDE_TOP])
+		if GameInput.using_gamepad():
+			first_binding.grab_focus()
 
 
 func _close_controls() -> void:
@@ -491,6 +649,7 @@ func _close_controls() -> void:
 	_binding_buttons.clear()
 	if _panel != null and is_instance_valid(_panel):
 		_panel.visible = true
+		_focus_tab_for_pad()
 
 
 ## One row: the action's name and a button showing what it is bound to. Pressing the button starts

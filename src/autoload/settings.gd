@@ -1,7 +1,7 @@
 class_name GameSettings
 extends Node
 ## Player-facing settings: window mode, resolution, vsync, the frame rate cap, the three volume buses and
-## the aim line.
+## the aim line and gamepad aim assist.
 ##
 ## Persisted to `user://settings.cfg` and applied the moment they change, so there is no
 ## Apply button to forget. Autoloads run before the first scene, so the saved window
@@ -18,6 +18,9 @@ signal changed()
 
 const PATH: String = "user://settings.cfg"
 const DEFAULT_MUSIC_DB: float = -12.0
+## Aim assist strength, 0..1. The default is the tuning in `Tuning`; see `AimAssist`.
+const DEFAULT_AIM_ASSIST_STRENGTH: float = 0.5
+const AIM_ASSIST_STRENGTH_MIN: float = 0.1
 ## Range of the frame rate cap. 0 means no cap.
 const FPS_CAP_MIN: int = 30
 const FPS_CAP_MAX: int = 500
@@ -61,6 +64,8 @@ var fps_cap: int = DEFAULT_FPS_CAP
 var master_volume_db: float = 0.0
 ## The line along the next shot's path, with a crosshair where it would hit (see `AimLine`).
 var aim_line_enabled: bool = true
+var aim_assist_enabled: bool = true
+var aim_assist_strength: float = DEFAULT_AIM_ASSIST_STRENGTH
 var sfx_volume_db: float = -6.0
 ## Lower than the effects by default, so music sits behind the gameplay sounds.
 var music_volume_db: float = DEFAULT_MUSIC_DB
@@ -195,6 +200,23 @@ func set_aim_line(enabled: bool) -> void:
 	save_settings()
 
 
+func set_aim_assist(enabled: bool) -> void:
+	if aim_assist_enabled == enabled:
+		return
+	aim_assist_enabled = enabled
+	changed.emit()
+	save_settings()
+
+
+func set_aim_assist_strength(strength: float) -> void:
+	var clamped: float = clampf(strength, AIM_ASSIST_STRENGTH_MIN, 1.0)
+	if is_equal_approx(aim_assist_strength, clamped):
+		return
+	aim_assist_strength = clamped
+	changed.emit()
+	save_settings()
+
+
 func set_master_volume_db(db: float) -> void:
 	if is_equal_approx(master_volume_db, db):
 		return
@@ -228,6 +250,8 @@ func reset_defaults() -> void:
 	vsync_enabled = true
 	fps_cap = DEFAULT_FPS_CAP
 	aim_line_enabled = true
+	aim_assist_enabled = true
+	aim_assist_strength = DEFAULT_AIM_ASSIST_STRENGTH
 	master_volume_db = 0.0
 	sfx_volume_db = -6.0
 	music_volume_db = DEFAULT_MUSIC_DB
@@ -261,6 +285,8 @@ func save_settings() -> void:
 	config.set_value("display", "fps_cap", fps_cap)
 	config.set_value("audio", "master_db", master_volume_db)
 	config.set_value("gameplay", "aim_line", aim_line_enabled)
+	config.set_value("gameplay", "aim_assist", aim_assist_enabled)
+	config.set_value("gameplay", "aim_assist_strength", aim_assist_strength)
 	config.set_value("audio", "sfx_db", sfx_volume_db)
 	config.set_value("audio", "music_db", music_volume_db)
 	var error: Error = config.save(PATH)
@@ -282,6 +308,9 @@ func load_settings() -> void:
 	fps_cap = FPS_UNLIMITED if cap <= FPS_UNLIMITED else clampi(cap, FPS_CAP_MIN, FPS_CAP_MAX)
 	master_volume_db = float(config.get_value("audio", "master_db", master_volume_db))
 	aim_line_enabled = bool(config.get_value("gameplay", "aim_line", aim_line_enabled))
+	aim_assist_enabled = bool(config.get_value("gameplay", "aim_assist", aim_assist_enabled))
+	aim_assist_strength = clampf(float(config.get_value("gameplay", "aim_assist_strength",
+		aim_assist_strength)), AIM_ASSIST_STRENGTH_MIN, 1.0)
 	sfx_volume_db = float(config.get_value("audio", "sfx_db", sfx_volume_db))
 	music_volume_db = float(config.get_value("audio", "music_db", music_volume_db))
 

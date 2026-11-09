@@ -10,6 +10,10 @@ extends RefCounted
 ## It only helps with a shot the player could already take: the enemy has to be visible to them, and the
 ## path from the barrel has to be clear. Enemies in the dark, behind a wall or behind a fire wall pull
 ## nothing, so the assist cannot be used to find them.
+##
+## The player can turn it off, or set its strength, in the settings. The default strength is the
+## `Tuning` values as written. Below it the pull weakens and the cone narrows; above it the pull is
+## already full, so only the cone widens, up to double.
 
 ## The pull is offset from the stick's angle, and eased, so aim glides on and off a target instead of
 ## snapping when one comes into range or dies.
@@ -31,7 +35,11 @@ func reset() -> void:
 
 ## The turn from the stick's angle to the best target's, scaled by how close the stick is to it.
 func _wanted_offset(player: Player, stick_angle: float) -> float:
-	var cone: float = deg_to_rad(Tuning.gamepad_assist_cone_degrees)
+	if not Settings.aim_assist_enabled:
+		return 0.0
+	var scale: float = Settings.aim_assist_strength / GameSettings.DEFAULT_AIM_ASSIST_STRENGTH
+	var cone: float = deg_to_rad(Tuning.gamepad_assist_cone_degrees) * scale
+	var pull: float = minf(scale, 1.0)
 	var candidates: Array[Dictionary] = []
 	for node: Node in player.get_tree().get_nodes_in_group("enemy"):
 		var enemy := node as Enemy
@@ -52,7 +60,7 @@ func _wanted_offset(player: Player, stick_angle: float) -> float:
 		if _can_hit(player, candidate["enemy"], candidate["angle"]):
 			var body: float = candidate["body"]
 			var turn: float = candidate["turn"]
-			return turn * (1.0 - smoothstep(body, body + cone, absf(turn)))
+			return turn * pull * (1.0 - smoothstep(body, body + cone, absf(turn)))
 	return 0.0
 
 

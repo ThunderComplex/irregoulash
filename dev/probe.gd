@@ -1389,6 +1389,32 @@ const SCENARIOS: Dictionary = {
 			"assist_report": "Probe_scout",
 		},
 		{
+			"aim_assist_setting": [false, 0.5],
+			"stick_degrees": -7.0,
+			"wait": 0.6,
+			"assist_report": "Probe_scout",
+		},
+		{
+			"aim_assist_setting": [true, 0.1],
+			"wait": 0.6,
+			"assist_report": "Probe_scout",
+		},
+		{
+			"aim_assist_setting": [true, 0.5],
+			"stick_degrees": -22.0,
+			"wait": 0.6,
+			"assist_report": "Probe_scout",
+		},
+		{
+			"aim_assist_setting": [true, 1.0],
+			"wait": 0.6,
+			"assist_report": "Probe_scout",
+		},
+		{
+			"aim_assist_setting": [true, 0.5],
+			"wait": 0.1,
+		},
+		{
 			"stick_degrees": -7.0,
 			"wait": 0.6,
 		},
@@ -1402,6 +1428,38 @@ const SCENARIOS: Dictionary = {
 			"stick_release": true,
 			"wait": 0.1,
 		},
+	],
+	## The settings tabs, and getting around them with a pad. Run against `title_screen.tscn`.
+	"settings_tabs": [
+		{
+			"pad_device": true,
+			"open_settings": true,
+			"wait": 0.4,
+			"focus_report": true,
+			"shot": "settings_tab_display",
+		},
+		{"ui_press": "ui_right", "wait": 0.2, "focus_report": true, "shot": "settings_tab_audio"},
+		{"ui_press": "ui_right", "wait": 0.2, "focus_report": true, "shot": "settings_tab_gameplay"},
+		{"ui_press": "ui_right", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_up", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_down", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_down", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_down", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_down", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_down", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_right", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_up", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_up", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_up", "wait": 0.2, "focus_report": true},
+		{"ui_press": "ui_up", "wait": 0.2, "focus_report": true},
+		{
+			"aim_assist_setting": [false, 0.5],
+			"wait": 0.2,
+			"shot": "settings_tab_gameplay_assist_off",
+		},
+		{"aim_assist_setting": [true, 0.5], "wait": 0.1},
+		{"open_controls": true, "wait": 0.3, "shot": "settings_tab_controls"},
+		{"close_menus": true, "wait": 0.2},
 	],
 	"aim_line": [
 		{
@@ -4338,6 +4396,18 @@ func _run(scenario: String) -> void:
 		if step.has("stick_release"):
 			for action: String in ["aim_right", "aim_left", "aim_down", "aim_up"]:
 				Input.action_release(action)
+		if step.has("aim_assist_setting"):
+			Settings.set_aim_assist(bool(step["aim_assist_setting"][0]))
+			Settings.set_aim_assist_strength(float(step["aim_assist_setting"][1]))
+			print("[probe]   aim assist: on=%s strength=%.2f" % [Settings.aim_assist_enabled, Settings.aim_assist_strength])
+		if step.has("pad_device"):
+			GameInput.call("_set_device", true)
+		if step.has("ui_press"):
+			for held: bool in [true, false]:
+				var nav := InputEventAction.new()
+				nav.action = StringName(step["ui_press"])
+				nav.pressed = held
+				Input.parse_input_event(nav)
 		if step.has("spawn_hints"):
 			var at: Player = GameDirector.valid_player()
 			if at != null:
@@ -4625,6 +4695,12 @@ Stay out of their sight."
 					absf((assist_target.global_position - shot_from).cross(shot_dir))])
 			else:
 				print("[probe]   assist target %s not found" % str(step["assist_report"]))
+		if step.has("focus_report"):
+			var owner_: Control = get_viewport().gui_get_focus_owner()
+			var opened: Node = get_tree().current_scene.get("_settings_menu")
+			print("[probe]   focus: %s \"%s\", tab %s" % [owner_.get_class() if owner_ != null else "none",
+				owner_.get("text") if owner_ != null and owner_.get("text") != null else "",
+				opened.get("_current_tab") if opened != null else "?"])
 		if step.has("aim_report"):
 			var aimer: Player = GameDirector.valid_player()
 			var mark: Node2D = null
